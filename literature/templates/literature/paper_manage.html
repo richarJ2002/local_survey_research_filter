@@ -1,0 +1,44 @@
+{% extends "literature/base.html" %}
+{# Copyright (c) 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group. #}
+{% block title %}Manage paper — {{ project.name }}{% endblock %}
+{% block content %}
+<p class="meta"><a href="{% url 'papers_view' project.pk %}">← View Papers</a></p>
+<p class="eyebrow">Paper record</p>
+<h1>{{ paper.title|default:"Untitled paper" }}</h1>
+<p class="meta">Title: {{ title_status }} · Abstract content: {{ abstract_status }}{% if not complete %} · Missing metadata can be completed during screening{% endif %}</p>
+{% if shared %}<div class="card card--highlight">This paper is also used in another project. Editing its details changes the shared paper record.</div>{% endif %}
+<div class="card form-card">
+  <h2>Paper details</h2>
+  <form method="post">
+    {% csrf_token %}<input type="hidden" name="action" value="details">
+    {{ details_form.non_field_errors }}
+    {% for field in details_form %}
+      <div class="form-field">{{ field.label_tag }}{{ field }}
+        {% if field.help_text %}<small class="form-help" id="{{ field.auto_id }}_helptext">{{ field.help_text }}</small>{% endif %}
+        {{ field.errors }}
+      </div>
+    {% endfor %}
+    <button type="submit">Save details</button>
+  </form>
+</div>
+<div class="card form-card">
+  <h2>Correct a screening status</h2>
+  <p class="meta">Use this only to correct a decision. The normal Title → Abstract screening queue remains unchanged; every correction is recorded below. Rejecting or reopening a title removes its Abstract status.</p>
+  <form method="post">
+    {% csrf_token %}<input type="hidden" name="action" value="status">
+    {{ correction_form.non_field_errors }}
+    {% for field in correction_form %}
+      <div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>
+    {% endfor %}
+    <button type="submit">Save status correction</button>
+  </form>
+</div>
+<div class="card table-scroll">
+  <h2>Correction history</h2>
+  <table><thead><tr><th>When</th><th>Stage</th><th>From → to</th><th>Reason</th></tr></thead><tbody>
+    {% for revision in revisions %}
+    <tr><td>{{ revision.changed_at }}</td><td>{{ revision.stage.name }}</td><td>{{ revision.previous_decision }} → {{ revision.new_decision }}</td><td>{{ revision.reason }}</td></tr>
+    {% empty %}<tr><td colspan="4">No manual status corrections yet.</td></tr>{% endfor %}
+  </tbody></table>
+</div>
+{% endblock %}

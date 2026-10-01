@@ -1,0 +1,10 @@
+{% load static %}
+<dialog id="chart-paper-popup" aria-labelledby="chart-popup-title" data-entries-url="{% url 'chart_entries' project.pk %}" style="max-width:min(90vw,48rem);background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:0.8rem;">
+  <form method="dialog"><button autofocus>Close</button></form>
+  <h2 id="chart-popup-title">Papers at this point</h2>
+  <p id="chart-popup-status" role="status"></p>
+  <ol id="chart-popup-papers"></ol>
+  <a id="chart-popup-all" target="_blank" rel="noopener noreferrer">Open the full paginated paper list →</a>
+  <p class="meta">Yearly bars list papers IN that year; running totals list papers THROUGH that year. Lists reflect current decisions, which may have changed since the chart loaded.</p>
+</dialog>
+<script src="{% static 'literature/chart_popup.js' %}" defer></script>

@@ -1,0 +1,250 @@
+<!doctype html>
+<!-- Copyright (c) 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Local Survey Research Filter{% endblock %}</title>
+  <script>
+    try {
+      const savedTheme = localStorage.getItem("lsrf-theme");
+      document.documentElement.dataset.theme = (savedTheme === "dark" || savedTheme === "light" ? savedTheme : null) ||
+        (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    } catch (_) {
+      document.documentElement.dataset.theme = "light";
+    }
+  </script>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1f2937;
+      --muted: #556170;
+      --line: #e1e5e9;
+      --canvas: #fff;
+      --surface: #fff;
+      --accent: #385a80;
+      --accent-dark: #274766;
+      --accent-soft: #f0f4f9;
+      --danger: #a53b3b;
+      --button-bg: #385a80;
+      --button-hover: #274766;
+      --field-bg: #fff;
+      --field-border: #b6c1cc;
+      --hero-end: #f3f6fa;
+      --highlight-end: #f7f9fc;
+      --table-bg: #f7f8fa;
+      --kbd-bg: #fff;
+    }
+    html[data-theme="dark"] {
+      color-scheme: dark;
+      --ink: #e8edf2;
+      --muted: #b0bdc9;
+      --line: #3b4957;
+      --canvas: #111820;
+      --surface: #1d2934;
+      --accent: #a9d0f1;
+      --accent-dark: #c2e0f7;
+      --accent-soft: #2a3c4e;
+      --danger: #f4a5a5;
+      --button-bg: #416f97;
+      --button-hover: #5180a8;
+      --field-bg: #233441;
+      --field-border: #607383;
+      --hero-end: #263747;
+      --highlight-end: #263747;
+      --table-bg: #253541;
+      --kbd-bg: #253541;
+    }
+    * { box-sizing: border-box; }
+    html { font-size: 120%; scroll-behavior: smooth; }
+    body { margin: 0; background: var(--canvas); color: var(--ink); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; line-height: 1.55; }
+    a { color: var(--accent-dark); text-decoration-thickness: 1px; text-underline-offset: 0.18em; }
+    a:hover { color: var(--accent); }
+    :focus-visible { outline: 3px solid #da9b3f; outline-offset: 3px; }
+    .skip-link { position: absolute; left: 1rem; top: -4rem; z-index: 10; padding: 0.45rem 0.75rem; background: var(--ink); color: #fff; }
+    .skip-link:focus { top: 0.5rem; color: #fff; }
+    html[data-theme="dark"] .skip-link, html[data-theme="dark"] .skip-link:focus { background: #e8edf2; color: #111820; }
+    .site-header { background: var(--surface); border-bottom: 1px solid var(--line); }
+    .site-header__inner { width: 92%; max-width: 1100px; margin: auto; min-height: 4rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+    .site-brand { display: inline-flex; align-items: center; gap: 0.65rem; color: var(--ink); font-weight: 750; letter-spacing: -0.035em; text-decoration: none; }
+    .site-brand:hover { color: var(--accent-dark); }
+    .site-brand__mark { flex: none; display: inline-grid; place-items: center; width: 2rem; height: 2rem; border-radius: 0.55rem; background: var(--button-bg); color: #fff; font-size: 0.72rem; letter-spacing: 0; }
+    .site-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
+    .site-nav a { display: inline-block; padding: 0.4rem 0.7rem; border-radius: 0.45rem; color: var(--muted); font-size: 0.85rem; font-weight: 600; text-decoration: none; }
+    .site-nav a:hover { background: var(--accent-soft); color: var(--accent-dark); }
+    .site-main { width: 92%; max-width: 1100px; margin: 2.2rem auto 4rem; }
+    .site-footer { border-top: 1px solid var(--line); padding: 1.25rem 4%; text-align: center; color: var(--muted); font-size: 0.77rem; }
+    h1, h2, h3 { line-height: 1.2; letter-spacing: -0.03em; }
+    h1 { margin: 0 0 0.65rem; font-size: clamp(1.85rem, 4vw, 2.55rem); }
+    h2 { margin: 2rem 0 0.7rem; font-size: 1.4rem; }
+    h3 { margin: 1.25rem 0 0.5rem; font-size: 1.05rem; }
+    p { margin: 0.7rem 0 1rem; }
+    .meta { color: var(--muted); font-size: 0.86rem; }
+    .meta dt { font-weight: 700; }
+    .meta dd { margin: 0 0 0.45rem; }
+    .eyebrow { margin: 0 0 0.55rem; color: var(--accent-dark); font-size: 0.72rem; font-weight: 750; letter-spacing: 0.12em; text-transform: uppercase; }
+    .page-intro { max-width: 72ch; color: var(--muted); }
+    .page-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.7rem; margin: 1.2rem 0 1.6rem; }
+    .card { min-width: 0; margin: 1rem 0; padding: clamp(1rem, 2.5vw, 1.55rem); border: 1px solid var(--line); border-radius: 0.85rem; background: var(--surface); box-shadow: 0 6px 24px rgba(20, 47, 58, 0.04); overflow-wrap: anywhere; }
+    .card h2:first-child, .card h3:first-child { margin-top: 0; }
+    .card > :last-child { margin-bottom: 0; }
+    .card--highlight { border-color: var(--line); background: linear-gradient(135deg, var(--surface), var(--highlight-end)); }
+    .hero { padding: clamp(1.35rem, 4vw, 2.2rem); border: 1px solid var(--line); border-radius: 1rem; background: linear-gradient(125deg, var(--surface) 30%, var(--hero-end)); }
+    .hero h1 { max-width: 21ch; }
+    .hero p:last-child { margin-bottom: 0; }
+    .project-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: 0.9rem; }
+    .project-grid .card { margin: 0; transition: border-color 150ms ease, transform 150ms ease; }
+    .project-grid .card:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .project-card__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.6rem; }
+    .project-card__header h2 { margin: 0; overflow-wrap: anywhere; }
+    .icon-button { flex: none; display: inline-grid; place-items: center; width: 2.25rem; height: 2.25rem; border: 1px solid transparent; border-radius: 0.5rem; color: var(--danger); text-decoration: none; }
+    .icon-button:hover { border-color: var(--danger); background: var(--accent-soft); color: var(--danger); }
+    .icon-button svg { width: 1.05rem; height: 1.05rem; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); gap: 0.75rem; margin: 1.1rem 0 1.5rem; }
+    .stat { padding: 1rem; border: 1px solid var(--line); border-radius: 0.7rem; background: var(--surface); }
+    .stat__value { display: block; color: var(--accent-dark); font-size: 1.6rem; font-weight: 750; line-height: 1.15; }
+    .stat__label { display: block; margin-top: 0.25rem; color: var(--muted); font-size: 0.76rem; }
+    .button-link, button { display: inline-flex; justify-content: center; align-items: center; gap: 0.35rem; padding: 0.55rem 0.85rem; border: 1px solid var(--button-bg); border-radius: 0.5rem; background: var(--button-bg); color: #fff; font: inherit; font-size: 0.84rem; font-weight: 650; line-height: 1.25; text-decoration: none; cursor: pointer; transition: background 150ms ease, border-color 150ms ease; }
+    .button-link:hover, button:hover { border-color: var(--button-hover); background: var(--button-hover); color: #fff; }
+    .button-link--secondary, button[type="button"] { border-color: var(--line); background: var(--surface); color: var(--accent-dark); }
+    .button-link--secondary:hover, button[type="button"]:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-dark); }
+    .button-danger { border-color: var(--danger); background: var(--danger); }
+    .button-danger:hover { border-color: #812c2c; background: #812c2c; }
+    html[data-theme="dark"] .button-danger { border-color: #b66a6a; background: #943c43; color: #fff; }
+    html[data-theme="dark"] .button-danger:hover { border-color: #cd8888; background: #a44b51; }
+    .link-danger { color: var(--danger); }
+    form label { color: var(--ink); font-weight: 650; }
+    input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), select, textarea { max-width: 100%; padding: 0.55rem 0.65rem; border: 1px solid var(--field-border); border-radius: 0.45rem; background: var(--field-bg); color: var(--ink); font: inherit; font-size: 0.88rem; }
+    input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="number"]), textarea { width: min(100%, 36rem); }
+    input[type="number"] { width: 7rem; }
+    input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); width: 1rem; height: 1rem; vertical-align: middle; }
+    textarea { min-height: 6rem; }
+    form p { margin: 0.9rem 0; }
+    .form-field { margin: 0 0 1.15rem; }
+    .form-field label, .form-field input, .form-field textarea, .form-field select { display: block; }
+    .table-scroll { overflow-x: auto; }
+    .form-field label { margin-bottom: 0.3rem; }
+    .form-help { display: block; margin-top: 0.3rem; color: var(--muted); font-size: 0.8rem; }
+    .project-summary { margin: 1rem 0 1.25rem; }
+    .project-summary h1 { margin-bottom: 0.45rem; }
+    .project-summary dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); gap: 1rem 1.5rem; margin: 1.25rem 0 0; }
+    .project-summary dt { margin-bottom: 0.25rem; color: var(--muted); font-size: 0.76rem; font-weight: 700; }
+    .project-summary dd { margin: 0; overflow-wrap: anywhere; }
+    .project-summary__wide { grid-column: 1 / -1; }
+    form ul { padding-left: 1.15rem; }
+    form ul.errorlist { margin: 0.35rem 0; color: var(--danger); font-size: 0.8rem; }
+    form button + button, form button + a { margin-left: 0.35rem; }
+    .form-card { max-width: 48rem; }
+    .form-card h2 { padding-top: 1rem; border-top: 1px solid var(--line); }
+    .form-card table { border: 0; }
+    .form-card table td { border: 0; padding: 0.3rem 0.35rem 0.3rem 0; }
+    .form-card table input { width: 100% !important; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 0.6rem; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { color: var(--muted); background: var(--table-bg); font-size: 0.76rem; font-weight: 750; }
+    tr:last-child td { border-bottom: 0; }
+    .paper-title { margin: 0 0 0.8rem; font-size: 1.75rem; line-height: 1.35; }
+    /* Reserve four title lines; longer titles still grow without clipping. */
+    #screening-card .paper-title { min-height: 5.4em; min-height: 4lh; }
+    .abstract { max-width: 65ch; color: var(--ink); font-family: Georgia, "Times New Roman", serif; font-size: 1.08rem; line-height: 1.75; }
+    .abstract h3 { font-family: system-ui, sans-serif; }
+    #screening-card { max-width: 48rem; margin: 1.3rem auto; }
+    #screening-card dl { display: grid; grid-template-columns: 7rem minmax(0, 1fr); gap: 0.15rem 0.8rem; }
+    /* ponytail: CSS reserves common line counts; unusually long values grow instead of clipping. */
+    #screening-card .screening-metadata dt { color: var(--muted); font-weight: 500; }
+    #screening-card .screening-metadata dd { min-width: 0; min-height: 1.55em; min-height: 1lh; overflow-wrap: anywhere; }
+    #screening-card .screening-metadata dd.metadata-medium { min-height: 3.1em; min-height: 2lh; }
+    #screening-card .screening-metadata dd.metadata-long { min-height: 6.2em; min-height: 4lh; }
+    .actions { display: flex; gap: 0.75rem; margin-top: 1.4rem; }
+    .btn { flex: 1; min-height: 3rem; font-size: 1rem; }
+    .btn.accept { border-color: #25775b; background: #e4f5ea; color: #174f38; }
+    .btn.accept:hover { background: #c8e8d4; color: #174f38; }
+    .btn.reject { border-color: #b16a65; background: #fff0ed; color: #87352d; }
+    .btn.reject:hover { background: #f8dbd6; color: #87352d; }
+    html[data-theme="dark"] .btn.accept { border-color: #438b6b; background: #233b32; color: #caf2d9; }
+    html[data-theme="dark"] .btn.reject { border-color: #b66a6a; background: #402a30; color: #ffd0d0; }
+    html[data-theme="dark"] .btn.accept:hover { background: #2b4f3f; color: #caf2d9; }
+    html[data-theme="dark"] .btn.reject:hover { background: #59343a; color: #ffd0d0; }
+    .progress { margin-top: 1rem; color: var(--muted); font-size: 0.83rem; text-align: center; }
+    .messages { width: 92%; max-width: 1100px; margin: 1.2rem auto 0; padding: 0; list-style: none; }
+    .messages li { margin: 0.35rem 0; padding: 0.7rem 0.9rem; border: 1px solid; border-radius: 0.55rem; }
+    .messages .success { border-color: #a9d9bf; background: #ecf8f0; }
+    .messages .warning { border-color: #e5d2a0; background: #fff8e8; }
+    .messages .error { border-color: #e7b5b5; background: #fff0f0; }
+    html[data-theme="dark"] .messages .success { border-color: #438b6b; background: #233b32; }
+    html[data-theme="dark"] .messages .warning { border-color: #ae8a4a; background: #40372a; }
+    html[data-theme="dark"] .messages .error { border-color: #b66a6a; background: #402a30; }
+    kbd { padding: 0.1rem 0.3rem; border: 1px solid currentColor; border-radius: 0.25rem; background: var(--kbd-bg); font: inherit; font-size: 0.72em; }
+    .theme-toggle { white-space: nowrap; }
+    .search-status[hidden] { display: none; }
+    .search-status { margin: 0.65rem 0 0; }
+    .loading-dots { display: inline-flex; gap: 0.06rem; }
+    .loading-dots span { animation: search-pulse 1s ease-in-out infinite; }
+    .loading-dots span:nth-child(2) { animation-delay: 0.15s; }
+    .loading-dots span:nth-child(3) { animation-delay: 0.3s; }
+    form[data-search-run] button:disabled { cursor: wait; opacity: 0.82; }
+    @keyframes search-pulse { 0%, 70%, 100% { opacity: 0.25; } 35% { opacity: 1; } }
+    html[data-theme="dark"] .js-plotly-plot .annotation-text { fill: #e8edf2 !important; }
+    @media (max-width: 650px) {
+      .site-header__inner { min-height: 3.5rem; flex-wrap: wrap; padding: 0.55rem 0; }
+      .site-main { margin-top: 1.3rem; }
+      .card, .hero { border-radius: 0.7rem; }
+      .actions { flex-direction: column; }
+      #screening-card dl { grid-template-columns: 1fr; }
+      #screening-card dd { margin-bottom: 0.65rem; }
+      .form-card table td:last-child { width: 1%; }
+      .site-nav { margin-left: -0.35rem; }
+      .site-nav a { padding: 0.35rem; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .project-grid .card, .button-link, button { transition: none; }
+      .loading-dots span { animation: none; opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="site-header">
+  <div class="site-header__inner">
+    <a class="site-brand" href="{% url 'project_list' %}" aria-label="Local Survey Research Filter home"><span class="site-brand__mark" aria-hidden="true">LS</span><span>Local Survey Research Filter</span></a>
+    <nav class="site-nav" aria-label="Main navigation"><a href="{% url 'project_list' %}">Projects</a><a href="{% url 'settings_view' %}">Settings</a><button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false">Dark mode</button></nav>
+  </div>
+</header>
+{% if messages %}<ul class="messages" role="status">{% for m in messages %}<li class="{{ m.tags }}">{{ m }}</li>{% endfor %}</ul>{% endif %}
+<main id="main-content" class="site-main">{% block content %}{% endblock %}</main>
+<footer class="site-footer">© 2026 Aerospace Engineering Research &amp; Operation Systems (AERO-Sys) group.</footer>
+{% block scripts %}{% endblock %}
+<script>
+  (() => {
+    const button = document.getElementById("theme-toggle");
+    const root = document.documentElement;
+    function updateCharts() {
+      if (!window.Plotly) return;
+      const dark = root.dataset.theme === "dark";
+      document.querySelectorAll(".js-plotly-plot").forEach(plot => {
+        if (!plot._fullLayout) return;
+        window.Plotly.relayout(plot, {
+          paper_bgcolor: dark ? "#1d2934" : "#fff",
+          plot_bgcolor: dark ? "#1d2934" : "#fff",
+          "font.color": dark ? "#e8edf2" : "#1f2937",
+          "xaxis.gridcolor": dark ? "#3b4957" : "#e1e5e9",
+          "yaxis.gridcolor": dark ? "#3b4957" : "#e1e5e9",
+        });
+      });
+    }
+    function applyTheme(theme, save) {
+      root.dataset.theme = theme;
+      button.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
+      button.textContent = theme === "dark" ? "Light mode" : "Dark mode";
+      if (save) {
+        try { localStorage.setItem("lsrf-theme", theme); } catch (_) { /* Private mode may block storage. */ }
+      }
+      updateCharts();
+    }
+    button.addEventListener("click", () => applyTheme(root.dataset.theme === "dark" ? "light" : "dark", true));
+    window.addEventListener("load", () => applyTheme(root.dataset.theme === "dark" ? "dark" : "light", false));
+  })();
+</script>
+</body>
+</html>

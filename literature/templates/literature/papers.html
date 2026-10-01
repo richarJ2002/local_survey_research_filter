@@ -1,0 +1,40 @@
+{% extends "literature/base.html" %}
+{# Copyright (c) 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group. #}
+{% block title %}Papers — {{ project.name }}{% endblock %}
+{% block content %}
+<p class="meta"><a href="{% url 'project_detail' project.pk %}">← {{ project.name }}</a></p>
+<p class="eyebrow">Project database</p>
+<h1>View Papers</h1>
+<p class="page-intro">Search stored titles or DOIs. Papers enter Title screening even without abstracts or references. Missing metadata is completed at the stage where it is needed.</p>
+<div class="page-actions"><a class="button-link" href="{% url 'paper_add' project.pk %}">+ Add a missed paper</a></div>
+<form method="get" role="search" class="card">
+  <label for="paper-query">Search papers</label>
+  <input id="paper-query" type="search" name="q" value="{{ query }}" placeholder="Title or DOI">
+  <button type="submit">Search</button>
+</form>
+<p class="meta">{{ page.paginator.count }} paper{{ page.paginator.count|pluralize }} found.</p>
+<div class="card table-scroll">
+  <table>
+    <thead><tr><th>Paper</th><th>Year</th><th>Source / keywords</th><th>Title status</th><th>Abstract status</th><th></th></tr></thead>
+    <tbody>
+    {% for row in rows %}
+    <tr>
+      <td><a href="{% if row.paper.doi %}{% url 'paper_lookup' project.pk %}?doi={{ row.paper.doi|urlencode }}{% else %}{% url 'paper_manage' project.pk row.paper.pk %}{% endif %}">{{ row.paper.title|default:"Untitled paper" }}</a>{% if row.paper.doi %}<br><span class="meta">DOI {{ row.paper.doi }}</span>{% endif %}</td>
+      <td>{{ row.paper.publication_year|default:"?" }}</td>
+      <td>{{ row.paper.sources|join:", "|default:"—" }}<br><span class="meta">{% if row.linked_keyword %}Linked keyword: {{ row.linked_keyword }}{% else %}{{ row.paper.keywords|join:", "|default:"—" }}{% endif %}</span></td>
+       <td>{% if not row.title_ready %}Needs title{% elif row.title_status == "ACCEPT" %}Yes{% elif row.title_status == "REJECT" %}No{% elif row.title_status == "PENDING" %}Pending{% else %}Not queued{% endif %}</td>
+       <td>{% if row.references_pending %}Passed content; references pending{% elif row.abstract_status == "ACCEPT" %}Final selected{% elif row.abstract_status == "REJECT" %}No{% elif row.abstract_status == "PENDING" %}Pending{% if not row.paper.abstract %} — abstract needed{% endif %}{% else %}—{% endif %}</td>
+      <td>{% if row.paper.doi %}<a href="{% url 'paper_lookup' project.pk %}?doi={{ row.paper.doi|urlencode }}">Update entry</a>{% else %}<a href="{% url 'paper_manage' project.pk row.paper.pk %}">Manage</a>{% endif %}</td>
+    </tr>
+    {% empty %}<tr><td colspan="6">No papers match this search. Add a paper above or try another title or DOI.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if page.has_previous or page.has_next %}
+<nav class="page-actions" aria-label="Paper pages">
+  {% if page.has_previous %}<a href="?q={{ query|urlencode }}&amp;page={{ page.previous_page_number }}">← Previous</a>{% endif %}
+  <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+  {% if page.has_next %}<a href="?q={{ query|urlencode }}&amp;page={{ page.next_page_number }}">Next →</a>{% endif %}
+</nav>
+{% endif %}
+{% endblock %}

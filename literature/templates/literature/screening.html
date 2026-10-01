@@ -1,0 +1,87 @@
+{% extends "literature/base.html" %}
+{# Copyright (c) 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group. #}
+{% block title %}{{ stage.name }} screening — {{ project.name }}{% endblock %}
+{% block content %}
+<p class="meta"><a href="{% url 'project_detail' project.pk %}">← {{ project.name }}</a> · {{ stage.name }} round</p>
+<p class="eyebrow">{{ stage.name }} screening</p>
+<div class="card" id="screening-card" data-paper-id="{{ paper.pk }}" data-stage-id="{{ stage.pk }}">
+  {% csrf_token %}
+  <h1 class="paper-title">{{ paper.title }}</h1>
+  <dl class="meta screening-metadata">
+    <dt>Authors</dt><dd class="metadata-long">{{ paper.author_display }}</dd>
+    <dt>Published</dt><dd>{{ paper.publication_date|default:paper.publication_year|default:"Unknown date" }}</dd>
+    <dt>Journal / venue</dt><dd class="metadata-medium">{{ paper.venue|default:"Unknown venue" }}{% if paper.publisher %} ({{ paper.publisher }}){% endif %}</dd>
+    <dt>DOI</dt><dd class="metadata-medium">{{ paper.doi|default:"Not supplied" }}</dd>
+    <dt>Cited by</dt><dd>{{ paper.citation_count }}</dd>
+    <dt>Keywords</dt><dd class="metadata-long">{{ paper.keywords|join:", "|default:"Not supplied" }}</dd>
+  </dl>
+  {% if is_abstract_round %}
+  <h3>Summary</h3>
+  {% if not missing_abstract %}<p class="abstract">{{ paper.abstract }}</p>{% endif %}
+  {% if missing_abstract or extra_metadata_fields %}
+  <form method="post" id="missing-metadata-form">
+    {% csrf_token %}{{ abstract_form.paper_id }}{{ abstract_form.non_field_errors }}
+  {% if missing_abstract %}
+  <p role="status"><strong>No abstract found.</strong> Paste the abstract to screen it, or reject the paper if it cannot be obtained.</p>
+    <div class="form-field">{{ abstract_form.abstract.label_tag }}{{ abstract_form.abstract }}{{ abstract_form.abstract.errors }}</div>
+  {% endif %}
+  {% if extra_metadata_fields %}
+    <details{% if abstract_form.is_bound %} open{% endif %}>
+      <summary>Complete other unknown details ({{ extra_metadata_fields|length }})</summary>
+      <p class="meta">Optional: fill any missing fields you know. Existing values are read-only; you do not have to complete every field to screen the abstract.</p>
+      {% for field in extra_metadata_fields %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}{% if field.help_text %}<small class="form-help">{{ field.help_text }}</small>{% endif %}</div>{% endfor %}
+    </details>
+  {% endif %}
+    <button type="submit">Save missing details</button>
+  </form>
+  {% endif %}
+  {% else %}
+  <p class="meta">Round 1 — judge the title. The abstract is reviewed in Round 2.</p>
+  {% endif %}
+  <div class="actions">
+    <button class="btn reject" data-decision="REJECT">No (<kbd>←</kbd>)</button>
+    <button class="btn accept" data-decision="ACCEPT"{% if is_abstract_round and missing_abstract %} disabled{% endif %}>Yes (<kbd>→</kbd>)</button>
+  </div>
+  <p class="progress">{{ current_index }} / {{ progress.total }} ({{ progress.pending }} left)</p>
+  <p id="decision-error" role="alert" hidden></p>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.addEventListener("keydown", (e) => {
+  if (e.target.closest("input, textarea, select, button, a, [contenteditable]")) return;
+  if (e.code === "ArrowLeft" || e.code === "ArrowRight") {
+    e.preventDefault();
+    const d = e.code === "ArrowLeft" ? "REJECT" : "ACCEPT";
+    document.querySelector(`button[data-decision="${d}"]`).click();
+  }
+});
+document.querySelectorAll("#screening-card button[data-decision]").forEach(btn => {
+  btn.addEventListener("click", async () => {
+    const card = document.getElementById("screening-card");
+    if (card.dataset.submitting === "true") return;
+    card.dataset.submitting = "true";
+    const buttons = [...card.querySelectorAll("button[data-decision]")];
+    const disabled = buttons.map(button => button.disabled);
+    const error = document.getElementById("decision-error");
+    error.hidden = true;
+    buttons.forEach(button => { button.disabled = true; });
+    try {
+      const resp = await fetch("{% url 'screening_decide' %}", {
+        method: "POST",
+        headers: {"Content-Type": "application/json", "X-CSRFToken": card.querySelector('[name="csrfmiddlewaretoken"]').value},
+        body: JSON.stringify({paper_id: card.dataset.paperId, stage_id: card.dataset.stageId, decision: btn.dataset.decision}),
+      });
+      const data = await resp.json();
+      if (resp.ok && data.next_paper_url) window.location.href = data.next_paper_url;
+      else throw new Error(data.error || "The decision was not saved. Try again.");
+    } catch (failure) {
+      error.textContent = failure.message;
+      error.hidden = false;
+      buttons.forEach((button, index) => { button.disabled = disabled[index]; });
+      card.dataset.submitting = "false";
+    }
+  });
+});
+</script>
+{% endblock %}

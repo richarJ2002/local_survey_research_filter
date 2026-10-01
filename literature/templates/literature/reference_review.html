@@ -1,0 +1,29 @@
+{% extends "literature/base.html" %}
+{% block title %}Complete references — {{ project.name }}{% endblock %}
+{% block content %}
+<p class="meta"><a href="{% url 'project_detail' project.pk %}">← {{ project.name }}</a></p>
+<p class="eyebrow">After Abstract screening</p>
+<h1>Complete missing references</h1>
+<p class="page-intro">These papers passed Abstract content screening but are not finally selected until a bibliography is available. {{ pending_count }} remaining.</p>
+{% if paper %}
+<div class="card form-card">
+  <h2>{{ paper.title }}</h2>
+  <p class="meta">{{ paper.author_display }} · {{ paper.publication_year|default:"Unknown year" }}{% if paper.doi %} · DOI: {{ paper.doi }}{% endif %}</p>
+  <details><summary>View abstract</summary><p>{{ paper.abstract|linebreaksbr }}</p></details>
+  <p><strong>No reference list found.</strong> Paste the bibliography from the paper. References without identifiers are kept as text; only resolved IDs contribute to citation links.</p>
+  <form method="post">
+    {% csrf_token %}<input type="hidden" name="action" value="save">{{ form.paper_id }}
+    {{ form.non_field_errors }}
+    <div class="form-field">{{ form.reference_text.label_tag }}{{ form.reference_text }}{{ form.reference_text.errors }}<small class="form-help">{{ form.reference_text.help_text }}</small></div>
+    <button type="submit">Save references and include paper</button>
+  </form>
+  <div class="page-actions">
+    <form method="post">{% csrf_token %}<input type="hidden" name="action" value="retry"><input type="hidden" name="paper_id" value="{{ paper.pk }}"><button type="submit">Retry reference lookup</button></form>
+    <form method="post">{% csrf_token %}<input type="hidden" name="action" value="reject"><input type="hidden" name="paper_id" value="{{ paper.pk }}"><button type="submit" class="button-danger">Reject paper — references unavailable</button></form>
+  </div>
+  <p class="meta">Rejection here counts as an Abstract rejection and is recorded in correction history. This never overwrites the paper's title or abstract. Bibliography metadata is shared with any other projects using this paper.</p>
+</div>
+{% else %}
+<div class="card"><p>No papers are waiting for references.</p><a href="{% url 'screening_view' project.pk 'abstract' %}">Continue Abstract screening →</a></div>
+{% endif %}
+{% endblock %}

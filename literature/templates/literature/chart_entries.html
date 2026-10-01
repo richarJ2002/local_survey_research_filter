@@ -1,0 +1,8 @@
+{% extends "literature/base.html" %}
+{% block title %}{{ label }} — {{ project.name }}{% endblock %}
+{% block content %}
+<p class="meta"><a href="{% url 'plots_view' project.pk %}">← Charts</a></p>
+<h1>{{ label }}</h1><p>{{ page.paginator.count }} entries. Undated papers are excluded, matching the plotted series. This list reflects current database decisions.</p>
+<div class="card"><ol>{% for paper in page %}<li><a href="{% url 'paper_manage' project.pk paper.pk %}">{{ paper.title|default:"Untitled paper" }}</a> ({{ paper.publication_year }}){% if paper.doi %} · {{ paper.doi }}{% endif %}</li>{% empty %}<li>No entries match this point.</li>{% endfor %}</ol></div>
+<nav aria-label="Paper list pages">{% if page.has_previous %}<a href="?{{ query }}&amp;page={{ page.previous_page_number }}">Previous</a>{% endif %} Page {{ page.number }} of {{ page.paginator.num_pages }} {% if page.has_next %}<a href="?{{ query }}&amp;page={{ page.next_page_number }}">Next</a>{% endif %}</nav>
+{% endblock %}

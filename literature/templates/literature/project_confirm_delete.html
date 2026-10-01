@@ -1,0 +1,9 @@
+{% extends "literature/base.html" %}
+{# Copyright (c) 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group. #}
+{% block title %}Delete {{ project.name }}{% endblock %}
+{% block content %}
+<p class="meta"><a href="{% url 'project_detail' project.pk %}">← {{ project.name }}</a></p>
+<h1>Delete project?</h1>
+<div class="card form-card"><p>This removes <strong>{{ project.name }}</strong>, its searches, runs, and screening history. Papers used only by this project are removed too.</p>
+<form method="post">{% csrf_token %}<button class="button-danger" type="submit">Yes, delete</button> <a href="{% url 'project_detail' project.pk %}">Cancel</a></form></div>
+{% endblock %}

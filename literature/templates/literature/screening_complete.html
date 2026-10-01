@@ -1,0 +1,24 @@
+{% extends "literature/base.html" %}
+{# Copyright (c) 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group. #}
+{% block title %}{{ stage.name }} done{% endblock %}
+{% block content %}
+<p class="eyebrow">Screening complete</p>
+<h1>{{ stage.name }} round done</h1>
+<p>{{ progress.done }} / {{ progress.total }} decided.</p>
+{% if stage.name == "Title" %}<p><a href="{% url 'screening_view' project.pk 'abstract' %}">Continue to Abstract screening →</a></p>{% endif %}
+{% if reference_pending %}<p><a href="{% url 'reference_review' project.pk %}">Complete missing references ({{ reference_pending }} waiting) →</a></p>{% endif %}
+{% if progress.total == 0 %}
+<div class="card">
+  <strong>No papers to screen yet.</strong>
+  {% if not has_searches %}
+  <p>You haven't added a search. <a href="{% url 'search_create' project.pk %}">Create a search</a> with keywords + year range first.</p>
+  {% elif not has_runs %}
+  <p>You have a search but haven't run it. Go back and press <strong>Run search</strong>.</p>
+  {% elif not has_papers %}
+  <p>Your searches ran but returned 0 papers. Try broader keywords, wider years, or clear the journal filter.</p>
+  {% endif %}
+  {% if not email_ok %}<p>Also check <a href="{% url 'settings_view' %}">Settings</a> — your email is required for OpenAlex.</p>{% endif %}
+</div>
+{% endif %}
+<p><a href="{% url 'project_detail' project.pk %}">Back to {{ project.name }}</a></p>
+{% endblock %}

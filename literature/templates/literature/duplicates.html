@@ -1,0 +1,28 @@
+{% extends "literature/base.html" %}
+{# Copyright (c) 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group. #}
+{% block title %}Duplicates — {{ project.name }}{% endblock %}
+{% block content %}
+<p class="meta"><a href="{% url 'project_detail' project.pk %}">← {{ project.name }}</a></p>
+<p class="eyebrow">Review matches</p>
+<h1>Possible duplicates</h1>
+<p class="meta">Grouped by same title (A–Z). Check authors + year, then Merge (keep one, move history) or Remove.</p>
+{% for group in groups %}
+<div class="card">
+  {% for p in group %}
+  <p><strong>#{{ p.pk }}</strong> — {{ p.title }}<br>
+  <span class="meta">{{ p.author_display }} · {{ p.publication_year|default:"n/a" }} · {{ p.venue|default:"n/a" }} · DOI {{ p.doi|default:"n/a" }} · sources {{ p.sources|join:", " }}</span></p>
+  {% endfor %}
+  <form method="post" action="{% url 'duplicates_merge' project.pk %}">
+    {% csrf_token %}
+    <label>Keep <input type="number" name="keep_id" value="{{ group.0.pk }}" required></label>
+    <label>Merge + drop <input type="number" name="drop_id" value="{{ group.1.pk }}" required></label>
+    <button type="submit">Merge</button>
+  </form>
+  <form method="post" action="{% url 'duplicates_remove' project.pk %}">
+    {% csrf_token %}
+    <label>Remove <input type="number" name="paper_id" value="{{ group.1.pk }}" required></label>
+    <button class="button-danger" type="submit">Remove paper</button>
+  </form>
+</div>
+{% empty %}<p>No same-title groups found. Automatic dedup already merged exact DOI/title+author+year matches.</p>{% endfor %}
+{% endblock %}

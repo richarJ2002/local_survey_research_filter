@@ -1,0 +1,24 @@
+{% extends "literature/base.html" %}
+{# Copyright (c) 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group. #}
+{% block title %}New project{% endblock %}
+{% block content %}
+<p class="meta"><a href="{% url 'project_list' %}">← All projects</a></p>
+<p class="eyebrow">Start a review</p>
+<h1>New project</h1>
+<p class="page-intro">Give your literature review a home. You can add searches and screen papers after creating it.</p>
+<div class="card form-card">
+  <form method="post">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    {% for field in form %}
+      <div class="form-field">
+        {{ field.label_tag }}
+        {{ field }}
+        {% if field.help_text %}<small class="form-help" id="{{ field.auto_id }}_helptext">{{ field.help_text }}</small>{% endif %}
+        {{ field.errors }}
+      </div>
+    {% endfor %}
+    <button type="submit">Create</button>
+  </form>
+</div>
+{% endblock %}

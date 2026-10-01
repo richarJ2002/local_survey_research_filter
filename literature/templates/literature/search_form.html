@@ -1,0 +1,106 @@
+{% extends "literature/base.html" %}
+{# Copyright (c) 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group. #}
+{% block title %}{% if editing %}Edit search — {{ project.name }}{% else %}New search — {{ project.name }}{% endif %}{% endblock %}
+{% block content %}
+<p class="meta"><a href="{% url 'project_detail' project.pk %}">← {{ project.name }}</a></p>
+<p class="eyebrow">Search setup</p>
+<h1>{% if editing %}Edit search for {{ project.name }}{% else %}New search for {{ project.name }}{% endif %}</h1>
+<p class="page-intro">Add one item per row. Rows are sorted A–Z automatically so every search app gets the same clean lists. Keywords become the OpenAlex query. Year blank = max range (all years).</p>
+<div class="card form-card">
+  <form method="post" id="search-form">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  <p>{{ form.name.label_tag }}<br>{{ form.name }}<br><span class="meta">{{ form.name.help_text }}</span><br>{{ form.name.errors }}</p>
+  {{ form.keywords_json }}{{ form.venues_json }}{{ form.author_names_json }}
+
+  <h2>Keywords</h2>
+  <table id="keywords-table"><tbody></tbody></table>
+  <p><button type="button" data-add="keywords">+ Add keyword</button> <span class="meta">e.g. battery, degradation, lithium</span></p>
+
+  <h2>Year range</h2>
+  <p>{{ form.year_min.label_tag }}<br>{{ form.year_min }}<br><span class="meta">{{ form.year_min.help_text }}</span><br>{{ form.year_min.errors }}</p>
+  <p>{{ form.year_max.label_tag }}<br>{{ form.year_max }}<br><span class="meta">{{ form.year_max.help_text }}</span><br>{{ form.year_max.errors }}</p>
+
+  <h2>Journals / conferences</h2>
+  <table id="venues-table"><tbody></tbody></table>
+  <p><button type="button" data-add="venues">+ Add journal / conference</button> <span class="meta">Optional. Blank = all venues. e.g. Nature</span></p>
+
+  <h2>Author names</h2>
+  <table id="authors-table"><tbody></tbody></table>
+  <p><button type="button" data-add="authors">+ Add author</button> <span class="meta">Optional. Blank = all authors. e.g. Smith</span></p>
+
+  <h2>Sources</h2>
+  <p>{{ form.sources_selected }}<br><span class="meta">{{ form.sources_selected.help_text }}</span><br>{{ form.sources_selected.errors }}</p>
+
+  <button type="submit">Save search</button>
+  </form>
+</div>
+<p class="meta">After saving, press <strong>Run search</strong> on the project page to fetch papers. Then start screening.</p>
+{% endblock %}
+{% block scripts %}
+<script>
+function makeRow(tableId, value) {
+  const tbody = document.querySelector(`#${tableId} tbody`);
+  const tr = document.createElement("tr");
+  const tdInput = document.createElement("td");
+  const input = document.createElement("input");
+  input.type = "text";
+  input.value = value || "";
+  input.placeholder = tableId === "keywords-table" ? "keyword" : (tableId === "venues-table" ? "journal / conference" : "author");
+  tdInput.appendChild(input);
+  const tdBtn = document.createElement("td");
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.textContent = "Remove";
+  btn.addEventListener("click", () => tr.remove());
+  tdBtn.appendChild(btn);
+  tr.appendChild(tdInput);
+  tr.appendChild(tdBtn);
+  tbody.appendChild(tr);
+  return input;
+}
+function getValues(tableId) {
+  return [...document.querySelectorAll(`#${tableId} tbody input`)]
+    .map(i => i.value.trim()).filter(Boolean);
+}
+function sortTable(tableId) {
+  const tbody = document.querySelector(`#${tableId} tbody`);
+  const rows = [...tbody.querySelectorAll("tr")];
+  rows.sort((a, b) => a.querySelector("input").value.toLowerCase().localeCompare(b.querySelector("input").value.toLowerCase()));
+  rows.forEach(r => tbody.appendChild(r));
+}
+document.querySelectorAll("button[data-add]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const kind = btn.getAttribute("data-add");
+    const tableId = kind === "keywords" ? "keywords-table" : (kind === "venues" ? "venues-table" : "authors-table");
+    const input = makeRow(tableId, "");
+    input.focus();
+    input.addEventListener("change", () => sortTable(tableId));
+  });
+});
+// Start with saved rows (edit) or one empty keyword row (new).
+function parseHidden(name) {
+  const el = document.querySelector(`input[name="${name}"]`);
+  if (!el || !el.value) return [];
+  try { const v = JSON.parse(el.value); return Array.isArray(v) ? v : []; }
+  catch { return []; }
+}
+const initKw = parseHidden("keywords_json");
+const initVenues = parseHidden("venues_json");
+const initAuthors = parseHidden("author_names_json");
+(initKw.length ? initKw : [""]).forEach(v => makeRow("keywords-table", v));
+initVenues.forEach(v => makeRow("venues-table", v));
+initAuthors.forEach(v => makeRow("authors-table", v));
+document.getElementById("search-form").addEventListener("submit", (e) => {
+  ["keywords-table", "venues-table", "authors-table"].forEach(sortTable);
+  const get = (id) => JSON.stringify(getValues(id));
+  document.querySelector('input[name="keywords_json"]').value = get("keywords-table");
+  document.querySelector('input[name="venues_json"]').value = get("venues-table");
+  document.querySelector('input[name="author_names_json"]').value = get("authors-table");
+  if (!getValues("keywords-table").length) {
+    e.preventDefault();
+    alert("Add at least one keyword row.");
+  }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,9 @@
+{% extends "literature/base.html" %}
+{% block title %}Survey entry — {{ project.name }}{% endblock %}
+{% block content %}
+<p class="meta"><a href="{% url 'survey_graph' project.pk %}">← Curated survey graph</a></p>
+<h1>{% if entry %}Edit{% else %}Add{% endif %} survey entry</h1>
+<p class="page-intro">DOI lookup supplies a starting point. Every visible field below is editable; changes belong only to this curated entry. Reference numbers are unique within your project.</p>
+{% if not entry %}<div class="card form-card"><h2>Prefill by DOI (optional)</h2><form method="post">{% csrf_token %}<input type="hidden" name="action" value="lookup">{% for field in lookup_form %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}<button>Look up DOI</button></form><p class="meta"><a href="{% url 'survey_entry_add' project.pk %}">Start a blank manual entry</a></p></div>{% endif %}
+<div class="card form-card"><form method="post">{% csrf_token %}<input type="hidden" name="action" value="save">{{ form.non_field_errors }}{% for field in form %}{% if field.is_hidden %}{{ field }}{% else %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}{% if field.help_text %}<small class="form-help">{{ field.help_text }}</small>{% endif %}</div>{% endif %}{% endfor %}<button>Save survey entry</button></form></div>
+{% endblock %}
