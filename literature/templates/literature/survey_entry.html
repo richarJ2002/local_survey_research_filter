@@ -1,9 +1,42 @@
 {% extends "literature/base.html" %}
 {% block title %}Survey entry — {{ project.name }}{% endblock %}
 {% block content %}
-<p class="meta"><a href="{% url 'survey_graph' project.pk %}">← Curated survey graph</a></p>
+{% if popup %}<style>.site-header,.site-footer,.skip-link{display:none}.site-main{margin:1rem auto}.form-field #id_cited_entries label{display:flex;align-items:center;gap:.4rem}</style>{% else %}<p class="meta"><a href="{% url 'survey_graph' project.pk %}">← Curated survey graph</a></p>{% endif %}
 <h1>{% if entry %}Edit{% else %}Add{% endif %} survey entry</h1>
-<p class="page-intro">DOI lookup supplies a starting point. Every visible field below is editable; changes belong only to this curated entry. Reference numbers are unique within your project.</p>
-{% if not entry %}<div class="card form-card"><h2>Prefill by DOI (optional)</h2><form method="post">{% csrf_token %}<input type="hidden" name="action" value="lookup">{% for field in lookup_form %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}<button>Look up DOI</button></form><p class="meta"><a href="{% url 'survey_entry_add' project.pk %}">Start a blank manual entry</a></p></div>{% endif %}
-<div class="card form-card"><form method="post">{% csrf_token %}<input type="hidden" name="action" value="save">{{ form.non_field_errors }}{% for field in form %}{% if field.is_hidden %}{{ field }}{% else %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}{% if field.help_text %}<small class="form-help">{{ field.help_text }}</small>{% endif %}</div>{% endif %}{% endfor %}<button>Save survey entry</button></form></div>
+<p class="page-intro">Project-paper search or DOI lookup supplies a starting point, without assigning a ref ID. All bibliographic fields remain editable; correct typos before adding the snapshot. Changes never overwrite the draft paper.</p>
+{% if not entry %}
+<div class="card form-card">
+  <h2>Search this project's paper database</h2>
+  <form method="get" action="{% url 'survey_entry_add' project.pk %}">
+    {% if popup %}<input type="hidden" name="popup" value="1">{% endif %}
+    <label for="survey-project-query">Title, author, DOI or journal</label>
+    <input type="search" id="survey-project-query" name="q" value="{{ paper_query }}" placeholder="Search existing project papers">
+    <button type="submit">Search project papers</button>
+  </form>
+  {% if paper_query %}
+    <p class="meta">Up to 25 matches. Select a paper to fill the fields below; the ref ID stays blank.</p>
+    <ul>{% for paper in project_papers %}<li><a href="{% url 'survey_entry_add' project.pk %}?paper_id={{ paper.pk }}{% if popup %}&amp;popup=1{% endif %}">{{ paper.title|default:"Untitled paper" }}</a> <span class="meta">{{ paper.author_display }} · {{ paper.publication_year|default:"?" }} · {{ paper.venue|default:"—" }}</span></li>{% empty %}<li>No project papers match. Try another search, a DOI, or manual details.</li>{% endfor %}</ul>
+  {% endif %}
+  <h2>Fill fields by DOI (optional)</h2>
+  <form method="post" action="{% url 'survey_entry_add' project.pk %}">
+    {% csrf_token %}<input type="hidden" name="action" value="lookup">{% if popup %}<input type="hidden" name="popup" value="1">{% endif %}
+    {% for field in lookup_form %}<div class="form-field"><label for="survey-lookup-doi">{{ field.label }}</label><input type="text" id="survey-lookup-doi" name="doi" maxlength="320" required value="{{ field.value|default:'' }}" placeholder="10.1000/example">{{ field.errors }}<small class="form-help">{{ field.help_text }}</small></div>{% endfor %}
+    <button type="submit">Look up DOI and fill fields</button>
+  </form>
+  <p class="meta">Lookup replaces the entry fields, not the draft record. Papers imported from the project search are labelled separately from papers added while reading.</p>
+  <a href="{% url 'survey_entry_add' project.pk %}{% if popup %}?popup=1{% endif %}">Clear fields / start a blank manual entry</a>
+</div>
+{% endif %}
+<div class="card form-card">
+  <form method="post" action="{% if entry %}{% url 'survey_entry_edit' project.pk entry.pk %}{% else %}{% url 'survey_entry_add' project.pk %}{% endif %}">
+    {% csrf_token %}<input type="hidden" name="action" value="save"><input type="hidden" name="cited_entries_present" value="1">{% if popup %}<input type="hidden" name="popup" value="1">{% endif %}
+    {{ form.non_field_errors }}
+    {% for field in form %}
+      {% if field.is_hidden %}{{ field }}
+      {% elif field.name == "cited_entries" %}<fieldset class="form-field"><legend>{{ field.label }}</legend>{{ field }}{{ field.errors }}<small class="form-help">{{ field.help_text }}</small></fieldset>
+      {% else %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}{% if field.help_text %}<small class="form-help">{{ field.help_text }}</small>{% endif %}</div>{% endif %}
+    {% endfor %}
+    <button type="submit">{% if entry %}Save entry and links{% else %}Add paper to graph{% endif %}</button>
+  </form>
+</div>
 {% endblock %}

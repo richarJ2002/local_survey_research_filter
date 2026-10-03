@@ -90,6 +90,8 @@ class PaperEntryTests(TestCase):
         self.assertFalse(Paper.objects.exists())
         self.assertEqual(page.context["form"]["search_keyword"].value(), None)
         self.assertEqual(page.context["form"]["title_decision"].value(), None)
+        self.assertContains(page, 'name="origin_source"')
+        self.assertContains(page, "Where was this paper found?")
 
     def test_add_passes_both_stages_and_keeps_provider_metadata(self) -> None:
         """! @brief Persist displayed metadata and both choices, ignoring forged detail fields."""
@@ -122,7 +124,62 @@ class PaperEntryTests(TestCase):
         response = self.submit(origin_source="")
         self.assertEqual(response.status_code, 200)
         self.assertIn("origin_source", response.context["form"].errors)
+        self.assertContains(response, "This field is required.")
         self.assertFalse(Paper.objects.exists())
+
+    def test_legacy_origin_can_be_selected_by_user_without_rewriting_history(self) -> None:
+        """Only a synthetic user POST records a known origin; a preview changes nothing."""
+        paper = Paper.objects.create(**self.metadata, sources=["manual"], keywords=["navigation"])
+        old_run = SearchRun.objects.create(
+            search=self.search,
+            source="manual",
+            status="completed",
+            query_used="navigation",
+            results_count=1,
+            new_papers_count=1,
+        )
+        old_discovery = Discovery.objects.create(
+            paper=paper,
+            search=self.search,
+            search_run=old_run,
+            source="manual",
+            query="navigation",
+        )
+        PaperKeywordAssignment.objects.create(
+            paper=paper,
+            project=self.project,
+            search=self.search,
+            keyword="navigation",
+        )
+        for name, decision in (("Title", "ACCEPT"), ("Abstract", "PENDING")):
+            ScreeningDecision.objects.create(
+                paper=paper,
+                stage=self.project.stages.get(name=name),
+                decision=decision,
+            )
+        models = (Paper, Discovery, SearchRun, ScreeningDecision, PaperKeywordAssignment)
+        before = [list(model.objects.values()) for model in models]
+        page = self.preview()
+        self.assertEqual([list(model.objects.values()) for model in models], before)
+        self.assertContains(page, 'name="origin_source"')
+        self.assertContains(page, reverse("paper_manage", args=[self.project.pk, paper.pk]))
+        self.assertContains(page, "Edit paper details manually")
+        self.assertEqual(
+            self.submit(origin_source="publisher", abstract_decision="PENDING").status_code, 302
+        )
+        old_discovery.refresh_from_db()
+        old_run.refresh_from_db()
+        self.assertEqual(old_discovery.source, "manual")
+        self.assertEqual(
+            (old_run.source, old_run.results_count, old_run.new_papers_count), ("manual", 1, 1)
+        )
+        self.assertTrue(paper.discoveries.filter(source="publisher").exists())
+        self.assertEqual(list(ScreeningDecision.objects.values()), before[3])
+        paper.refresh_from_db()
+        for name in ("title", "authors", "abstract", "publication_year", "venue", "references"):
+            self.assertEqual(getattr(paper, name), self.metadata[name])
+        table = self.client.get(reverse("papers_view", args=[self.project.pk]))
+        self.assertEqual(table.context["rows"][0]["display_sources"], ["publisher"])
 
     def test_existing_origin_is_not_changed_by_status_update(self) -> None:
         self.submit(origin_source="crossref")
@@ -316,11 +373,13 @@ class PaperEntryTests(TestCase):
                 },
             )
         self.assertContains(page, "Update entry")
+        self.assertNotContains(page, "Edit paper details manually")
         self.assertEqual(response.status_code, 302)
         self.assertEqual(Paper.objects.count(), 1)
         paper.refresh_from_db()
         self.assertEqual(paper.abstract, self.metadata["abstract"])
         self.assertEqual(paper.decisions.get(stage__project=other).decision, "REJECT")
+        self.assertContains(self.preview(), "Edit paper details manually")
 
     def test_invalid_doi_never_calls_providers(self) -> None:
         """! @brief Validate directly visited lookup URLs as well as the DOI search form."""

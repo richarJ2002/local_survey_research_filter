@@ -1,0 +1,13 @@
+{% extends "literature/base.html" %}
+{# Copyright (c) 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group. #}
+{% block title %}Audit / History — {{ project.name }}{% endblock %}
+{% block content %}
+<p class="meta"><a href="{% url 'project_detail' project.pk %}">← {{ project.name }}</a></p>
+<h1>Audit / History for {{ project.name }}</h1>
+<nav class="page-actions" aria-label="Chart lens"><a href="{% url 'plots_view' project.pk %}">Current charts</a><a href="{% url 'plots_view' project.pk %}?lens=history" aria-current="page">Audit / History</a></nav>
+<span hidden data-project-revision-url="{% url 'project_revision' project.pk %}" data-revision="{{ metrics.revision }}"></span>
+<p class="meta">Historical import activity, not current paper metadata. Corrections to current sources never rewrite original import origins or counts. <a href="{% url 'plots_download' project.pk %}?lens=history">Download Audit / History charts</a>.</p>
+<script src="{% url 'plotly_js' %}?v={{ plotly_version }}"></script>
+<div class="card"><h2>Raw records by source — historical imports</h2><p class="meta">Each slice counts historical import records, including duplicate hits, not distinct current papers. Unspecified at import can remain after you supply a paper's source; it does not mean the current source is blank. <a href="{% url 'papers_view' project.pk %}?sort=source&amp;direction=asc">View current papers sorted by source →</a></p>{{ source_raw_plot|safe }}</div>
+<div class="card"><h2>Duplicate removals by source — historical imports</h2><p class="meta">Each slice is a source's share of duplicate hits merged on import, not a count of distinct current papers. Hover for the rate within that source's own raw records.</p>{{ source_duplicates_plot|safe }}</div>
+{% endblock %}

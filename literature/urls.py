@@ -16,7 +16,7 @@ from __future__ import annotations
 # Custom library Imports
 from django.urls import path
 
-from literature import chart_views, survey_views, views
+from literature import chart_views, plotly_assets, survey_views, views, workspace_views
 
 # ------------------------------------------------------------------------ #
 # Routes
@@ -24,8 +24,14 @@ from literature import chart_views, survey_views, views
 
 urlpatterns = [
     path("", views.project_list, name="project_list"),
+    path("workspace/", workspace_views.workspace_home, name="workspace_home"),
+    path("workspace/set-root/", workspace_views.workspace_set_root, name="workspace_set_root"),
+    path("workspace/new/", workspace_views.workspace_new, name="workspace_new"),
+    path("workspace/open/", workspace_views.workspace_open, name="workspace_open"),
+    path("workspace/operation/", workspace_views.workspace_operation, name="workspace_operation"),
     path("project/new/", views.project_create, name="project_create"),
     path("project/<int:pk>/", views.project_detail, name="project_detail"),
+    path("project/<int:pk>/lifecycle/<str:action>/", workspace_views.project_lifecycle, name="project_lifecycle"),
     path("project/<int:pk>/delete/", views.project_delete, name="project_delete"),
     path("project/<int:pk>/papers/", views.papers_view, name="papers_view"),
     path("project/<int:pk>/papers/add/", views.paper_add, name="paper_add"),
@@ -65,7 +71,9 @@ urlpatterns = [
     path("project/<int:pk>/references/<str:group>/download/",
          views.references_download, name="references_download"),
     path("project/<int:pk>/plots/", views.plots_view, name="plots_view"),
+    path("project/plotly.min.js", plotly_assets.plotly_js, name="plotly_js"),
     path("project/<int:pk>/plots/entries/", chart_views.chart_entries, name="chart_entries"),
+    path("project/<int:pk>/revision/", chart_views.project_revision, name="project_revision"),
     path("project/<int:pk>/survey/", survey_views.survey_graph, name="survey_graph"),
     path("project/<int:pk>/survey/add/", survey_views.survey_entry, name="survey_entry_add"),
     path("project/<int:pk>/survey/<int:entry_id>/edit/", survey_views.survey_entry, name="survey_entry_edit"),

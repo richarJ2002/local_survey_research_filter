@@ -4,9 +4,9 @@
 {% block content %}
 <p class="eyebrow">Local configuration</p>
 <h1>Settings</h1>
-<p class="page-intro">Saved to a private <code>.env</code> file on this computer only — never in the database.</p>
+<p class="page-intro">Saved to the selected private credential file on this computer only — never in the database. Restart the server/launcher to apply changes.</p>
 <p class="meta">arXiv and Crossref use public APIs and do not need a key. OpenCitations also works without a token; a token is optional.</p>
 <div class="card form-card"><form method="post">{% csrf_token %}{{ form.as_p }}<button type="submit">Save locally</button></form></div>
 {% if opencitations_token_configured %}<p class="meta">OpenCitations token configured. Leave its field blank to keep it.</p>{% endif %}
-{% if env_exists %}<p class="meta">.env file exists.</p>{% else %}<p class="meta">No .env yet — saving will create one.</p>{% endif %}
+{% if env_exists %}<p class="meta">Credential file exists.</p>{% else %}<p class="meta">No credential file yet — saving will create one.</p>{% endif %}
 {% endblock %}

@@ -5,9 +5,13 @@
 <p class="meta"><a href="{% url 'project_detail' project.pk %}">← {{ project.name }}</a></p>
 <p class="eyebrow">Project insights</p>
 <h1>Charts for {{ project.name }}</h1>
+<nav class="page-actions" aria-label="Chart lens"><a href="{% url 'plots_view' project.pk %}" aria-current="page">Current charts</a><a href="{% url 'plots_view' project.pk %}?lens=history">Audit / History</a></nav>
 <p class="meta">Hover for counts; click a yearly bar or running-total point to open its paper list.</p>
 <p><a class="button-link" href="{% url 'survey_graph' project.pk %}">Build the curated survey graph →</a></p>
-<p class="meta">Plain-English guide: each chart has its own title and labels. Found = unique papers found. Kept = still in after that check. Every chart has its own download button (camera icon, top right of the chart). <a href="{% url 'plots_download' project.pk %}?depth={{ depth }}&amp;chain={{ min_chain }}&amp;stage={{ seed_stage }}{% if prune %}&amp;prune=on{% endif %}">Download all charts as one file</a>.</p>
+<span hidden data-project-revision-url="{% url 'project_revision' project.pk %}" data-revision="{{ metrics.revision }}"></span>
+<p class="meta">Plain-English guide: each chart has its own title and labels. Found = unique papers found. Kept = still in after that check. Every chart has its own download button (camera icon, top right of the chart). <a href="{% url 'plots_download' project.pk %}?depth={{ depth }}&amp;chain={{ min_chain }}&amp;stage={{ seed_stage }}{% if prune %}&amp;prune=on{% endif %}">Download current charts as one file</a>.</p>
+<script src="{% url 'plotly_js' %}?v={{ plotly_version }}"></script>
+<p class="meta">Charts render with Plotly v{{ plotly_version }} served locally by this app — no internet needed. {{ plotly_notice }}</p>
 {% if not has_data %}
 <div class="card"><strong>No papers yet.</strong><p>Run a search first, then come back — the charts fill in by themselves.</p></div>
 {% endif %}
@@ -15,8 +19,7 @@
   <p>Records found: <strong>{{ metrics.total_identified }}</strong> · Unique papers: <strong>{{ metrics.unique_total }}</strong> · Final kept: <strong>{{ metrics.final_included }}</strong></p>
 </div>
 <div class="card"><h2>Hits per keyword</h2><p class="meta">Bars sit on top of each other (largest behind). The visible ring left around a colour = papers lost at that check.</p>{{ keyword_plot|safe }}</div>
-<div class="card"><h2>Raw records by source</h2><p class="meta">Each slice is a source's share of all raw records returned by completed searches.</p>{{ source_raw_plot|safe }}</div>
-<div class="card"><h2>Duplicate removals by source</h2><p class="meta">Each slice is a source's share of all duplicate hits merged on import. Hover for the duplicate rate relative to that source's own raw records.</p>{{ source_duplicates_plot|safe }}</div>
+<div class="card"><h2>Current papers by source</h2><p class="meta">Distinct current papers per displayed source ({{ metrics.current.unique }} papers; {{ metrics.current.blank }} with a blank source). One paper with several sources appears in each matching bar, so bars may sum past the paper total. Blank status comes from current displays only, never from import history. <a href="{% url 'papers_view' project.pk %}?sort=source&amp;direction=asc">View current papers sorted by source →</a></p>{{ current_source_plot|safe }}</div>
 <div class="card"><h2>How papers flow through each check</h2><p class="meta">Industry-style flow, left to right. Band width = papers. Follow a band to see where papers go.</p>{{ funnel_plot|safe }}</div>
 <p class="meta">Missing fields are completed during screening, not automatically rejected. {{ metrics.reference_pending }} papers are <a href="{% url 'reference_review' project.pk %}">awaiting references</a>. “Abstract: kept” and the final-year series include only papers whose references are available.</p>
 <div class="card"><h2>Papers per year</h2><p class="meta">Bars sit on top of each other like the keyword chart. The ring left showing = papers from that year lost at that check.</p>{{ yearly_plot|safe }}</div>
@@ -27,7 +30,7 @@
 </div>
 <div class="card">
   <h2>How your kept papers link together</h2>
-  <p class="meta">Start from your selected papers, newest first, and follow the papers they cite backwards. Each step is one direct citation; branches that share older papers form clusters. The year is inside each circle; larger circles have more citations (on a bounded scale). Newer papers tend to sit above older ones within each cluster. Hover over a line's midpoint to see who cites whom. Pan, zoom, or scroll horizontally to explore. Only papers found in this project with matched reference IDs can appear. {{ citation_nodes }} papers, {{ citation_edges }} links shown{% if prune %} ({{ citation_pruned }} papers and {{ citation_pruned_edges }} links hidden by the shortest-path view){% endif %}.</p>
+  <p class="meta">Start from your selected papers, newest first, and follow the papers they cite backwards to determine graph membership. Drawing positions prioritise clear spacing and fewer crossing lines, not fixed publication-year rows. Chronology only gives each group a loose orientation; the actual year is inside each circle. Larger circles have more citations (on a bounded scale). Disconnected groups are packed together rather than squeezed into a long strip. Hover over a line's midpoint to see who cites whom; hover or click a node to select and copy its details. Pan, zoom, or scroll horizontally when needed. Only papers found in this project with matched reference IDs can appear. {{ citation_nodes }} papers, {{ citation_edges }} links shown{% if prune %} ({{ citation_pruned }} papers and {{ citation_pruned_edges }} links hidden by the shortest-path view){% endif %}.</p>
   <ul class="meta" aria-label="Circle colour key" style="list-style:none;padding-left:0;">
     <li><span aria-hidden="true" style="display:inline-block;width:0.8em;height:0.8em;border-radius:50%;background:#3f7e3f;"></span> <strong>Green</strong> — your selected (kept) papers.</li>
     <li><span aria-hidden="true" style="display:inline-block;width:0.8em;height:0.8em;border-radius:50%;background:#8a8a8a;"></span> <strong>Grey</strong> — papers on a direct-citation path joining selected papers.</li>
@@ -53,6 +56,6 @@
   <div class="page-actions"><a href="{% url 'references_download' project.pk 'final' %}">Download final selected references (.md)</a><a href="{% url 'references_download' project.pk 'citations' %}?depth={{ depth }}&amp;chain={{ min_chain }}&amp;stage={{ seed_stage }}{% if prune %}&amp;prune=on{% endif %}">Download citation papers shown (.md)</a></div>
   {{ citation_plot|safe }}
 </div>
-<div class="card"><h2>Curated survey graph</h2><p class="meta">Separate from the automatic draft. Circles show the year and your survey reference [x]. <a href="{% url 'survey_graph' project.pk %}">Manage entries, reference numbers and manual citation links →</a></p>{{ survey_plot|safe }}</div>
+{% include "literature/survey_graph_panel.html" %}
 {% include "literature/chart_popup.html" %}
 {% endblock %}

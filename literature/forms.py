@@ -18,7 +18,7 @@ import re
 # Custom library Imports
 from django import forms
 
-from literature.models import Project, Search
+from literature.models import Project, Search, SurveyEntry
 from literature.services.manual_paper_service import ORIGIN_SOURCES
 
 # ------------------------------------------------------------------------ #
@@ -184,22 +184,57 @@ class SurveyEntryForm(PaperDetailsForm):
     """Editable survey snapshot, including manuscript reference labels."""
 
     reference_number = forms.IntegerField(
-        min_value=1, max_value=2147483647, label="Survey reference number [x]"
+        min_value=1, max_value=2147483647, label="Survey reference number [x]",
+        help_text="Choose a temporary positive number if needed. It is recommended to finalise the ref ID once you know the reference numbers in your manuscript.",
     )
     publication_year = forms.IntegerField(
         required=False, min_value=1500, max_value=9999, label="Year"
     )
     origin_source = forms.ChoiceField(label="Where was this paper found?", choices=[("", "Choose a source"), *ORIGIN_SOURCES])
+    inclusion_origin = forms.ChoiceField(
+        required=False,
+        label="How did this entry reach the survey?",
+        choices=SurveyEntry.InclusionOrigin.choices,
+    )
+    cited_entries = forms.ModelMultipleChoiceField(
+        required=False,
+        queryset=SurveyEntry.objects.none(),
+        widget=forms.CheckboxSelectMultiple,
+        label="Links to (this entry cites)",
+        help_text="Select as many entries from the table as this paper cites. Untick to remove a manual link; independently matched automatic links may remain.",
+    )
     publisher = forms.CharField(required=False, max_length=300)
     version = forms.CharField(required=False, widget=forms.HiddenInput)
     preview_token = forms.CharField(required=False, widget=forms.HiddenInput)
     reference_text = forms.CharField(required=False, max_length=200000, label="Bibliography / reference identifiers", widget=forms.Textarea(attrs={"rows": 6}))
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, project: Project | None = None, entry: SurveyEntry | None = None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields.pop("references")
+        self.fields.pop("references", None)
         self.fields["title"].required = True
-        self.order_fields(["reference_number", "doi", "title", "authors", "publication_year", "venue", "publisher", "abstract", "reference_text", "origin_source", "version", "preview_token"])
+        if project is not None:
+            qs = SurveyEntry.objects.filter(project=project).order_by("reference_number", "pk")
+            if entry is not None:
+                qs = qs.exclude(pk=entry.pk)
+            self.fields["cited_entries"].queryset = qs
+        if not self.is_bound:
+            if entry is not None:
+                if "cited_entries" not in (self.initial or {}):
+                    self.initial["cited_entries"] = list(
+                        entry.manual_outgoing.values_list("cited_id", flat=True)
+                    )
+                if "inclusion_origin" not in (self.initial or {}):
+                    self.initial["inclusion_origin"] = entry.inclusion_origin
+            elif "inclusion_origin" not in (self.initial or {}):
+                self.initial["inclusion_origin"] = SurveyEntry.InclusionOrigin.READING
+        self.order_fields(["reference_number", "doi", "title", "authors", "publication_year", "venue", "publisher", "abstract", "reference_text", "origin_source", "inclusion_origin", "cited_entries", "version", "preview_token"])
+
+    def clean_inclusion_origin(self) -> str:
+        """Old POSTs omit this field; default to reading while keeping legacy unspecified editable."""
+        value = self.cleaned_data.get("inclusion_origin")
+        if not value:
+            return SurveyEntry.InclusionOrigin.READING
+        return value
 
 
 class SurveyCitationForm(forms.Form):
@@ -382,6 +417,85 @@ class SearchForm(forms.ModelForm):
         if not cleaned["keywords"]:
             raise forms.ValidationError("Add at least one keyword row.")
         return cleaned
+
+
+# ------------------------------------------------------------------------ #
+# Workspace New/Load (typed Linux paths; resolution lives in workspace.py)
+# ------------------------------------------------------------------------ #
+
+# --- Typed directory, stripped early; existence checks stay server-side ---
+class WorkspaceRootForm(forms.Form):
+    """Remember the workspace folder that lists recognised projects."""
+
+    directory = forms.CharField(
+        max_length=4096,
+        label="Workspace folder",
+        widget=forms.TextInput(attrs={
+            "placeholder": "/home/you/surveys",
+            "autocomplete": "off",
+            "inputmode": "text",
+        }),
+    )
+
+    def clean_directory(self) -> str:
+        """Strip and expand ~; resolution/permission checks stay in workspace.py."""
+        raw = (self.cleaned_data.get("directory") or "").strip()
+        if not raw:
+            raise forms.ValidationError("Enter a workspace folder path.")
+        from pathlib import Path
+
+        return str(Path(raw).expanduser())
+
+
+# --- New project at a typed location plus a display name ---
+class WorkspaceNewForm(forms.Form):
+    """Create one store at a typed location; never overwrites populated data."""
+
+    directory = forms.CharField(
+        max_length=4096,
+        label="New project folder",
+        widget=forms.TextInput(attrs={
+            "placeholder": "/home/you/surveys/my-topic",
+            "autocomplete": "off",
+            "inputmode": "text",
+        }),
+    )
+    name = forms.CharField(
+        max_length=200,
+        label="Project name",
+        widget=forms.TextInput(attrs={"placeholder": "e.g. Battery degradation survey"}),
+    )
+
+    def clean_directory(self) -> str:
+        raw = (self.cleaned_data.get("directory") or "").strip()
+        if not raw:
+            raise forms.ValidationError("Enter a folder path for the new project.")
+        from pathlib import Path
+
+        return str(Path(raw).expanduser())
+
+
+# --- Load an existing store at a typed location ---
+class WorkspaceOpenForm(forms.Form):
+    """Open an existing store; never creates a missing store."""
+
+    directory = forms.CharField(
+        max_length=4096,
+        label="Existing project folder",
+        widget=forms.TextInput(attrs={
+            "placeholder": "/home/you/surveys/my-topic",
+            "autocomplete": "off",
+            "inputmode": "text",
+        }),
+    )
+
+    def clean_directory(self) -> str:
+        raw = (self.cleaned_data.get("directory") or "").strip()
+        if not raw:
+            raise forms.ValidationError("Enter the folder path of the project to open.")
+        from pathlib import Path
+
+        return str(Path(raw).expanduser())
 
 
 # ------------------------------------------------------------------------ #

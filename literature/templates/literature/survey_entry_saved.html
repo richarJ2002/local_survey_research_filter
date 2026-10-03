@@ -1,0 +1,12 @@
+{% extends "literature/base.html" %}
+{% block title %}Survey entry saved{% endblock %}
+{% block content %}
+<p>Survey entry saved.</p>
+<p><a href="{{ graph_url }}" target="_top">Back to curated survey graph</a></p>
+{{ graph_url|json_script:"survey-saved-url" }}
+<script>
+  // ponytail: refresh the owning page after the atomic Django save; no duplicated client-side graph state.
+  if (window.parent !== window) window.parent.location.replace(window.parent.location.href);
+  else window.location.replace(JSON.parse(document.getElementById("survey-saved-url").textContent));
+</script>
+{% endblock %}

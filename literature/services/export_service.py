@@ -13,8 +13,10 @@
 # Regular library imports
 from __future__ import annotations
 
-from pathlib import Path
 from collections.abc import Iterable
+from pathlib import Path
+
+from django.conf import settings
 
 # Custom library Imports
 from literature.models import Paper, Project
@@ -25,10 +27,12 @@ from literature.models import Paper, Project
 
 # --- Build markdown for one project ---
 def build_markdown(project: Project) -> str:
-    """Render all papers with metadata, abstract, discovery and decisions."""
-    project.ensure_default_stages()
+    """Render this project's papers; project-scoped, not a reloadable store."""
+    if getattr(settings, "WP_ROLE", "developer") != "worker":
+        project.ensure_default_stages()
     stages = list(project.stages.order_by("order"))
     lines: list[str] = [f"# Literature Database — {project.name}", ""]
+    lines += ["_Project-scoped export; not a reloadable store._", ""]
     if project.description:
         lines += [project.description, ""]
 
@@ -54,8 +58,11 @@ def build_markdown(project: Project) -> str:
         lines += [f"**Year:** {paper.publication_year or 'n/a'}  "]
         lines += [f"**Venue:** {paper.venue or 'n/a'}  "]
         lines += [f"**DOI:** {paper.doi or 'n/a'}  ", ""]
-        if paper.keywords:
-            lines += [f"**Keywords:** {', '.join(paper.keywords)}  ", ""]
+        # Global legacy keywords have ambiguous ownership: never fall back
+        # to them. Only this project's explicit assignment is exportable.
+        assignment = paper.keyword_assignments.filter(project=project).first()
+        if assignment is not None and assignment.keyword:
+            lines += [f"**Keywords:** {assignment.keyword}  ", ""]
         lines += ["### Abstract", "", paper.abstract or "_No abstract._", ""]
         from literature.services.screening_service import has_reference_list
 
@@ -64,12 +71,17 @@ def build_markdown(project: Project) -> str:
             lines += [paper.reference_text, ""]
         lines += [f"- {reference}" for reference in paper.references]
         lines += ["### Discovery", ""]
-        for disc in paper.discoveries.select_related("search").all():
+        # ponytail: scope provenance to this project's searches; shared-paper
+        # rows from other projects must never leak into this export.
+        own_discs = list(
+            paper.discoveries.filter(search__project=project).select_related("search")
+        )
+        for disc in own_discs:
             lines += [
                 f"- Source: {disc.source} | Query: `{disc.query}` "
                 f"| Search: {disc.search.name} | Retrieved: {disc.retrieved_at:%Y-%m-%d}"
             ]
-        if not list(paper.discoveries.all()):
+        if not own_discs:
             lines += ["- _No provenance recorded._"]
         lines += ["", "### Screening", ""]
         for stage in stages:
@@ -78,7 +90,11 @@ def build_markdown(project: Project) -> str:
             lines += [f"- {stage.name}: {status}"]
             if stage.name == "Abstract" and status == "ACCEPT" and not has_reference_list(paper):
                 lines += ["  - Content passed; awaiting references, not finally selected."]
-        notes = [d.notes for d in paper.decisions.all() if d.notes]
+        notes = [
+            d.notes
+            for d in paper.decisions.filter(stage__project=project)
+            if d.notes
+        ]
         if notes:
             lines += ["", "### Notes", ""]
             lines += [f"- {n}" for n in notes]

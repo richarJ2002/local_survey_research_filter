@@ -2,6 +2,7 @@
 <!-- Copyright (c) 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group. -->
 <html lang="en">
 <head>
+  {% load static %}
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{% block title %}Local Survey Research Filter{% endblock %}</title>
@@ -65,14 +66,16 @@
     .skip-link:focus { top: 0.5rem; color: #fff; }
     html[data-theme="dark"] .skip-link, html[data-theme="dark"] .skip-link:focus { background: #e8edf2; color: #111820; }
     .site-header { background: var(--surface); border-bottom: 1px solid var(--line); }
-    .site-header__inner { width: 92%; max-width: 1100px; margin: auto; min-height: 4rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+    /* ponytail: grow to 80% on wide screens without shrinking the existing small-screen layout. */
+    .site-header__inner, .site-main, .messages { width: max(80%, min(92%, 1100px)); }
+    .site-header__inner { margin: auto; min-height: 4rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
     .site-brand { display: inline-flex; align-items: center; gap: 0.65rem; color: var(--ink); font-weight: 750; letter-spacing: -0.035em; text-decoration: none; }
     .site-brand:hover { color: var(--accent-dark); }
     .site-brand__mark { flex: none; display: inline-grid; place-items: center; width: 2rem; height: 2rem; border-radius: 0.55rem; background: var(--button-bg); color: #fff; font-size: 0.72rem; letter-spacing: 0; }
     .site-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
     .site-nav a { display: inline-block; padding: 0.4rem 0.7rem; border-radius: 0.45rem; color: var(--muted); font-size: 0.85rem; font-weight: 600; text-decoration: none; }
     .site-nav a:hover { background: var(--accent-soft); color: var(--accent-dark); }
-    .site-main { width: 92%; max-width: 1100px; margin: 2.2rem auto 4rem; }
+    .site-main { margin: 2.2rem auto 4rem; }
     .site-footer { border-top: 1px solid var(--line); padding: 1.25rem 4%; text-align: center; color: var(--muted); font-size: 0.77rem; }
     h1, h2, h3 { line-height: 1.2; letter-spacing: -0.03em; }
     h1 { margin: 0 0 0.65rem; font-size: clamp(1.85rem, 4vw, 2.55rem); }
@@ -166,7 +169,7 @@
     html[data-theme="dark"] .btn.accept:hover { background: #2b4f3f; color: #caf2d9; }
     html[data-theme="dark"] .btn.reject:hover { background: #59343a; color: #ffd0d0; }
     .progress { margin-top: 1rem; color: var(--muted); font-size: 0.83rem; text-align: center; }
-    .messages { width: 92%; max-width: 1100px; margin: 1.2rem auto 0; padding: 0; list-style: none; }
+    .messages { margin: 1.2rem auto 0; padding: 0; list-style: none; }
     .messages li { margin: 0.35rem 0; padding: 0.7rem 0.9rem; border: 1px solid; border-radius: 0.55rem; }
     .messages .success { border-color: #a9d9bf; background: #ecf8f0; }
     .messages .warning { border-color: #e5d2a0; background: #fff8e8; }
@@ -207,13 +210,34 @@
 <a class="skip-link" href="#main-content">Skip to content</a>
 <header class="site-header">
   <div class="site-header__inner">
-    <a class="site-brand" href="{% url 'project_list' %}" aria-label="Local Survey Research Filter home"><span class="site-brand__mark" aria-hidden="true">LS</span><span>Local Survey Research Filter</span></a>
-    <nav class="site-nav" aria-label="Main navigation"><a href="{% url 'project_list' %}">Projects</a><a href="{% url 'settings_view' %}">Settings</a><button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false">Dark mode</button></nav>
+    <a class="site-brand" data-project-exit href="{% if request.manager_base %}{{ request.manager_base }}/{% else %}{% url 'project_list' %}{% endif %}" aria-label="Local Survey Research Filter home"><span class="site-brand__mark" aria-hidden="true">LS</span><span>Local Survey Research Filter</span></a>
+    <nav class="site-nav" aria-label="Main navigation"><a data-project-exit href="{% if request.manager_base %}{{ request.manager_base }}/{% else %}{% url 'project_list' %}{% endif %}">Projects</a>{% if request.project_copy_url %}<a href="{{ request.project_copy_url }}" target="_blank" rel="noopener" aria-label="Save project copy (opens manager in a new tab)">Save project copy…</a>{% elif request.legacy_project %}<a href="#project-save-status">Save / project folders</a>{% endif %}<a href="{% if request.manager_base %}{{ request.manager_base }}/settings/{% else %}{% url 'settings_view' %}{% endif %}">Settings</a><button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false">Dark mode</button></nav>
   </div>
 </header>
 {% if messages %}<ul class="messages" role="status">{% for m in messages %}<li class="{{ m.tags }}">{{ m }}</li>{% endfor %}</ul>{% endif %}
-<main id="main-content" class="site-main">{% block content %}{% endblock %}</main>
+<main id="main-content" class="site-main">
+{% if request.worker_route and request.project_store_location %}
+<section id="project-save-status" class="card" role="note" aria-label="Project saving">
+  <strong>Submitted edits are saved immediately to this project's database.</strong>
+  <p class="meta"><code>{{ request.project_store_location }}/project.sqlite3</code>. Unsaved form drafts are not saved or included in a copy.</p>
+  {% if request.project_copy_url %}
+  <div class="page-actions"><a class="button-link" href="{{ request.project_copy_url }}" target="_blank" rel="noopener" aria-label="Save project copy (opens manager in a new tab)">Save project copy…</a><a href="{{ request.project_copy_url }}" target="_blank" rel="noopener" aria-label="Backup, Restore or manage project (opens manager in a new tab)">Backup / Restore / manage project…</a></div>
+  <p class="meta">Opens the manager in a new tab; this tab's drafts and project handle stay here. Save Copy creates a separate portable project with a new ID, not a save of your unsent form. Choose a destination and confirm there. Backup and Restore require Exit from all project tabs and Close worker.</p>
+  {% else %}
+  <p><strong>Save project copy…</strong> requires this project's owning manager. Reopen through New / Load in the manager launched with <code>python3 launch.py</code>; this standalone worker has no valid manager address.</p>
+  {% endif %}
+</section>
+{% elif request.legacy_project %}
+<section id="project-save-status" class="card" role="note" aria-label="Legacy project saving">
+  <strong>Legacy shared-DB mode — submitted edits are saved immediately to the shared developer database.</strong>
+  <p>Unsaved form drafts are not saved. This logical project is not yet a portable single-project folder, so Save Copy / Backup / Restore cannot honestly copy it from this page.</p>
+  <p>Use the <strong>New / Load manager</strong>: run <code>python3 launch.py --port 8001</code> in another terminal if this legacy server already uses port 8000, then open the printed manager URL. New creates a separate project folder; Load opens an existing portable store. Existing shared projects need an explicitly run and verified legacy conversion before Load. Conversion / adoption is pending operator action, not performed by visiting this page. Keep using this legacy project until that work is completed.</p>
+</section>
+{% endif %}
+{% block content %}{% endblock %}</main>
 <footer class="site-footer">© 2026 Aerospace Engineering Research &amp; Operation Systems (AERO-Sys) group.</footer>
+<script src="{% static 'literature/project_handle.js' %}" defer></script>
+<script src="{% static 'literature/project_refresh.js' %}" defer></script>
 {% block scripts %}{% endblock %}
 <script>
   (() => {

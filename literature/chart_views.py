@@ -16,6 +16,15 @@ from literature.services.screening_service import final_decisions
 
 
 @require_safe
+def project_revision(request, pk):
+    """Same-project staleness stamp for focus/visibility revalidation (no providers)."""
+    from literature.services.metrics_service import project_revision as stamp
+
+    project = get_object_or_404(Project, pk=pk)
+    return JsonResponse({"revision": stamp(project)})
+
+
+@require_safe
 def chart_entries(request, pk):
     """Yearly points mean IN the year; cumulative points mean THROUGH the year."""
     project = get_object_or_404(Project, pk=pk)

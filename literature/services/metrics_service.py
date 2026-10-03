@@ -13,6 +13,10 @@
 # Regular library imports
 from __future__ import annotations
 
+import hashlib
+import json
+import re
+
 # Custom library Imports
 from django.db.models import Count, Q
 
@@ -22,6 +26,89 @@ from literature.services.screening_service import final_decisions, pending_refer
 # ------------------------------------------------------------------------ #
 # Metrics
 # ------------------------------------------------------------------------ #
+
+# --- Current displayed sources (distinct papers, not import history) ---
+def display_sources(sources) -> list[str]:
+    """Current table display: legacy literal `manual` is an entry method, shown blank."""
+    return [str(s) for s in (sources or []) if str(s) != "manual" and str(s).strip()]
+
+
+# --- Current-state source projection ---
+def current_source_counts(project) -> dict:
+    """Distinct current-project papers per known source + blank count.
+
+    Multi-source papers count once per listed source (bars, not a pie), so
+    per-source bars may sum past the distinct-paper total. Blank means the
+    current display is empty even when historical `manual` audits remain.
+    """
+    from literature.models import Paper
+
+    paper_ids = set(
+        Discovery.objects.filter(search__project=project).values_list(
+            "paper_id", flat=True
+        )
+    )
+    per_source: dict[str, int] = {}
+    blank = 0
+    for sources in Paper.objects.filter(pk__in=paper_ids).values_list("sources", flat=True) if paper_ids else []:
+        shown = display_sources(sources)
+        if not shown:
+            blank += 1
+        for source in set(shown):
+            per_source[source] = per_source.get(source, 0) + 1
+    return {"per_source": per_source, "blank": blank, "unique": len(paper_ids)}
+
+
+# --- Same-project revision stamp (no schema change) ---
+def project_revision(project) -> str:
+    """Fingerprint committed project content, including edits without timestamps."""
+    from literature.models import (
+        OpenCitationsLookup,
+        Paper,
+        PaperKeywordAssignment,
+        Project,
+        ScreeningRevision,
+        Search,
+        Stage,
+        SurveyCitation,
+        SurveyEntry,
+    )
+    from literature.services.reference_service import normalize_doi
+    from literature.services.survey_graph_service import citation_key
+
+    entries = SurveyEntry.objects.filter(project=project)
+    papers = Paper.objects.filter(
+        Q(discoveries__search__project=project) | Q(surveyentry__project=project)
+        | Q(decisions__stage__project=project) | Q(revisions__stage__project=project)
+        | Q(keyword_assignments__project=project)
+    ).distinct()
+    dois = {normalize_doi(doi) for doi in papers.values_list("doi", flat=True) if doi}
+    for ids in papers.values_list("source_ids", flat=True):
+        match = re.fullmatch(r"(\d{4}\.\d{4,5})(?:v\d+)?", str((ids or {}).get("arxiv") or ""))
+        if match:
+            dois.add("10.48550/arxiv." + match.group(1))
+    for doi, aliases in entries.values_list("doi", "identity_aliases"):
+        dois.update(key for alias in [doi, *(aliases or [])]
+                    if (key := citation_key(alias)).startswith("10."))
+    queries = (
+        Project.objects.filter(pk=project.pk), Search.objects.filter(project=project),
+        SearchRun.objects.filter(search__project=project),
+        Discovery.objects.filter(search__project=project), papers,
+        Stage.objects.filter(project=project),
+        ScreeningDecision.objects.filter(stage__project=project),
+        ScreeningRevision.objects.filter(stage__project=project),
+        PaperKeywordAssignment.objects.filter(project=project), entries,
+        SurveyCitation.objects.filter(citing__project=project),
+        OpenCitationsLookup.objects.filter(doi__in=dois),
+    )
+    # ponytail: O(project content) polling; a stored revision if profiling warrants it.
+    digest = hashlib.sha256()
+    for query in queries:
+        digest.update(query.model._meta.label.encode())
+        for row in query.order_by("pk").values().iterator():
+            digest.update(json.dumps(row, sort_keys=True, default=str).encode())
+    return digest.hexdigest()
+
 
 # --- Build metrics ---
 def build_metrics(project) -> dict:
@@ -95,6 +182,8 @@ def build_metrics(project) -> dict:
 
     return {
         "per_source": per_source,
+        "current": current_source_counts(project),
+        "revision": project_revision(project),
         "total_identified": total_identified,
         "total_dups": total_dups,
         "total_no_abstract": total_no_abstract,

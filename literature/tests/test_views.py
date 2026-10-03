@@ -144,6 +144,12 @@ class ViewTests(TestCase):
             self.assertContains(response, 'href="#main-content"')
             self.assertContains(response, 'aria-label="Main navigation"')
             self.assertContains(response, '@media (max-width: 650px)')
+            self.assertContains(
+                response,
+                '.site-header__inner, .site-main, .messages '
+                '{ width: max(80%, min(92%, 1100px)); }',
+            )
+            self.assertNotContains(response, 'max-width: 1100px')
             self.assertContains(response, "Local Survey Research Filter")
             self.assertContains(response, "Aerospace Engineering Research &amp; Operation Systems (AERO-Sys) group")
             self.assertContains(response, 'id="theme-toggle"')

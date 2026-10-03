@@ -1,0 +1,48 @@
+{% load static %}
+<section aria-label="Curated survey graph and entries">
+  <div class="card" id="curated-survey-plot">
+    <h2>Curated survey graph</h2>
+    <p class="meta">Same readability-first citation-network style as “How your kept papers link together”, separate from the automatic draft. Spacing and clear links take priority; years only loosely orient groups, never force nodes into rows. Each circle shows the year and your ref ID [x]. Pan, zoom or scroll horizontally; hover over a line midpoint for citing → cited direction, or hover/click a node for selectable details. Cycles and multiple links are allowed.</p>
+    <p class="meta">{{ survey_entries|length }} chosen entries · {{ survey_automatic_count }} automatically matched links. Manual links are selected in each entry's <strong>Links to</strong> field. Unresolved bibliography text never invents a link.</p>
+    {{ survey_plot|safe }}
+  </div>
+  <div class="page-actions"><a class="button-link" href="{% url 'survey_entry_add' project.pk %}" data-survey-entry data-survey-title="Add entry">+ Add entry</a></div>
+  <div class="card table-scroll" id="curated-survey-entries">
+    <h2>Survey entries</h2>
+    <table>
+      <caption class="meta">Editable survey snapshots — the draft library and screening decisions are unchanged.</caption>
+      <thead><tr><th scope="col">Title</th><th scope="col">Authors</th><th scope="col">Year</th><th scope="col">Journal</th><th scope="col">Ref ID</th><th scope="col">Added from</th><th scope="col">Actions</th></tr></thead>
+      <tbody>
+      {% for entry in survey_entries %}
+        <tr>
+          <td>{{ entry.title }}{% if entry.doi %}<br><span class="meta">{{ entry.doi }}</span>{% endif %}</td>
+          <td>{{ entry.authors|default:"—"|linebreaksbr }}</td><td>{{ entry.publication_year|default:"?" }}</td>
+          <td>{{ entry.venue|default:"—" }}</td><td>[{{ entry.reference_number }}]</td>
+          <td>{{ entry.get_inclusion_origin_display }}</td>
+          <td>
+            <a href="{% url 'survey_entry_edit' project.pk entry.pk %}" data-survey-entry data-survey-title="Edit entry [{{ entry.reference_number }}]">Edit / links</a>
+            <details>
+              <summary aria-label="Delete entry [{{ entry.reference_number }}]" title="Delete entry [{{ entry.reference_number }}]">
+                <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg>
+                <span class="meta">Delete</span>
+              </summary>
+              <p>Are you sure you want to remove [{{ entry.reference_number }}] from the curated graph? Its manual links will also be removed. The draft paper and decisions will stay unchanged.</p>
+              <form method="post" action="{% url 'survey_graph' project.pk %}">{% csrf_token %}
+                <input type="hidden" name="action" value="remove_entry"><input type="hidden" name="entry_id" value="{{ entry.pk }}">
+                <button type="submit" class="button-danger">Yes, delete entry [{{ entry.reference_number }}]</button>
+              </form>
+              <p class="meta">Close this confirmation without pressing Delete to cancel.</p>
+            </details>
+          </td>
+        </tr>
+      {% empty %}<tr><td colspan="7">No entries yet. Use Add entry to select a project paper, look up a DOI or enter details manually.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+<dialog id="survey-entry-dialog" aria-labelledby="survey-entry-dialog-title" style="width:min(94vw,60rem);max-height:94vh;padding:1rem;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:0.8rem;">
+  <form method="dialog"><button autofocus>Close / cancel</button></form>
+  <h2 id="survey-entry-dialog-title">Add entry</h2>
+  <iframe id="survey-entry-frame" title="Survey entry editor" style="display:block;width:100%;height:70vh;border:0;"></iframe>
+</dialog>
+<script src="{% static 'literature/survey_entry_dialog.js' %}" defer></script>

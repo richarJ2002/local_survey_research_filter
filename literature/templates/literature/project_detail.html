@@ -16,8 +16,10 @@
   {% endif %}
 </header>
 <div class="page-actions"><a class="button-link" href="{% url 'search_create' project.pk %}">+ New search</a><a class="button-link button-link--secondary" href="{% url 'plots_view' project.pk %}">View charts</a><a class="link-danger" href="{% url 'project_delete' project.pk %}">Delete project</a></div>
+<span hidden data-project-revision-url="{% url 'project_revision' project.pk %}" data-revision="{{ metrics.revision }}"></span>
 
 <h2>How papers were found (audit)</h2>
+<p class="meta">This is historical import activity, including duplicate hits. Later source corrections do not rewrite earlier audits; “Unspecified at import” does not mean a paper still has a blank current source.</p>
 <div class="stats-grid" role="group" aria-label="Project at a glance">
   <div class="stat"><strong class="stat__value">{{ metrics.total_identified }}</strong><span class="stat__label">Records found</span></div>
   <div class="stat"><strong class="stat__value">{{ metrics.unique_total }}</strong><span class="stat__label">Unique papers</span></div>
@@ -79,17 +81,18 @@
 {% endfor %}
 
 <h2 id="plots">Charts</h2>
-<p class="meta">Same dashboard as the <a href="{% url 'plots_view' project.pk %}">full charts page</a> — <a href="{% url 'plots_download' project.pk %}">download all</a>. Each chart has its own download button (camera icon).</p>
+<p class="meta">Same dashboard as the <a href="{% url 'plots_view' project.pk %}">Current charts page</a> — <a href="{% url 'plots_download' project.pk %}">download current charts</a>. Historical source pies are available separately in <a href="{% url 'plots_view' project.pk %}?lens=history">Audit / History</a>. Each chart has its own download button (camera icon).</p>
 {% if has_data %}
+<script src="{% url 'plotly_js' %}?v={{ plotly_version }}"></script>
+<p class="meta">Charts render with Plotly v{{ plotly_version }} served locally by this app — no internet needed.</p>
 <div class="card"><h2>Hits per keyword</h2><p class="meta">Bars sit on top of each other. The ring left around a colour = papers lost at that check.</p>{{ keyword_plot|safe }}</div>
-<div class="card"><h2>Raw records by source</h2><p class="meta">Share of all returned records.</p>{{ source_raw_plot|safe }}</div>
-<div class="card"><h2>Duplicate removals by source</h2><p class="meta">Share of duplicate hits; hover for each source's removal rate.</p>{{ source_duplicates_plot|safe }}</div>
+<div class="card"><h2>Current papers by source</h2><p class="meta">Distinct current papers per displayed source ({{ metrics.current.unique }} papers; {{ metrics.current.blank }} with a blank source). Multi-source papers appear in each matching bar. Blank status is current display data, not import history. <a href="{% url 'papers_view' project.pk %}?sort=source&amp;direction=asc">View current papers sorted by source →</a></p>{{ current_source_plot|safe }}</div>
 <div class="card"><h2>How papers flow through each check</h2>{{ funnel_plot|safe }}</div>
 <div class="card"><h2>Running totals by year at each step</h2><p class="meta">The final kept line excludes papers still awaiting references. Reference-related rejections count as Abstract rejections.</p>{{ stage_plot|safe }}</div>
 <div class="card"><h2>Papers per year</h2>{{ yearly_plot|safe }}</div>
 <div class="card">
   <h2>How your kept papers link together</h2>
-  <p class="meta">{{ citation_nodes }} papers, {{ citation_edges }} direct citation links. Selected papers are explored newest first, backward through the papers they cite. The year appears inside each circle; size indicates citation count. Pan, zoom, or scroll horizontally; hover over an edge midpoint to see who cites whom. {% if citation_missing_references %}{{ citation_missing_references }} project papers have no resolved reference identifiers, so links may be missing even when a bibliography was pasted. {% endif %}Tune the number of steps or show only the shortest-path backbone on the <a href="{% url 'plots_view' project.pk %}">full charts page</a>.</p>
+  <p class="meta">{{ citation_nodes }} papers, {{ citation_edges }} direct citation links. Selected papers are explored newest first, backward through the papers they cite. The drawing prioritises clear spacing and fewer crossings; years are a soft orientation preference, not fixed rows. The year appears inside each circle; size indicates citation count. The plot fills the available width, with scrolling for crowded diagrams. Pan or zoom; hover over an edge midpoint to see who cites whom, or hover/click a node for selectable paper details. {% if citation_missing_references %}{{ citation_missing_references }} project papers have no resolved reference identifiers, so links may be missing even when a bibliography was pasted. {% endif %}Tune the number of steps or show only the shortest-path backbone on the <a href="{% url 'plots_view' project.pk %}">full charts page</a>.</p>
   <ul class="meta" aria-label="Circle colour key" style="list-style:none;padding-left:0;">
     <li><span aria-hidden="true" style="display:inline-block;width:0.8em;height:0.8em;border-radius:50%;background:#3f7e3f;"></span> <strong>Green</strong> — your selected (kept) papers.</li>
     <li><span aria-hidden="true" style="display:inline-block;width:0.8em;height:0.8em;border-radius:50%;background:#8a8a8a;"></span> <strong>Grey</strong> — papers on a direct-citation path joining selected papers.</li>

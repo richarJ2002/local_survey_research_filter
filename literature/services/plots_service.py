@@ -13,8 +13,11 @@
 # Regular library imports
 from __future__ import annotations
 
+from collections import deque
 from html import escape
-from math import log1p
+from itertools import combinations, islice
+from math import ceil, cos, exp, fsum, hypot, isfinite, log1p, pi, sin, sqrt
+from random import Random
 
 # Custom library Imports
 import plotly.graph_objects as go
@@ -28,7 +31,7 @@ def build_keyword_figure(counts: dict[str, dict[str, int]]) -> str:
     """Grouped bars per keyword: Found vs Title Yes vs Abstract Yes.
 
     Plain English labels; muted colours; decreasing heights show filtering.
-    Returns an embeddable HTML div (Plotly.js via CDN).
+    Returns an embeddable HTML div (Plotly.js loaded locally from the app).
     """
     keywords = list(counts.keys())
     found = [counts[k]["found"] for k in keywords]
@@ -69,7 +72,7 @@ def build_keyword_figure(counts: dict[str, dict[str, int]]) -> str:
         legend_title="Step",
         margin=dict(b=200),
     )
-    return fig.to_html(full_html=False, include_plotlyjs="cdn")
+    return fig.to_html(full_html=False, include_plotlyjs=False)
 
 
 # ------------------------------------------------------------------------ #
@@ -102,7 +105,7 @@ def source_pie_figure(
         "publisher": "Publisher / journal website",
         "reference_list": "Reference list",
         "other": "Other source",
-        "manual": "Unspecified origin (legacy)",
+        "manual": "Unspecified at import (historical)",
     }
     colors = {
         "openalex": "#4c78a8",
@@ -133,7 +136,9 @@ def source_pie_figure(
             marker=dict(colors=[colors.get(key, "#718096") for key in ordered]),
             customdata=rates,
             textinfo="label+percent",
-            hovertemplate=hover + "<extra></extra>",
+            hovertemplate=(
+                hover + "<br>Historical import audit; not current missing-source status.<extra></extra>"
+            ),
         ))
     else:
         fig.add_annotation(
@@ -145,12 +150,64 @@ def source_pie_figure(
     return fig
 
 
+# --- Current-state source bars (distinct papers; multi-source explicit) ---
+def current_source_figure(current: dict) -> go.Figure:
+    """Bars per current displayed source plus an unknown bar; never a pie.
+
+    A paper with several sources counts once per bar, so bar heights may sum
+    past the distinct-paper total. Blank counts only current display gaps.
+    """
+    names = {
+        "openalex": "OpenAlex",
+        "semantic_scholar": "Semantic Scholar",
+        "crossref": "Crossref",
+        "arxiv": "arXiv",
+        "google_scholar": "Google Scholar",
+        "publisher": "Publisher / journal website",
+        "reference_list": "Reference list",
+        "other": "Other source",
+    }
+    per_source = (current or {}).get("per_source", {})
+    blank = int((current or {}).get("blank", 0) or 0)
+    unique = int((current or {}).get("unique", 0) or 0)
+    ordered = [key for key in names if key in per_source]
+    ordered.extend(sorted(set(per_source) - set(names)))
+    labels = [names.get(key, key) for key in ordered] + ["Unknown (blank source)"]
+    values = [max(0, int(per_source.get(key, 0) or 0)) for key in ordered] + [max(0, blank)]
+    fig = go.Figure()
+    if unique or any(values):
+        fig.add_bar(
+            x=labels,
+            y=values,
+            marker_color="#4c78a8",
+            hovertemplate="Source: %{x}<br>Distinct papers: %{y}<extra></extra>",
+        )
+    else:
+        fig.add_annotation(
+            text="No papers in this project yet", x=0.5, y=0.5,
+            xref="paper", yref="paper", showarrow=False,
+        )
+    fig.update_layout(
+        title=f"Current papers by source ({unique} distinct papers)",
+        xaxis_title="Source (current display; one paper may appear in several bars)",
+        yaxis_title="Distinct papers",
+        xaxis_tickangle=-30,
+        margin=dict(l=40, r=40, t=80, b=180),
+    )
+    return fig
+
+
+def build_current_source_bars(current: dict) -> str:
+    """One embeddable current-state bar chart with its own download button."""
+    return current_source_figure(current).to_html(full_html=False, include_plotlyjs=False)
+
+
 def build_source_pie(
     per_source: dict[str, dict[str, int]], *, metric: str = "results",
 ) -> str:
     """One embeddable Plotly pie with its own camera download button."""
     fig = source_pie_figure(per_source, metric=metric)
-    return fig.to_html(full_html=False, include_plotlyjs="cdn")
+    return fig.to_html(full_html=False, include_plotlyjs=False)
 
 
 # --- Filtering flow (PRISMA-style Sankey, left to right) ---
@@ -211,7 +268,7 @@ def build_funnel_figure(metrics: dict) -> str:
     if metrics.get("title_not_queued", 0):
         fig.add_annotation(text=f"{metrics['title_not_queued']} stored papers are not queued for Title screening.<br>They are not pending decisions or rejections; missing titles need completion.", xref="paper", yref="paper", x=0, y=0, yshift=-70, xanchor="left", yanchor="top", showarrow=False)
         fig.update_layout(margin={"b": 120})
-    return fig.to_html(full_html=False, include_plotlyjs="cdn")
+    return fig.to_html(full_html=False, include_plotlyjs=False)
 
 
 # --- Papers per year ---
@@ -252,7 +309,7 @@ def build_yearly_figure(data) -> str:
         )
         for trace, step in zip(fig.data, ("found", "title", "abstract")):
             trace.customdata = [[step, "year", year] for year in years]
-        return fig.to_html(full_html=False, include_plotlyjs="cdn", post_script="window.dispatchEvent(new CustomEvent('survey-chart-ready', {detail: '{plot_id}'}));")
+        return fig.to_html(full_html=False, include_plotlyjs=False, post_script="window.dispatchEvent(new CustomEvent('survey-chart-ready', {detail: '{plot_id}'}));")
     years_list = list(data) if isinstance(data, (list, tuple)) else []
     counts = Counter(y for y in years_list if y)
     ordered = sorted(counts)
@@ -269,7 +326,7 @@ def build_yearly_figure(data) -> str:
         xaxis_title="Year",
         yaxis_title="Number of papers",
     )
-    return fig.to_html(full_html=False, include_plotlyjs="cdn")
+    return fig.to_html(full_html=False, include_plotlyjs=False)
 
 
 # ------------------------------------------------------------------------ #
@@ -309,7 +366,7 @@ def build_stage_cumulative_figure(data: dict) -> str:
             margin={"b": 180},
         )
         fig.add_annotation(**footer)
-        return fig.to_html(full_html=False, include_plotlyjs="cdn")
+        return fig.to_html(full_html=False, include_plotlyjs=False)
 
     def _trace(name: str, values: list[int], color: str) -> go.Scatter:
         return go.Scatter(
@@ -357,145 +414,383 @@ def build_stage_cumulative_figure(data: dict) -> str:
     fig.update_layout(margin={"b": 180})
     for trace, step in zip(fig.data, ("found", "title", "abstract")):
         trace.customdata = [[step, "through", year] for year in years]
-    return fig.to_html(full_html=False, include_plotlyjs="cdn", post_script="window.dispatchEvent(new CustomEvent('survey-chart-ready', {detail: '{plot_id}'}));")
+    return fig.to_html(full_html=False, include_plotlyjs=False, post_script="window.dispatchEvent(new CustomEvent('survey-chart-ready', {detail: '{plot_id}'}));")
 
 
 # ------------------------------------------------------------------------ #
 # Citation network (2D)
 # ------------------------------------------------------------------------ #
 
-# --- Backward citation positions ---
-def family_positions(nodes: list[dict], edges: list) -> tuple[dict[int, tuple[float, float]], set[int]]:
-    """Lay out clusters with newer papers above older ones and fewer crossings.
+# --- Readability-first citation positions ---
+def _layout_quality(
+    points: dict[int, tuple[float, float]], edges: list
+) -> tuple[tuple[int, int, float], set[int]]:
+    """Score proper crossings, unrelated nodes near edges, then squared edge length.
 
-    Year ranks are evenly spaced rather than plotted on a calendar axis.
-    Repeated barycentric sweeps group linked neighbours; for modest graphs
-    keep the best layout measured by straight-line edge intersections.
+    Coordinates are dimensionless display units. Shared endpoints are not
+    crossings; 0.8 units keeps unrelated lines clear of the bounded markers.
+    The small orientation tolerance avoids counting floating-point collinearity.
     """
-    neighbour: dict[int, set[int]] = {n["id"]: set() for n in nodes}
+    crossings = intrusions = 0
+    trouble: set[int] = set()
+
+    def side(a: int, b: int, c: int) -> float:
+        ax, ay = points[a]
+        bx, by = points[b]
+        cx, cy = points[c]
+        return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
+
+    for (a, b), (c, d) in combinations(edges, 2):
+        if len({a, b, c, d}) == 4 and (
+            side(a, b, c) * side(a, b, d) < -1e-9 and side(c, d, a) * side(c, d, b) < -1e-9
+        ):
+            crossings += 1
+            trouble.update((a, b, c, d))
+    lengths = []
+    for a, b in edges:
+        ax, ay = points[a]
+        dx, dy = points[b][0] - ax, points[b][1] - ay
+        length_squared = dx * dx + dy * dy
+        lengths.append(length_squared)
+        for pk, (x, y) in points.items():
+            if pk in (a, b):
+                continue
+            t = max(0.0, min(1.0, ((x - ax) * dx + (y - ay) * dy) / max(length_squared, 1e-9)))
+            if (x - ax - t * dx) ** 2 + (y - ay - t * dy) ** 2 < 0.8**2:
+                intrusions += 1
+                trouble.add(pk)
+    return (crossings, intrusions, fsum(lengths)), trouble
+
+
+def _spaced_positions(
+    points: dict[int, tuple[float, float]], *, shrink: bool = False
+) -> dict[int, tuple[float, float]]:
+    """Guarantee at least 2.5 display units between centres by uniform scaling."""
+    if any(not isfinite(value) for point in points.values() for value in point):
+        raise ValueError("Non-finite graph coordinates.")
+    distance = min(
+        (hypot(a[0] - b[0], a[1] - b[1]) for a, b in combinations(points.values(), 2)), default=2.5
+    )
+    if distance < 1e-6:
+        raise ValueError("Coincident graph coordinates.")
+    scale = 2.5 / distance if shrink else max(1.0, 2.5 / distance)
+    spaced = {pk: (x * scale, y * scale) for pk, (x, y) in points.items()}
+    if any(not isfinite(value) for point in spaced.values() for value in point):
+        raise ValueError("Graph coordinate scaling overflow.")
+    return spaced
+
+
+def _spring_positions(order: list[int], edges: list) -> dict[int, tuple[float, float]]:
+    """Bounded, deterministic Fruchterman–Reingold-style settling, not physical simulation.
+
+    Repulsion is k²/d; connected nodes attract with d²/k, k=2.5 display units.
+    Cooling bounds each displacement. No year enters these forces.
+    """
+    radius = 2.5 * sqrt(len(order)) / 2
+    points = {order[0]: (0.0, 0.0)}
+    for index, pk in enumerate(order[1:]):
+        angle = 2 * pi * index / max(1, len(order) - 1)
+        points[pk] = (radius * cos(angle), radius * sin(angle))
+    best = _spaced_positions(points)
+    best_score = _layout_quality(best, edges)[0] if len(edges) <= 250 else None
+    for step in range(80):
+        movement = {pk: [0.0, 0.0] for pk in order}
+        for a, b in combinations(order, 2):
+            dx, dy = points[a][0] - points[b][0], points[a][1] - points[b][1]
+            strength = 2.5**2 / max(dx * dx + dy * dy, 1e-9)
+            for axis, delta in enumerate((dx * strength, dy * strength)):
+                movement[a][axis] += delta
+                movement[b][axis] -= delta
+        for a, b in edges:
+            dx, dy = points[a][0] - points[b][0], points[a][1] - points[b][1]
+            strength = hypot(dx, dy) / 2.5
+            for axis, delta in enumerate((dx * strength, dy * strength)):
+                movement[a][axis] -= delta
+                movement[b][axis] += delta
+        temperature = 1.2 * (1 - step / 80) + 0.015
+        for pk in order:
+            dx, dy = movement[pk]
+            factor = min(1.0, temperature / max(hypot(dx, dy), 1e-9))
+            points[pk] = (points[pk][0] + dx * factor, points[pk][1] + dy * factor)
+        if best_score is not None and step % 10 == 9:
+            candidate = _spaced_positions(points)
+            score, _ = _layout_quality(candidate, edges)
+            if score < best_score:
+                best, best_score = candidate, score
+    return best if best_score is not None else _spaced_positions(points)
+
+
+def _topology_positions(
+    order: list[int], neighbour: dict[int, set[int]]
+) -> dict[int, tuple[float, float]]:
+    """A noncrossing tree scaffold is only a candidate; every real cyclic edge is still scored/drawn."""
+    children = {pk: [] for pk in order}
+    depth = {order[0]: 0}
+    for pk in order:
+        for child in sorted(neighbour[pk]):
+            if child not in depth:
+                depth[child] = depth[pk] + 1
+                children[pk].append(child)
+    points = {}
+    stack = [(order[0], False)]
+    cursor = 0.0
+    while stack:
+        pk, ready = stack.pop()
+        if not ready and children[pk]:
+            stack.append((pk, True))
+            stack.extend((child, False) for child in reversed(children[pk]))
+        else:
+            x = (
+                fsum(points[child][0] for child in children[pk]) / len(children[pk])
+                if children[pk]
+                else cursor
+            )
+            points[pk] = (x, -2.5 * depth[pk])
+            if not children[pk]:
+                cursor += 2.5
+    return points
+
+
+def _repair_positions(
+    points: dict[int, tuple[float, float]], edges: list, neighbour: dict[int, set[int]]
+) -> dict[int, tuple[float, float]]:
+    """Escape crossing-repair local minima, retaining the best lexicographic score.
+
+    Temporary uphill moves are allowed during cooling, but the returned result
+    never worsens crossings/clearance. Work is bounded by graph size; this is a
+    deterministic heuristic, not a claim of an optimal drawing for every graph.
+    """
+    best_score, trouble = _layout_quality(points, edges)
+    if best_score[:2] == (0, 0):
+        return points
+    best = dict(points)
+    score = best_score
+    rng = Random(7)
+    work = len(points) ** 2 + len(edges) ** 2 + len(points) * len(edges)
+    trials = max(16, min(2400, 4_000_000 // max(1, work)))
+    for step in range(trials):
+        pk = rng.choice(sorted(trouble or points))
+        adjacent = sorted(neighbour[pk])
+        cx = fsum(points[other][0] for other in adjacent) / len(adjacent)
+        cy = fsum(points[other][1] for other in adjacent) / len(adjacent)
+        clear = best_score[:2] == (0, 0)
+        if clear:
+            # Once readable, compact within the same planar drawing; never trade crossings for size.
+            cx = points[pk][0] * 0.75 + cx * 0.25
+            cy = points[pk][1] * 0.75 + cy * 0.25
+        radius = 0.8 if clear else max(2.5, sqrt(score[2] / max(1, len(edges))))
+        angle = rng.random() * 2 * pi
+        distance = radius * rng.uniform(0.3, 1.5)
+        candidate = dict(points)
+        candidate[pk] = (cx + distance * cos(angle), cy + distance * sin(angle))
+        try:
+            candidate = _spaced_positions(candidate, shrink=clear)
+        except ValueError:
+            continue
+        candidate_score, candidate_trouble = _layout_quality(candidate, edges)
+        if candidate_score < best_score:
+            best, best_score = candidate, candidate_score
+            if best_score[:2] == (0, 0):
+                points, score, trouble = best, best_score, candidate_trouble
+                continue
+        if clear:
+            continue
+        energy = score[0] * 1000 + score[1] * 20 + score[2] * 0.01
+        candidate_energy = (
+            candidate_score[0] * 1000 + candidate_score[1] * 20 + candidate_score[2] * 0.01
+        )
+        temperature = 1400 * (1 - step / trials) ** 2 + 0.1
+        if candidate_energy <= energy or rng.random() < exp(
+            min(0.0, (energy - candidate_energy) / temperature)
+        ):
+            points, score, trouble = candidate, candidate_score, candidate_trouble
+    return best
+
+
+def family_positions(
+    nodes: list[dict], edges: list
+) -> tuple[dict[int, tuple[float, float]], set[int]]:
+    """Space and pack citation clusters; chronology only chooses a rigid orientation.
+
+    Crossing/clearance scores outrank compactness. Rotating a completed group
+    towards a loose year trend cannot change its crossings or node spacing.
+    Returned starting-paper IDs retain the existing newest-selected semantics.
+    """
+    by_id = {n["id"]: n for n in nodes}
+    neighbour: dict[int, set[int]] = {pk: set() for pk in by_id}
     for src, tgt in edges:
-        if src in neighbour and tgt in neighbour:
+        if src in neighbour and tgt in neighbour and src != tgt:
             neighbour[src].add(tgt)
             neighbour[tgt].add(src)
-    component_of: dict[int, int] = {}
-    components: list[set[int]] = []
-    for node in sorted(nodes, key=lambda n: n["id"]):
-        if node["id"] in component_of:
-            continue
-        stack = [node["id"]]
-        current: set[int] = set()
-        while stack:
-            cur = stack.pop()
-            if cur in component_of:
-                continue
-            component_of[cur] = len(components)
-            current.add(cur)
-            stack.extend(sorted(neighbour.get(cur, ()) - set(component_of), reverse=True))
-        components.append(current)
-    by_id = {n["id"]: n for n in nodes}
-    dated = [n["year"] for n in nodes if n["year"]]
-    undated_row = min(dated) - 1 if dated else 0
-    # Roots: newest selected paper(s) of each component. An undated-only
-    # cluster gets a stable starting paper without inventing a year.
+    links = sorted({tuple(sorted((a, b))) for a in neighbour for b in neighbour[a]})
+    unseen = set(by_id)
+    clusters = []
     roots: set[int] = set()
-    for members in components:
+    for start in sorted(by_id):
+        if start not in unseen:
+            continue
+        stack = [start]
+        members = set()
+        while stack:
+            pk = stack.pop()
+            if pk not in unseen:
+                continue
+            unseen.remove(pk)
+            members.add(pk)
+            stack.extend(sorted(neighbour[pk] & unseen, reverse=True))
         selected = [pk for pk in members if by_id[pk].get("is_seed")] or list(members)
-        dated_selected = [pk for pk in selected if by_id[pk]["year"] is not None]
+        dated_selected = [pk for pk in selected if by_id[pk].get("year") is not None]
         if dated_selected:
             newest_year = max(by_id[pk]["year"] for pk in dated_selected)
             roots.update(pk for pk in dated_selected if by_id[pk]["year"] == newest_year)
         else:
             roots.add(min(selected))
-    positions: dict[int, tuple[float, float]] = {}
-    offset = 0.0
-    spacing = 2.5
-    for members in components:
-        rows: dict[int, list[int]] = {}
-        for pk in members:
-            rows.setdefault(by_id[pk]["year"] or undated_row, []).append(pk)
-        years = sorted(rows, reverse=True)
-        order = {year: sorted(rows[year]) for year in years}
-        width = max(len(row) for row in rows.values())
-
-        def slots() -> dict[int, float]:
-            return {
-                pk: (width - len(row)) / 2 + i
-                for row in order.values() for i, pk in enumerate(row)
+        hub = min(members, key=lambda pk: (-len(neighbour[pk]), pk))
+        queue = deque([hub])
+        order, visited = [], {hub}
+        while queue:
+            pk = queue.popleft()
+            order.append(pk)
+            for other in sorted(neighbour[pk]):
+                if other not in visited:
+                    visited.add(other)
+                    queue.append(other)
+        component_edges = [(a, b) for a, b in links if a in members]
+        # ponytail: bound settling to 200 nodes/250 edges; use a spaced topology grid beyond that.
+        # A specialised large-graph layouter is the upgrade path, not unbounded request-time search.
+        if len(order) > 200 or len(component_edges) > 250:
+            columns = ceil(sqrt(len(order) * 1.6))
+            points = {
+                pk: (
+                    2.5
+                    * (
+                        index % columns
+                        if (index // columns) % 2 == 0
+                        else columns - 1 - index % columns
+                    ),
+                    -2.5 * (index // columns),
+                )
+                for index, pk in enumerate(order)
             }
-
-        component_edges = [(src, tgt) for src, tgt in edges if src in members and tgt in members]
-        rank = {year: float(len(years) - i) for i, year in enumerate(years)}
-
-        def crossing_count() -> int:
-            x = slots()
-            points = {pk: (x[pk], rank[by_id[pk]["year"] or undated_row]) for pk in members}
-
-            def turn(a: int, b: int, c: int) -> float:
-                ax, ay = points[a]
-                bx, by = points[b]
-                cx, cy = points[c]
-                return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
-
-            count = 0
-            for i, (a, b) in enumerate(component_edges):
-                for c, d in component_edges[i + 1:]:
-                    if len({a, b, c, d}) == 4 and (
-                        turn(a, b, c) * turn(a, b, d) < 0
-                        and turn(c, d, a) * turn(c, d, b) < 0
-                    ):
-                        count += 1
-            return count
-
-        score_layout = len(component_edges) <= 250
-        best = {year: list(row) for year, row in order.items()}
-        best_crossings = crossing_count() if score_layout else 0
-        for _ in range(4):
-            for sweep in (years[1:], list(reversed(years[:-1]))):
-                for year in sweep:
-                    x = slots()
-                    previous = {pk: i for i, pk in enumerate(order[year])}
-
-                    def barycenter(pk: int) -> tuple[float, int, int]:
-                        linked = [x[other] for other in neighbour[pk]
-                                  if other in x and (by_id[other]["year"] or undated_row) != year]
-                        return (sum(linked) / len(linked) if linked else x[pk],
-                                previous[pk], pk)
-
-                    order[year].sort(key=barycenter)
-            if score_layout:
-                crossings = crossing_count()
-                if crossings < best_crossings:
-                    best_crossings = crossings
-                    best = {year: list(row) for year, row in order.items()}
-        if score_layout:
-            order = best
-        for year, row in order.items():
-            for i, pk in enumerate(row):
-                positions[pk] = (offset + ((width - len(row)) / 2 + i) * spacing,
-                                 rank[year])
-        offset += width * spacing + 6
+        else:
+            random_order = sorted(members)
+            Random(0).shuffle(random_order)
+            points = _spaced_positions(_topology_positions(order, neighbour))
+            best_score = (
+                _layout_quality(points, component_edges)[0] if len(component_edges) <= 250 else None
+            )
+            for candidate_order in (order, sorted(members), random_order):
+                candidate = _spring_positions(candidate_order, component_edges)
+                score, trouble = (
+                    _layout_quality(candidate, component_edges)
+                    if len(component_edges) <= 250
+                    else ((0, 0, 0.0), set())
+                )
+                if best_score is None or score < best_score:
+                    points, best_score = candidate, score
+            if len(component_edges) <= 250:
+                # Bounded coordinate exchanges repair crossings without forcing a false tree.
+                score, trouble = _layout_quality(points, component_edges)
+                critical = sorted(trouble, key=lambda pk: (-len(neighbour[pk]), pk))
+                for a, b in islice(combinations(critical, 2), 24):
+                    candidate = dict(points)
+                    candidate[a], candidate[b] = candidate[b], candidate[a]
+                    new_score, _ = _layout_quality(candidate, component_edges)
+                    if new_score < score:
+                        points, score = candidate, new_score
+                _, trouble = _layout_quality(points, component_edges)
+                for pk in sorted(trouble, key=lambda pk: (-len(neighbour[pk]), pk))[:6]:
+                    for dx, dy in ((0.83, 0.63), (0.83, -0.63), (-0.83, 0.63), (-0.83, -0.63)):
+                        candidate = dict(points)
+                        candidate[pk] = (points[pk][0] + dx, points[pk][1] + dy)
+                        try:
+                            candidate = _spaced_positions(candidate)
+                        except ValueError:
+                            continue
+                        new_score, _ = _layout_quality(candidate, component_edges)
+                        if new_score < score:
+                            points, score = candidate, new_score
+                points = _repair_positions(points, component_edges, neighbour)
+        # A rigid rotation aligns the overall year trend; individual papers may still be out of order.
+        dated = [pk for pk in order if by_id[pk].get("year")]
+        if len(dated) > 1:
+            mean_year = fsum(by_id[pk]["year"] for pk in dated) / len(dated)
+            vx = fsum((by_id[pk]["year"] - mean_year) * points[pk][0] for pk in dated)
+            vy = fsum((by_id[pk]["year"] - mean_year) * points[pk][1] for pk in dated)
+            norm = hypot(vx, vy)
+            if norm > 1e-9:
+                # A diagonal trend uses both plot dimensions instead of turning citation chains into thin columns.
+                points = {
+                    pk: (
+                        ((vy + vx) * x + (vy - vx) * y) / (norm * sqrt(2)),
+                        ((vx - vy) * x + (vx + vy) * y) / (norm * sqrt(2)),
+                    )
+                    for pk, (x, y) in points.items()
+                }
+        xmin, xmax = min(x for x, _ in points.values()), max(x for x, _ in points.values())
+        ymin, ymax = min(y for _, y in points.values()), max(y for _, y in points.values())
+        clusters.append((points, xmin, xmax, ymin, ymax))
+    # Pack disconnected groups in shelves, rather than one extremely long strip of tiny clusters.
+    target = max((xmax - xmin + 2.5 for _, xmin, xmax, _, _ in clusters), default=0)
+    target = max(
+        target,
+        sqrt(
+            fsum(
+                (xmax - xmin + 4.5) * (ymax - ymin + 4.5) for _, xmin, xmax, ymin, ymax in clusters
+            )
+            * 1.6
+        ),
+    )
+    positions: dict[int, tuple[float, float]] = {}
+    cursor = row_y = row_height = 0.0
+    for points, xmin, xmax, ymin, ymax in sorted(
+        clusters, key=lambda c: (-(c[2] - c[1] + 2.5) * (c[4] - c[3] + 2.5), min(c[0]))
+    ):
+        width, height = xmax - xmin + 2.5, ymax - ymin + 2.5
+        if cursor and cursor + width > target:
+            cursor = 0.0
+            row_y += row_height + 2.0
+            row_height = 0.0
+        for pk, (x, y) in points.items():
+            positions[pk] = (x - xmin + cursor + 1.25, y - ymax - row_y - 1.25)
+        cursor += width + 2.0
+        row_height = max(row_height, height)
     return positions, roots
 
 
 # --- Citation stories ---
-def build_citation_figure(graph: dict) -> str:
-    """Interactive Plotly citation clusters with directed edge tooltips."""
+def build_citation_figure(graph: dict, *, include_app_script: bool = True) -> str:
+    """Interactive Plotly citation clusters with directed edge tooltips.
+
+    Node traces keep their existing customdata HTML hover text untouched and
+    additionally carry raw per-node dicts in meta.paper_details (aligned with
+    pointNumber) for the shared graph_node_popup.js renderer. Positions follow
+    citation topology; chronology is only a soft orientation preference.
+    Standalone exports pass include_app_script=False: the app-only popup
+    script needs the running app, so exports keep pan/zoom/hover/download
+    and label list links as app-only.
+    """
     nodes = graph.get("nodes", [])
     edges = graph.get("edges", [])
     if not nodes:
         fig = go.Figure()
         fig.update_layout(
             title=graph.get("title", "How your kept papers link together") + " (no papers to show yet)",
-            height=700,
+            height=700, autosize=True,
         )
-        return fig.to_html(full_html=False, include_plotlyjs="cdn")
+        return fig.to_html(full_html=False, include_plotlyjs=False, config={"responsive": True})
 
     by_id = {n["id"]: n for n in nodes}
     positions, roots = family_positions(nodes, edges)
     horizontal_span = max(x for x, _ in positions.values()) - min(
         x for x, _ in positions.values()
     )
-    plot_width = max(1100, min(20000, int((horizontal_span + 4) * 44)))
+    vertical_span = max(y for _, y in positions.values()) - min(y for _, y in positions.values())
+    # 40px/unit makes the 0.8-unit edge clearance 32px from a node centre:
+    # at least ~8px beyond the largest 46px circle and strokes at initial zoom.
+    # ponytail: enlarge the readable canvas, preserving the settled layout and every link.
+    plot_width = max(720, ceil((horizontal_span + 4) * 40 + 80))
+    plot_height = max(700, ceil((vertical_span + 4) * 40 + 180))
 
     inner_x: list[float | None] = []
     inner_y: list[float | None] = []
@@ -560,6 +855,7 @@ def build_citation_figure(graph: dict) -> str:
         sizes: list[float] = []
         texts: list[str] = []
         years_inside: list[str] = []
+        details: list[dict] = []
         for node in nodes:
             if _role(node) != role:
                 continue
@@ -578,6 +874,15 @@ def build_citation_figure(graph: dict) -> str:
             if node.get("reference_number"):
                 circle_text += f"<br>[{node['reference_number']}]"
             years_inside.append(circle_text)
+            details.append(
+                {
+                    "title": str(node.get("title") or ""),
+                    "year": node.get("year"),
+                    "venue": str(node.get("venue") or ""),
+                    "citations": int(node.get("citations") or 0),
+                    "ref": node.get("reference_number"),
+                }
+            )
         if not xs:
             continue
         fig.add_trace(
@@ -596,6 +901,7 @@ def build_citation_figure(graph: dict) -> str:
                 text=years_inside,
                 customdata=texts,
                 hovertemplate="%{customdata}<extra></extra>",
+                meta={"paper_details": details},
             )
         )
     if not edges:
@@ -604,24 +910,29 @@ def build_citation_figure(graph: dict) -> str:
             xref="paper", yref="paper", x=0.5, y=1.08,
             showarrow=False, font=dict(color="#555555"),
         )
-    years = sorted({n["year"] for n in nodes if n["year"]})
-    if any(not n["year"] for n in nodes):
-        years = [(years[0] - 1) if years else 0] + years
     fig.update_layout(
-        title=graph.get("title", "How your kept papers link together") + " (newer above, older below)",
-        height=max(750, min(2200, 450 + 70 * len(years))),
-        width=plot_width,
-        xaxis=dict(visible=False, fixedrange=False),
-        yaxis=dict(visible=False, fixedrange=False),
+        title=graph.get("title", "How your kept papers link together") + " (readability-first layout)",
+        height=plot_height, autosize=True,
+        xaxis={"visible": False, "fixedrange": False, "range": [min(x for x, _ in positions.values()) - 2, max(x for x, _ in positions.values()) + 2]},
+        yaxis={"visible": False, "fixedrange": False, "range": [min(y for _, y in positions.values()) - 2, max(y for _, y in positions.values()) + 2]},
         legend_title="Dot colour",
+        legend={"orientation": "h", "x": 0, "y": 0, "xanchor": "left", "yanchor": "top"},
         dragmode="pan",
-        margin=dict(l=90, r=30, t=80, b=40),
+        margin={"l": 40, "r": 40, "t": 80, "b": 100},
         hovermode="closest",
     )
-    html = fig.to_html(full_html=False, include_plotlyjs="cdn",
-                       config={"responsive": False, "scrollZoom": True})
+    from django.templatetags.static import static
+
+    html = fig.to_html(full_html=False, include_plotlyjs=False,
+                       config={"responsive": True, "scrollZoom": True},
+                       post_script="window.dispatchEvent(new CustomEvent('graph-ready', {detail: '{plot_id}'}));")
+    popup = ""
+    if include_app_script:
+        popup_script = static("literature/graph_node_popup.js")
+        popup = f'<script src="{escape(popup_script)}" defer></script>'
     return (
         '<div role="region" aria-label="Citation graph, scroll horizontally" '
         'tabindex="0" style="max-width:100%;overflow-x:auto">'
-        f"{html}</div>"
+        f'<div style="width:100%;min-width:{plot_width}px">{html}</div></div>'
+        f'{popup}'
     )

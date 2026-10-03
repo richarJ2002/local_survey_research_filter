@@ -69,7 +69,7 @@ document.querySelectorAll("#screening-card button[data-decision]").forEach(btn =
     try {
       const resp = await fetch("{% url 'screening_decide' %}", {
         method: "POST",
-        headers: {"Content-Type": "application/json", "X-CSRFToken": card.querySelector('[name="csrfmiddlewaretoken"]').value},
+        headers: {"Content-Type": "application/json", "X-CSRFToken": card.querySelector('[name="csrfmiddlewaretoken"]').value, "X-Project-Handle": window.__wpHandle ? window.__wpHandle() : ""},
         body: JSON.stringify({paper_id: card.dataset.paperId, stage_id: card.dataset.stageId, decision: btn.dataset.decision}),
       });
       const data = await resp.json();

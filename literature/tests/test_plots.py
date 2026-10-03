@@ -15,6 +15,7 @@ from __future__ import annotations
 
 # Custom library Imports
 from django.test import TestCase
+from django.urls import reverse
 
 from literature.models import Discovery, Paper, Project, ScreeningDecision, Search
 from literature.services.metrics_service import keyword_stage_counts
@@ -103,6 +104,56 @@ class PlotTests(TestCase):
         self.assertEqual(len(empty.data), 0)
         self.assertIn("No records in this category yet", empty.layout.annotations[0].text)
 
+    def test_historical_unspecified_imports_do_not_mean_current_missing_sources(self) -> None:
+        from literature.models import SearchRun
+        from literature.services.metrics_service import build_metrics
+
+        project = Project.objects.create(name="Historical source test")
+        project.ensure_default_stages()
+        search = Search.objects.create(project=project, name="Search")
+        paper = Paper.objects.create(title="Source supplied later", sources=["manual", "arxiv"])
+        run = SearchRun.objects.create(
+            search=search,
+            source="manual",
+            status="completed",
+            results_count=5,
+            new_papers_count=1,
+            duplicates_count=4,
+        )
+        Discovery.objects.create(paper=paper, search=search, source="manual", search_run=run)
+        Discovery.objects.create(paper=paper, search=search, source="arxiv")
+        before = [
+            list(model.objects.values())
+            for model in (Paper, Discovery, SearchRun, ScreeningDecision)
+        ]
+        metrics = build_metrics(project)
+        self.assertEqual(metrics["per_source"]["manual"]["results"], 5)
+        self.assertEqual(metrics["per_source"]["manual"]["dups"], 4)
+        figure = source_pie_figure(metrics["per_source"])
+        self.assertEqual(list(figure.data[0].values), [5])
+        self.assertEqual(list(figure.data[0].labels), ["Unspecified at import (historical)"])
+        self.assertIn("not current missing-source status", figure.data[0].hovertemplate)
+        table = self.client.get(
+            reverse("papers_view", args=[project.pk]), {"sort": "source", "direction": "asc"}
+        )
+        self.assertEqual(table.context["rows"][0]["display_sources"], ["arxiv"])
+        for name in ("project_detail", "plots_view"):
+            response = self.client.get(reverse(name, args=[project.pk]))
+            self.assertNotContains(response, "Unspecified at import (historical)")
+            self.assertNotContains(response, "Raw records by source — historical imports")
+            self.assertContains(response, "View current papers sorted by source")
+        history = self.client.get(reverse("plots_view", args=[project.pk]), {"lens": "history"})
+        self.assertContains(history, "Unspecified at import (historical)")
+        self.assertContains(history, "Raw records by source — historical imports")
+        self.assertNotContains(history, "Current papers by source")
+        self.assertEqual(
+            [
+                list(model.objects.values())
+                for model in (Paper, Discovery, SearchRun, ScreeningDecision)
+            ],
+            before,
+        )
+
     # --- Track table ---
     def test_tracks_table(self) -> None:
         """Linked papers produce a track row with keywords."""
@@ -141,13 +192,21 @@ class PlotTests(TestCase):
         resp = self.client.get(f"/project/{project.pk}/plots/")
         self.assertEqual(resp.status_code, 200)
         self.assertIn("Charts for", resp.content.decode())
+        self.assertIn("plotly-graph-div", resp.context["current_source_plot"])
+        self.assertNotIn("source_raw_plot", resp.context)
+        self.assertNotIn("source_duplicates_plot", resp.context)
+        history = self.client.get(f"/project/{project.pk}/plots/?lens=history")
         for key in ("source_raw_plot", "source_duplicates_plot"):
-            self.assertIn("plotly-graph-div", resp.context[key])
-        self.assertEqual(len({resp.context[key] for key in (
+            self.assertIn("plotly-graph-div", history.context[key])
+        self.assertEqual(len({history.context[key] for key in (
             "source_raw_plot", "source_duplicates_plot",
         )}), 2)
         self.assertNotIn("source_incomplete_plot", resp.context)
         download = self.client.get(f"/project/{project.pk}/plots/download/")
+        self.assertContains(download, "Current papers by source")
+        self.assertNotContains(download, "Where the found records came from")
+        self.assertNotContains(download, "Where duplicate hits were removed")
+        download = self.client.get(f"/project/{project.pk}/plots/download/?lens=history")
         self.assertContains(download, "Where the found records came from")
         self.assertContains(download, "Where duplicate hits were removed")
         self.assertNotContains(download, "Where incomplete papers were excluded")

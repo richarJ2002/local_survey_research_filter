@@ -23,7 +23,8 @@ except ImportError:  # pragma: no cover - dotenv optional in some contexts
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-load_dotenv(BASE_DIR / ".env")
+LOCAL_SURVEY_CREDENTIALS_FILE = Path(os.getenv("LOCAL_SURVEY_CREDENTIALS_FILE") or BASE_DIR / ".env")
+load_dotenv(LOCAL_SURVEY_CREDENTIALS_FILE)
 
 
 # Quick-start development settings - unsuitable for production
@@ -61,6 +62,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'literature.worker.WorkerBindingMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -86,9 +88,15 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# ponytail: one shared SQLite database; projects/ is private storage, not database routing.
-PROJECTS_DIR = BASE_DIR / "projects"
-PROJECTS_DIR.mkdir(mode=0o700, exist_ok=True)
+# Developer commands retain the deliberate shared-store fallback; app roles never do.
+if os.getenv("WP_ROLE", "developer") == "developer":
+    PROJECTS_DIR = BASE_DIR / "projects"
+    if not os.getenv("LOCAL_SURVEY_DB"):
+        PROJECTS_DIR.mkdir(mode=0o700, exist_ok=True)
+else:
+    if not os.getenv("LOCAL_SURVEY_DB"):
+        raise RuntimeError("manager/worker requires an explicit LOCAL_SURVEY_DB; no legacy fallback")
+    PROJECTS_DIR = Path(os.environ["LOCAL_SURVEY_DB"]).parent
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -142,3 +150,23 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 OPENALEX_EMAIL = os.getenv("OPENALEX_EMAIL", "")
 SEMANTIC_SCHOLAR_KEY = os.getenv("SEMANTIC_SCHOLAR_KEY", "")
 OPENCITATIONS_TOKEN = os.getenv("OPENCITATIONS_TOKEN", "")
+
+# WP01.03 worker boundary: immutable manager/worker roles fixed before setup.
+# Signed-cookie sessions in manager/worker processes keep django_session/auth
+# rows out of research stores; developer keeps the legacy DB session backend.
+WP_ROLE = os.getenv("WP_ROLE", "developer")
+WP_PROJECT_UUID = os.getenv("WP_PROJECT_UUID", "")
+WP_WORKER_EPOCH = os.getenv("WP_WORKER_EPOCH", "")
+if WP_ROLE in ("manager", "worker"):
+    SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
+if WP_ROLE == "worker" and WP_PROJECT_UUID and WP_WORKER_EPOCH:
+    # ponytail: distinct names+paths per store epoch; browsers scope cookies,
+    # ports do not. Validation stays server-side in WorkerBindingMiddleware.
+    _WP_SHORT = WP_PROJECT_UUID.replace("-", "")[:8]
+    SESSION_COOKIE_NAME = f"wpsess_{_WP_SHORT}"
+    CSRF_COOKIE_NAME = f"wpcsrft_{_WP_SHORT}"
+    SESSION_COOKIE_PATH = f"/p/{WP_PROJECT_UUID}/{WP_WORKER_EPOCH}/"
+    CSRF_COOKIE_PATH = f"/p/{WP_PROJECT_UUID}/{WP_WORKER_EPOCH}/"
+elif WP_ROLE == "manager":
+    SESSION_COOKIE_NAME = "mgrsessionid"
+    CSRF_COOKIE_NAME = "mgrcsrftoken"

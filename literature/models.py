@@ -366,6 +366,11 @@ class PaperKeywordAssignment(models.Model):
 class SurveyEntry(models.Model):
     """Editable survey-writing snapshot; never overwrites the screening library."""
 
+    class InclusionOrigin(models.TextChoices):
+        SEARCH = "search", "Original project search"
+        READING = "reading", "Added while reading papers"
+        UNSPECIFIED = "unspecified", "Unspecified (legacy)"
+
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="survey_entries")
     paper = models.ForeignKey(Paper, on_delete=models.SET_NULL, null=True, blank=True)
     reference_number = models.PositiveIntegerField()
@@ -380,6 +385,11 @@ class SurveyEntry(models.Model):
     reference_ids = models.JSONField(default=list)
     identity_aliases = models.JSONField(default=list)
     origin_source = models.CharField(max_length=50)
+    inclusion_origin = models.CharField(
+        max_length=20,
+        choices=InclusionOrigin.choices,
+        default=InclusionOrigin.UNSPECIFIED,
+    )
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

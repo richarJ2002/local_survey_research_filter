@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 # Custom library Imports
@@ -44,11 +45,12 @@ from literature.models import (
 from literature.services import screening_service
 from literature.services.dedup_service import duplicate_groups, merge_papers
 from literature.services.export_service import build_markdown, build_references_markdown
-from literature.services.metrics_service import build_metrics, keyword_stage_counts, stage_year_cumulative
+from literature.services.metrics_service import build_metrics, display_sources, keyword_stage_counts, stage_year_cumulative
 from literature.services.manual_paper_service import (
     add_manual_paper, finish_manual_addition, selected_keyword, update_paper_details,
 )
 from literature.services.plots_service import (
+    build_current_source_bars,
     build_funnel_figure,
     build_keyword_figure,
     build_source_pie,
@@ -63,8 +65,8 @@ from literature.services.search_service import run_search
 
 # --- Env path ---
 def _env_path() -> Path:
-    """Return local .env path (never committed)."""
-    return Path(settings.BASE_DIR) / ".env"
+    """Launcher uses private credentials; developer retains its source .env."""
+    return Path(getattr(settings, "LOCAL_SURVEY_CREDENTIALS_FILE", Path(settings.BASE_DIR) / ".env"))
 
 
 # --- Email configured check ---
@@ -73,13 +75,36 @@ def _email_configured() -> bool:
     return bool((getattr(settings, "OPENALEX_EMAIL", "") or "").strip())
 
 
+# --- Stage bootstrap on reads: legacy creates on demand, workers never write ---
+def _ensure_stages(request: HttpRequest, project) -> None:
+    """Ensure Title/Abstract stages for a read path without GET writes.
+
+    Developer keeps the legacy on-demand bootstrap. A worker store is
+    created with its stages by the creation bootstrap, so a worker GET
+    never writes; a stageless worker store fails closed downstream instead
+    of silently mutating on a safe method.
+    """
+    from literature.worker import role as worker_role
+
+    if worker_role() == "worker":
+        return
+    project.ensure_default_stages()
+
+
 # ------------------------------------------------------------------------ #
 # Projects
 # ------------------------------------------------------------------------ #
 
 # --- Project list ---
 def project_list(request: HttpRequest) -> HttpResponse:
-    """List all survey projects."""
+    """List all survey projects (developer) or serve the workspace landing (manager)."""
+    from literature.worker import role
+
+    if role() == "manager":
+        # ponytail: manager holds no research rows; the landing lists manifests only.
+        from literature import workspace_views
+
+        return workspace_views.workspace_home(request)
     projects = Project.objects.order_by("-updated_at")
     email_ok = _email_configured()
     return render(
@@ -128,7 +153,7 @@ def project_delete(request: HttpRequest, pk: int) -> HttpResponse:
 def project_detail(request: HttpRequest, pk: int) -> HttpResponse:
     """Show counts per stage plus searches and run history."""
     project = get_object_or_404(Project, pk=pk)
-    project.ensure_default_stages()
+    _ensure_stages(request, project)
     stages = list(project.stages.order_by("order"))
     aggregated = (
         ScreeningDecision.objects.filter(stage__project=project)
@@ -191,36 +216,180 @@ def project_detail(request: HttpRequest, pk: int) -> HttpResponse:
 
 def papers_view(request: HttpRequest, pk: int) -> HttpResponse:
     """Search and page through this project's stored papers and statuses."""
+    from django.db.models import Case, CharField, F, OuterRef, Subquery, Value, When
+    from django.db.models.fields.json import KT
+    from django.db.models.functions import Coalesce, Lower, NullIf, Trim
+
+    from literature.services.metrics_service import project_revision as project_revision_stamp
     from literature.services.search_service import is_complete
 
     project = get_object_or_404(Project, pk=pk)
-    project.ensure_default_stages()
+    _ensure_stages(request, project)
     query = (request.GET.get("q") or "").strip()[:200]
     papers = Paper.objects.filter(discoveries__search__project=project)
     if query:
         papers = papers.filter(Q(title__icontains=query) | Q(doi__icontains=query))
-    papers = papers.distinct().order_by("-publication_year", "title", "pk")
+    decisions = ScreeningDecision.objects.filter(stage__project=project, paper_id=OuterRef("pk"))
+    papers = papers.alias(
+        _title_decision=Subquery(decisions.filter(stage__name="Title").values("decision")[:1]),
+        _abstract_decision=Subquery(
+            decisions.filter(stage__name="Abstract").values("decision")[:1]
+        ),
+        _linked_keyword=Subquery(
+            PaperKeywordAssignment.objects.filter(
+                project=project,
+                paper_id=OuterRef("pk"),
+            ).values("keyword")[:1]
+        ),
+    )
+    # ponytail: whitelist native ORM ordering before pagination; no client-side table library.
+    ordering = {
+        "title": Lower(NullIf(Trim("title"), Value(""))),
+        "doi": Lower(NullIf(Trim("doi"), Value(""))),
+        "year": F("publication_year"),
+        # ponytail: first listed source/keyword is the ordering key for multi-valued cells.
+        "source": Lower(
+            NullIf(
+                Trim(
+                    Case(
+                        When(sources__0="manual", then=KT("sources__1")),
+                        default=KT("sources__0"),
+                        output_field=CharField(),
+                    )
+                ),
+                Value(""),
+            )
+        ),
+        "keywords": Lower(
+            Coalesce(
+                NullIf(Trim(F("_linked_keyword")), Value("")),
+                NullIf(Trim(KT("keywords__0")), Value("")),
+                output_field=CharField(),
+            )
+        ),
+        "title_status": Lower(
+            Case(
+                When(~Q(title__regex=r"\S"), then=Value("Needs title")),
+                When(_title_decision="ACCEPT", then=Value("Yes")),
+                When(_title_decision="REJECT", then=Value("No")),
+                When(_title_decision="PENDING", then=Value("Pending")),
+                default=Value("Not queued"),
+                output_field=CharField(),
+            )
+        ),
+        "abstract_status": Lower(
+            Case(
+                When(
+                    _abstract_decision="ACCEPT",
+                    then=Case(
+                        When(
+                            ~Q(references=[]) | Q(reference_text__regex=r"\S"),
+                            then=Value("Final selected"),
+                        ),
+                        default=Value("Passed content; references pending"),
+                    ),
+                ),
+                When(_abstract_decision="REJECT", then=Value("No")),
+                When(
+                    _abstract_decision="PENDING",
+                    then=Case(
+                        When(abstract="", then=Value("Pending — abstract needed")),
+                        default=Value("Pending"),
+                    ),
+                ),
+                default=Value(None),
+                output_field=CharField(),
+            )
+        ),
+    }
+    sort = request.GET.get("sort", "year")
+    if sort not in ordering:
+        sort = "year"
+    direction = request.GET.get("direction", "desc" if sort == "year" else "asc")
+    if direction not in {"asc", "desc"}:
+        direction = "desc" if sort == "year" else "asc"
+    order = (
+        ordering[sort].asc(nulls_first=True)
+        if direction == "asc"
+        else ordering[sort].desc(nulls_last=True)
+    )
+    papers = papers.distinct().order_by(order, Lower("title"), "pk")
+    page_query = request.GET.copy()
+    page_query.pop("page", None)
+    page_query["q"], page_query["sort"], page_query["direction"] = query, sort, direction
+    headers = []
+    for fields in (
+        (("title", "Paper"), ("doi", "DOI")),
+        (("year", "Year"),),
+        (("source", "Source"), ("keywords", "Keywords")),
+        (("title_status", "Title status"),),
+        (("abstract_status", "Abstract status"),),
+    ):
+        links = []
+        for key, label in fields:
+            params = page_query.copy()
+            next_direction = "desc" if sort == key and direction == "asc" else "asc"
+            params["sort"], params["direction"] = key, next_direction
+            links.append(
+                {
+                    "label": label,
+                    "url": params.urlencode(),
+                    "active": sort == key,
+                    "next_direction": "ascending" if next_direction == "asc" else "descending",
+                }
+            )
+        headers.append(
+            {
+                "links": links,
+                "aria_sort": ("ascending" if direction == "asc" else "descending")
+                if any(link["active"] for link in links)
+                else "none",
+            }
+        )
     page = Paginator(papers, 25).get_page(request.GET.get("page"))
     page.object_list = list(page.object_list.prefetch_related("decisions__stage"))
-    linked_keywords = dict(PaperKeywordAssignment.objects.filter(
-        project=project, paper__in=page.object_list,
-    ).values_list("paper_id", "keyword"))
+    linked_keywords = dict(
+        PaperKeywordAssignment.objects.filter(
+            project=project,
+            paper__in=page.object_list,
+        ).values_list("paper_id", "keyword")
+    )
     rows = []
     for paper in page.object_list:
-        decisions = {row.stage.name: row.decision for row in paper.decisions.all()
-                     if row.stage.project_id == project.pk}
-        rows.append({
-            "paper": paper,
-            "complete": is_complete(paper),
-            "title_ready": screening_service.title_ready(paper),
-            "references_pending": decisions.get("Abstract") == "ACCEPT" and not screening_service.has_reference_list(paper),
-            "title_status": decisions.get("Title", "NOT_QUEUED"),
-            "abstract_status": decisions.get("Abstract", "NOT_QUEUED"),
-            "linked_keyword": linked_keywords.get(paper.pk, ""),
-        })
-    return render(request, "literature/papers.html", {
-        "project": project, "rows": rows, "page": page, "query": query,
-    })
+        decisions = {
+            row.stage.name: row.decision
+            for row in paper.decisions.all()
+            if row.stage.project_id == project.pk
+        }
+        rows.append(
+            {
+                "paper": paper,
+                "complete": is_complete(paper),
+                "title_ready": screening_service.title_ready(paper),
+                "references_pending": decisions.get("Abstract") == "ACCEPT"
+                and not screening_service.has_reference_list(paper),
+                "title_status": decisions.get("Title", "NOT_QUEUED"),
+                "abstract_status": decisions.get("Abstract", "NOT_QUEUED"),
+                "linked_keyword": linked_keywords.get(paper.pk, ""),
+                # Display only: manual is a legacy entry method, not a known discovery origin.
+                "display_sources": display_sources(paper.sources),
+            }
+        )
+    return render(
+        request,
+        "literature/papers.html",
+        {
+            "project": project,
+            "rows": rows,
+            "page": page,
+            "query": query,
+            "headers": headers,
+            "sort": sort,
+            "direction": direction,
+            "page_query": page_query.urlencode(),
+            "revision": project_revision_stamp(project),
+        },
+    )
 
 
 def paper_add(request: HttpRequest, pk: int) -> HttpResponse:
@@ -234,7 +403,7 @@ def paper_add(request: HttpRequest, pk: int) -> HttpResponse:
     from literature.services.search_service import is_complete
 
     project = get_object_or_404(Project, pk=pk)
-    project.ensure_default_stages()
+    _ensure_stages(request, project)
     if request.method == "POST" and request.POST.get("action") == "search":
         search_form = DoiSearchForm(request.POST)
         manual_form = ManualPaperForm(project=project)
@@ -319,6 +488,11 @@ def paper_lookup(request: HttpRequest, pk: int) -> HttpResponse:
             preview = signing.loads(preview_token, salt="paper-entry", max_age=1800)
             if preview["project"] != pk or preview["doi"] != doi:
                 raise signing.BadSignature("Preview identity mismatch")
+            if getattr(request, "worker_route", False) and (
+                preview.get("worker_uuid") != getattr(request, "worker_uuid", "")
+                or preview.get("worker_epoch") != getattr(request, "worker_epoch", "")
+            ):
+                raise signing.BadSignature("Preview worker mismatch")
             metadata = preview["metadata"]
         except (signing.BadSignature, KeyError, TypeError, ValueError):
             form.add_error(None, "This preview has expired or is invalid. Look up the DOI again.")
@@ -347,6 +521,8 @@ def paper_lookup(request: HttpRequest, pk: int) -> HttpResponse:
             "project": pk, "doi": doi, "paper_id": paper.pk if paper else None,
             "version": entry_version(project, paper) if paper else None,
             "metadata": metadata,
+            "worker_uuid": getattr(request, "worker_uuid", ""),
+            "worker_epoch": getattr(request, "worker_epoch", ""),
         }, salt="paper-entry", compress=True)
         form = LookupPaperForm(initial=entry_initial(project, paper), project=project, needs_origin=needs_origin)
 
@@ -374,7 +550,7 @@ def paper_manage(request: HttpRequest, pk: int, paper_id: int) -> HttpResponse:
     from literature.services.search_service import is_complete
 
     project = get_object_or_404(Project, pk=pk)
-    project.ensure_default_stages()
+    _ensure_stages(request, project)
     paper = get_object_or_404(
         Paper.objects.filter(discoveries__search__project=project).distinct(), pk=paper_id,
     )
@@ -512,6 +688,8 @@ def search_run(request: HttpRequest, pk: int, search_id: int) -> HttpResponse:
     search = get_object_or_404(Search, pk=search_id, project=project)
     if not _email_configured():
         messages.warning(request, "Add your email in Settings first (OpenAlex polite pool).")
+        if getattr(request, "manager_base", ""):
+            return redirect(f"{request.manager_base}/settings/")
         return redirect("settings_view")
     try:
         runs = run_search(search.pk)
@@ -583,7 +761,7 @@ def citations_enrich(request: HttpRequest, pk: int) -> HttpResponse:
 
 # --- Settings view ---
 def settings_view(request: HttpRequest) -> HttpResponse:
-    """Prompt for email / keys. Writes to local .env, never to DB."""
+    """Explicit provider settings; save to the selected credential file, never DB."""
     env_file = _env_path()
     initial = {
         "openalex_email": getattr(settings, "OPENALEX_EMAIL", ""),
@@ -592,17 +770,26 @@ def settings_view(request: HttpRequest) -> HttpResponse:
     if request.method == "POST":
         form = SettingsForm(request.POST)
         if form.is_valid():
-            set_key(str(env_file), "OPENALEX_EMAIL", form.cleaned_data["openalex_email"])
-            if form.cleaned_data.get("semantic_scholar_key"):
-                set_key(
-                    str(env_file),
-                    "SEMANTIC_SCHOLAR_KEY",
-                    form.cleaned_data["semantic_scholar_key"],
-                )
-            if form.cleaned_data.get("opencitations_token"):
-                set_key(str(env_file), "OPENCITATIONS_TOKEN",
-                        form.cleaned_data["opencitations_token"])
-            messages.success(request, "Saved locally to .env (restart server to apply).")
+            try:
+                if os.getenv("WP_LAUNCHER") == "1":
+                    env_file.touch(mode=0o600, exist_ok=True)
+                set_key(str(env_file), "OPENALEX_EMAIL", form.cleaned_data["openalex_email"])
+                if form.cleaned_data.get("semantic_scholar_key"):
+                    set_key(
+                        str(env_file),
+                        "SEMANTIC_SCHOLAR_KEY",
+                        form.cleaned_data["semantic_scholar_key"],
+                    )
+                if form.cleaned_data.get("opencitations_token"):
+                    set_key(str(env_file), "OPENCITATIONS_TOKEN",
+                             form.cleaned_data["opencitations_token"])
+            except OSError as exc:
+                form.add_error(None, f"Cannot save the credential file: {exc}")
+                return render(request, "literature/settings.html", {"form": form})
+            message = ("Saved to private credentials (restart launcher to apply)."
+                       if os.getenv("WP_LAUNCHER") == "1" else
+                       "Saved locally to .env (restart server to apply).")
+            messages.success(request, message)
             return redirect("project_list")
     else:
         form = SettingsForm(initial=initial)
@@ -649,7 +836,7 @@ def _progress(stage: Stage) -> dict[str, int]:
 def screening_view(request: HttpRequest, pk: int, stage_name: str) -> HttpResponse:
     """Show one paper at a time for Title or Abstract stage."""
     project = get_object_or_404(Project, pk=pk)
-    project.ensure_default_stages()
+    _ensure_stages(request, project)
     normalized = stage_name.capitalize()
     stage = get_object_or_404(Stage, project=project, name=normalized)
     metadata_form = None
@@ -742,16 +929,26 @@ def screening_decide(request: HttpRequest) -> JsonResponse:
             from django.urls import reverse
 
             return JsonResponse({"success": True, "next_paper_url": reverse("reference_review", args=[stage.project_id])})
+        from django.urls import reverse
+
         return JsonResponse(
             {
                 "success": True,
-                "next_paper_url": f"/project/{stage.project_id}/screen/complete/{stage.name.lower()}/",
+                # ponytail: reverse() keeps the worker UUID/epoch script
+                # prefix; hardcoded /project paths would lose it.
+                "next_paper_url": reverse(
+                    "screening_complete", args=[stage.project_id, stage.name.lower()]
+                ),
             }
         )
+    from django.urls import reverse
+
     return JsonResponse(
         {
             "success": True,
-            "next_paper_url": f"/project/{stage.project_id}/screen/{stage.name.lower()}/",
+            "next_paper_url": reverse(
+                "screening_view", args=[stage.project_id, stage.name.lower()]
+            ),
         }
     )
 
@@ -865,8 +1062,14 @@ def duplicates_view(request: HttpRequest, pk: int) -> HttpResponse:
 def duplicates_merge(request: HttpRequest, pk: int) -> HttpResponse:
     """Merge drop paper into keep paper, preserving audit trail."""
     project = get_object_or_404(Project, pk=pk)
-    keep = get_object_or_404(Paper, pk=request.POST.get("keep_id"))
-    drop = get_object_or_404(Paper, pk=request.POST.get("drop_id"))
+    keep = get_object_or_404(
+        Paper.objects.filter(discoveries__search__project=project).distinct(),
+        pk=request.POST.get("keep_id"),
+    )
+    drop = get_object_or_404(
+        Paper.objects.filter(discoveries__search__project=project).distinct(),
+        pk=request.POST.get("drop_id"),
+    )
     if keep.pk == drop.pk:
         messages.error(request, "Pick two different papers to merge.")
         return redirect("duplicates_view", pk=project.pk)
@@ -880,7 +1083,10 @@ def duplicates_merge(request: HttpRequest, pk: int) -> HttpResponse:
 def duplicates_remove(request: HttpRequest, pk: int) -> HttpResponse:
     """Delete a duplicate paper (its audit rows go with it)."""
     project = get_object_or_404(Project, pk=pk)
-    paper = get_object_or_404(Paper, pk=request.POST.get("paper_id"))
+    paper = get_object_or_404(
+        Paper.objects.filter(discoveries__search__project=project).distinct(),
+        pk=request.POST.get("paper_id"),
+    )
     paper.delete()
     messages.success(request, f"Removed paper {request.POST.get('paper_id')}.")
     return redirect("duplicates_view", pk=project.pk)
@@ -893,6 +1099,7 @@ def duplicates_remove(request: HttpRequest, pk: int) -> HttpResponse:
 # --- Shared dashboard context ---
 def _plots_context(project, *, depth: int = 2, prune: bool = False, seed_stage: str = "final", min_chain: int = 1) -> dict:
     """Build every dashboard figure once for embedding anywhere."""
+    from literature.plotly_assets import THIRD_PARTY_NOTICE, plotly_version
     from literature.services.citation_service import build_graph
     from literature.services.plots_service import build_citation_figure
     from literature.services.survey_graph_service import build_survey_graph
@@ -902,17 +1109,19 @@ def _plots_context(project, *, depth: int = 2, prune: bool = False, seed_stage: 
     has_data = Discovery.objects.filter(search__project=project).exists()
     stage_data = stage_year_cumulative(project)
     graph = build_graph(project, depth=depth, prune=prune, seed_stage=seed_stage, min_chain=min_chain)
+    survey_graph = build_survey_graph(project)
     pruned_note = graph.get("pruned", 0)
     return {
         "metrics": metrics,
         "keyword_plot": build_keyword_figure(keyword_counts),
-        "source_raw_plot": build_source_pie(metrics.get("per_source", {})),
-        "source_duplicates_plot": build_source_pie(metrics.get("per_source", {}), metric="dups"),
+        "current_source_plot": build_current_source_bars(metrics.get("current", {})),
         "funnel_plot": build_funnel_figure(metrics),
         "yearly_plot": build_yearly_figure(stage_data),
         "stage_plot": build_stage_cumulative_figure(stage_data),
         "citation_plot": build_citation_figure(graph),
-        "survey_plot": build_citation_figure(build_survey_graph(project)),
+        "survey_plot": build_citation_figure(survey_graph),
+        "survey_entries": project.survey_entries.all(),
+        "survey_automatic_count": len(survey_graph["automatic_edges"]),
         "citation_nodes": len(graph.get("nodes", [])),
         "citation_edges": len(graph.get("edges", [])),
         "citation_pruned": pruned_note,
@@ -923,6 +1132,8 @@ def _plots_context(project, *, depth: int = 2, prune: bool = False, seed_stage: 
         "has_data": has_data,
         "depth": depth,
         "seed_stage": seed_stage,
+        "plotly_version": plotly_version(),
+        "plotly_notice": THIRD_PARTY_NOTICE,
     }
 
 
@@ -947,6 +1158,17 @@ def _citation_options(request: HttpRequest) -> tuple[int, bool, str, int]:
 def plots_view(request: HttpRequest, pk: int) -> HttpResponse:
     """Visual dashboard: every plot explains itself in plain English."""
     project = get_object_or_404(Project, pk=pk)
+    if request.GET.get("lens") == "history":
+        from literature.plotly_assets import plotly_version
+
+        metrics = build_metrics(project)
+        return render(request, "literature/plots_history.html", {
+            "project": project,
+            "metrics": metrics,
+            "plotly_version": plotly_version(),
+            "source_raw_plot": build_source_pie(metrics["per_source"]),
+            "source_duplicates_plot": build_source_pie(metrics["per_source"], metric="dups"),
+        })
     depth, prune, seed_stage, min_chain = _citation_options(request)
     context = {"project": project, **_plots_context(project, depth=depth, prune=prune, seed_stage=seed_stage, min_chain=min_chain)}
     return render(request, "literature/plots.html", context)
@@ -954,35 +1176,73 @@ def plots_view(request: HttpRequest, pk: int) -> HttpResponse:
 
 # --- Download all charts ---
 def plots_download(request: HttpRequest, pk: int) -> HttpResponse:
-    """Download every dashboard chart as one file (plus per-chart buttons on page)."""
+    """Download current charts, or explicitly selected audit charts, offline.
+
+    The installed Plotly.js bundle is inlined once; no CDN or app-server
+    resource is required to pan/zoom/hover/download the charts. Node
+    popups and paper-list links need the running app and are labelled so.
+    No session, CSRF or credential values are embedded.
+    """
+    from literature.plotly_assets import (
+        THIRD_PARTY_NOTICE,
+        plotly_version,
+        standalone_bundle_tag,
+    )
     from literature.services.citation_service import build_graph
     from literature.services.plots_service import build_citation_figure
 
     project = get_object_or_404(Project, pk=pk)
     metrics = build_metrics(project)
-    keyword_counts = keyword_stage_counts(project)
-    stage_data = stage_year_cumulative(project)
-    depth, prune, seed_stage, min_chain = _citation_options(request)
-    graph = build_graph(project, depth=depth, prune=prune,
-                        seed_stage=seed_stage, min_chain=min_chain)
+    history = request.GET.get("lens") == "history"
+    lens = "Audit / History" if history else "Current"
     parts = [
-        f"<h1>Charts for {project.name}</h1>",
-        build_keyword_figure(keyword_counts),
-        build_source_pie(metrics.get("per_source", {})),
-        build_source_pie(metrics.get("per_source", {}), metric="dups"),
-        build_funnel_figure(metrics),
-        build_yearly_figure(stage_data),
-        build_stage_cumulative_figure(stage_data),
-        build_citation_figure(graph),
+        f"<h1>{lens} charts for {project.name}</h1>",
+        (
+            f"<p>Offline chart export (Plotly v{plotly_version()}, served inline; "
+            "no internet needed). Hover, pan, zoom and per-chart downloads work "
+            "offline. Node popups and paper-list links need the running app.</p>"
+        ),
     ]
+    if history:
+        parts.extend([
+            (
+                "<p>Historical import records and duplicate hits, not distinct current papers. "
+                "Unspecified at import does not mean a current source is blank. "
+                "Later metadata corrections preserve these original audits.</p>"
+            ),
+            build_source_pie(metrics["per_source"]),
+            build_source_pie(metrics["per_source"], metric="dups"),
+        ])
+    else:
+        stage_data = stage_year_cumulative(project)
+        depth, prune, seed_stage, min_chain = _citation_options(request)
+        graph = build_graph(project, depth=depth, prune=prune,
+                            seed_stage=seed_stage, min_chain=min_chain)
+        parts.extend([
+            (
+                "<p>Source bars count distinct current papers per displayed source. "
+                "Multi-source papers appear in each matching bar; bar totals can exceed "
+                "the paper total. Unknown counts only current blank displays. "
+                "Historical source pies require the separate Audit / History export.</p>"
+            ),
+            build_keyword_figure(keyword_stage_counts(project)),
+            build_current_source_bars(metrics["current"]),
+            build_funnel_figure(metrics),
+            build_yearly_figure(stage_data),
+            build_stage_cumulative_figure(stage_data),
+            build_citation_figure(graph, include_app_script=False),
+        ])
     html = (
         "<!doctype html><html><head><meta charset='utf-8'>"
-        f"<title>Charts - {project.name}</title></head><body>"
+        f"<title>{lens} charts - {project.name}</title></head><body>"
+        f"<!-- {THIRD_PARTY_NOTICE} -->"
+        + standalone_bundle_tag()
         + "".join(parts)
         + "</body></html>"
     )
     response = HttpResponse(html, content_type="text/html")
-    response["Content-Disposition"] = f'attachment; filename="charts-{project.pk}.html"'
+    suffix = "-audit" if history else ""
+    response["Content-Disposition"] = f'attachment; filename="charts-{project.pk}{suffix}.html"'
     return response
 
 

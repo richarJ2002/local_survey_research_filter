@@ -4,13 +4,10 @@
 <p class="meta"><a href="{% url 'project_detail' project.pk %}">← {{ project.name }}</a> · <a href="{% url 'plots_view' project.pk %}">Draft charts</a></p>
 <h1>Curated survey graph</h1>
 <p class="page-intro">Choose the papers read for your survey. Edit these snapshots freely without changing the draft library or screening decisions. Circles show publication year and your manuscript reference number [x].</p>
-<div class="page-actions"><a class="button-link" href="{% url 'survey_entry_add' project.pk %}">Add survey entry / look up DOI</a></div>
-<div class="card table-scroll">
-<table><thead><tr><th>Reference</th><th>Year</th><th>Entry</th><th>Actions</th></tr></thead><tbody>
-{% for entry in entries %}<tr><td>[{{ entry.reference_number }}]</td><td>{{ entry.publication_year|default:"?" }}</td><td>{{ entry.title }}{% if entry.doi %}<br><span class="meta">{{ entry.doi }}</span>{% endif %}</td><td><a href="{% url 'survey_entry_edit' project.pk entry.pk %}">Edit</a><details><summary>Remove from curated graph</summary><form method="post">{% csrf_token %}<input type="hidden" name="action" value="remove_entry"><input type="hidden" name="entry_id" value="{{ entry.pk }}"><button class="button-danger">Confirm removal</button></form></details></td></tr>{% empty %}<tr><td colspan="4">No entries chosen yet. Add the papers you have read.</td></tr>{% endfor %}
-</tbody></table></div>
-<div class="card form-card"><h2>Manually link references</h2><p class="meta">Select the citing entry, then the entry it references. Manual links express your confirmation; automatic links use stored identifiers or cached citation data only.</p>
+<script src="{% url 'plotly_js' %}?v={{ plotly_version }}"></script>
+<p class="meta">Graph renders with Plotly v{{ plotly_version }} served locally by this app — no internet needed.</p>
+{% include "literature/survey_graph_panel.html" %}
+<details class="card form-card"{% if link_form.errors %} open{% endif %}><summary>Manage individual manual links</summary><p class="meta">You can also select multiple links when adding or editing an entry. Removing a manual link does not suppress an independently matched automatic citation.</p>
 <form method="post">{% csrf_token %}<input type="hidden" name="action" value="link">{{ link_form.non_field_errors }}{% for field in link_form %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}<button>Save citation link</button></form>
-{% for link in links %}<p>[{{ link.citing.reference_number }}] cites [{{ link.cited.reference_number }}]</p><form method="post">{% csrf_token %}<input type="hidden" name="action" value="remove_link"><input type="hidden" name="link_id" value="{{ link.pk }}"><button>Remove this manual link</button></form>{% endfor %}</div>
-<div class="card"><h2>Survey-writing plot</h2><p class="meta">{{ automatic_count }} automatically matched links. Only chosen entries appear. Links can form cycles or multiple-parent connections; they are not forced into a tree. Hover over a line midpoint to see the citing → cited direction. Removing a manual link does not suppress an independently matched automatic citation.</p>{{ graph_plot|safe }}</div>
+{% for link in links %}<p>[{{ link.citing.reference_number }}] cites [{{ link.cited.reference_number }}]</p><form method="post">{% csrf_token %}<input type="hidden" name="action" value="remove_link"><input type="hidden" name="link_id" value="{{ link.pk }}"><button>Remove this manual link</button></form>{% endfor %}</details>
 {% endblock %}

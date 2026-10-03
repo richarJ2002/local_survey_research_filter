@@ -10,7 +10,14 @@ import re
 from django.core import signing
 from django.db import transaction
 
-from literature.models import OpenCitationsLookup, Paper, Project, SurveyCitation, SurveyEntry
+from literature.models import (
+    Discovery,
+    OpenCitationsLookup,
+    Paper,
+    Project,
+    SurveyCitation,
+    SurveyEntry,
+)
 from literature.services.reference_review_service import extract_reference_ids
 from literature.services.reference_service import normalize_doi
 
@@ -50,8 +57,45 @@ def _authors_text(raw) -> str:
     return "\n".join(parts)
 
 
+def project_origin(project: Project, paper: Paper | None) -> tuple[str, str]:
+    """Derive (inclusion_origin, origin_source) from this project's discoveries only.
+
+    Original when any matching discovery raw_payload.entry_method != user_added
+    (ordinary provider history counts as original); otherwise reading.
+    Global papers without a project discovery are reading. Never guesses a
+    legacy origin; unknown sources stay blank for the curator to choose.
+    """
+    from literature.services.manual_paper_service import ORIGIN_SOURCES
+
+    valid = set(dict(ORIGIN_SOURCES))
+    if paper is None:
+        return ("reading", "")
+    discoveries = list(
+        Discovery.objects.filter(paper=paper, search__project=project).order_by("pk")
+    )
+    if not discoveries:
+        return ("reading", "")
+    originals = [
+        d
+        for d in discoveries
+        if not isinstance(d.raw_payload, dict) or d.raw_payload.get("entry_method") != "user_added"
+    ]
+    is_original = bool(originals)
+    origin = "search" if is_original else "reading"
+    if is_original:
+        candidates = [d for d in originals if d.source in valid]
+    else:
+        candidates = [d for d in discoveries if d.source in valid]
+    return (origin, candidates[0].source if candidates else "")
+
+
 def prefill(project: Project, doi: str, metadata: dict, paper: Paper | None) -> dict:
-    """Sign the cached identities; all visible bibliographic fields remain editable."""
+    """Sign the cached identities; all visible bibliographic fields remain editable.
+
+    Never mutates Paper/Discovery/keyword/decisions. Reference numbers stay
+    blank so curators finalize them once manuscript IDs are known. The signed
+    preview retains the optional paper link even when the DOI is blank.
+    """
     aliases = []
     if paper:
         metadata = {
@@ -86,6 +130,7 @@ def prefill(project: Project, doi: str, metadata: dict, paper: Paper | None) -> 
     references = metadata.get("references") or []
     if not isinstance(references, list):
         references = []
+    inclusion_origin, origin_source = project_origin(project, paper)
     return {
         "doi": doi,
         "title": metadata.get("title", ""),
@@ -95,6 +140,8 @@ def prefill(project: Project, doi: str, metadata: dict, paper: Paper | None) -> 
         "publisher": metadata.get("publisher", ""),
         "abstract": metadata.get("abstract", ""),
         "reference_text": metadata.get("reference_text") or "\n".join(str(r) for r in references),
+        "inclusion_origin": inclusion_origin,
+        "origin_source": origin_source,
         "preview_token": signing.dumps(
             {
                 "project": project.pk,
@@ -188,6 +235,11 @@ def save_survey_entry(project: Project, values: dict, entry_id: int | None = Non
                 )
             entry.identity_aliases = list(aliases)
             entry.paper = Paper.objects.filter(pk=paper_pk).first() if paper_pk else None
+    if "inclusion_origin" in values:
+        raw_origin = values.get("inclusion_origin") or "reading"
+        if raw_origin not in ("search", "reading", "unspecified"):
+            raise ValueError("Choose where this entry came from.")
+        entry.inclusion_origin = raw_origin
     entry.reference_number = reference_number
     entry.title = title
     entry.doi = doi
@@ -203,6 +255,34 @@ def save_survey_entry(project: Project, values: dict, entry_id: int | None = Non
         setattr(entry, name, values.get(name) or (None if name == "publication_year" else ""))
     entry.reference_ids = extract_reference_ids(entry.reference_text)
     entry.save()
+    if "cited_entries" in values:
+        raw_targets = values.get("cited_entries")
+        if isinstance(raw_targets, (str, bytes)):
+            raise ValueError("Choose valid entries from this project.")
+        try:
+            target_ids = {int(getattr(item, "pk", item)) for item in (raw_targets or [])}
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Choose valid entries from this project.") from exc
+        if entry.pk in target_ids:
+            raise ValueError("An entry cannot reference itself.")
+        if target_ids:
+            found = set(
+                SurveyEntry.objects.filter(project=project, pk__in=target_ids).values_list(
+                    "pk", flat=True
+                )
+            )
+            if target_ids != found:
+                raise ValueError("Choose entries from this project.")
+        existing = set(entry.manual_outgoing.values_list("cited_id", flat=True))
+        to_remove = existing - target_ids
+        to_add = target_ids - existing
+        if to_remove:
+            SurveyCitation.objects.filter(citing=entry, cited_id__in=sorted(to_remove)).delete()
+        for tid in sorted(to_add):
+            target = SurveyEntry.objects.filter(project=project, pk=tid).first()
+            if not target or tid == entry.pk:
+                raise ValueError("Choose entries from this project.")
+            SurveyCitation.objects.get_or_create(citing=entry, cited=target)
     return entry
 
 

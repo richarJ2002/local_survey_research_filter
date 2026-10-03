@@ -6,7 +6,8 @@
 <p class="meta"><a href="{% url 'papers_view' project.pk %}">← Papers</a> · <a href="{% url 'paper_add' project.pk %}">Look up another DOI</a></p>
 <p class="eyebrow">{{ project.name }} · Paper entry</p>
 <h1>{% if paper %}Update entry{% else %}Add entry{% endif %}</h1>
-<p class="page-intro">Review the paper, select its keyword and screening status, then save. Paper metadata is read-only.</p>
+<p class="page-intro">Review the paper, select its keyword, discovery origin where needed, and screening status, then save. Paper metadata is read-only in this preview.</p>
+{% if paper and not other_project %}<p><a class="button-link button-link--secondary" href="{% url 'paper_manage' project.pk paper.pk %}">Edit paper details manually</a></p>{% endif %}
 <div class="card">
   {% if paper %}
     <p class="meta">Already in the database.{% if other_project %} Saving will link it to this project; other projects' screening decisions are unchanged.{% endif %}</p>
@@ -48,6 +49,7 @@
     </div>
     {% endif %}
     <div class="form-field">{{ form.search_keyword.label_tag }}{{ form.search_keyword }}{{ form.search_keyword.errors }}</div>
+    {% if form.origin_source %}<div class="form-field">{{ form.origin_source.label_tag }}{{ form.origin_source }}{{ form.origin_source.errors }}<small class="form-help">Choose where you actually found this paper. This records your choice without rewriting historical unspecified-origin audits.</small></div>{% endif %}
     <div id="new-keyword-fields">
       <p class="meta">For “Add new keyword” only:</p>
       <div class="form-field">{{ form.new_keyword.label_tag }}{{ form.new_keyword }}{{ form.new_keyword.errors }}</div>
