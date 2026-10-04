@@ -28,6 +28,7 @@ from unittest.mock import patch
 from django.test import SimpleTestCase, override_settings
 
 import launch
+import manage
 from literature.tests.test_wp0105_lifecycle import _Client
 
 # --- Reject all non-loopback sockets in repeated runs, including child processes ---
@@ -50,6 +51,49 @@ def wait_for(predicate, timeout=30):
             return True
         time.sleep(0.1)
     return False
+
+
+# --- Entry dispatch must happen before Django/legacy state is touched ---
+class StartupDispatchTests(SimpleTestCase):
+    def test_default_and_loopback_ports_exec_the_same_launcher(self):
+        for arguments, port in (
+            ([], "8000"),
+            (["8001"], "8001"),
+            (["localhost:8002"], "8002"),
+            (["127.0.0.1:0"], "0"),
+        ):
+            with (
+                self.subTest(arguments=arguments),
+                patch.dict(os.environ, {}, clear=True),
+                patch.object(sys, "argv", ["manage.py", "runserver", *arguments]),
+                patch("manage.os.execv") as execute,
+                patch("django.core.management.execute_from_command_line") as django_command,
+            ):
+                manage.main()
+                self.assertEqual(
+                    execute.call_args.args,
+                    (
+                        sys.executable,
+                        [sys.executable, str(launch.ROOT / "launch.py"), "--port", port],
+                    ),
+                )
+                django_command.assert_not_called()
+
+    def test_fixed_roles_and_explicit_legacy_keep_django_arguments(self):
+        for role, legacy in (("worker", False), ("manager", False), ("developer", True)):
+            arguments = ["manage.py", "runserver", "127.0.0.1:8001", "--noreload"]
+            with (
+                self.subTest(role=role),
+                patch.dict(
+                    os.environ, {"WP_ROLE": role, "LOCAL_SURVEY_DB": ":memory:"}, clear=True
+                ),
+                patch.object(sys, "argv", arguments + (["--legacy-shared-db"] if legacy else [])),
+                patch("manage.os.execv") as execute,
+                patch("django.core.management.execute_from_command_line") as django_command,
+            ):
+                manage.main()
+                django_command.assert_called_once_with(arguments)
+                execute.assert_not_called()
 
 
 class LauncherPreflightTests(SimpleTestCase):
@@ -194,6 +238,7 @@ class LauncherIntegrationTests(SimpleTestCase):
             "WP_LAUNCHER",
             "WP_OWNER_FD",
             "LOCAL_SURVEY_CREDENTIALS_FILE",
+            "LOCAL_SURVEY_LEGACY_SHARED_DB",
         ):
             env.pop(key, None)
         env.update(
@@ -222,11 +267,21 @@ class LauncherIntegrationTests(SimpleTestCase):
         if self.master is not None:
             os.close(self.master)
 
-    def start(self, extra=(), terminal=False):
+    def start(self, extra=(), terminal=False, manage_entry=False):
         with socket.socket() as sock:
             sock.bind(("127.0.0.1", 0))
             self.port = sock.getsockname()[1]
-        command = [sys.executable, str(self.clone / "launch.py"), "--port", str(self.port), *extra]
+        command = (
+            [
+                sys.executable,
+                str(self.clone / "manage.py"),
+                "runserver",
+                f"localhost:{self.port}",
+                *extra,
+            ]
+            if manage_entry
+            else [sys.executable, str(self.clone / "launch.py"), "--port", str(self.port), *extra]
+        )
         options = {}
         slave = None
         if terminal:
@@ -404,7 +459,7 @@ class LauncherIntegrationTests(SimpleTestCase):
         self.assertNotEqual(repeat.returncode, 0)
         self.assertIn("absent absolute folder", repeat.stderr)
         self.assertEqual(CopyRecoveryTests.rows(sample), original)
-        self.start()
+        self.start(manage_entry=True)
         status, body, _ = self.manager.post(
             self.base + "/workspace/open/", {"directory": str(sample)}
         )
@@ -423,6 +478,9 @@ class LauncherIntegrationTests(SimpleTestCase):
             status, body, _ = worker.get(base + page)
             self.assertEqual(status, 200)
             self.assertIn(b"Synthetic example", body)
+            if page == "papers/":
+                self.assertIn(b"Save project copy", body)
+                self.assertNotIn(b"Legacy shared-DB mode", body)
         self.assertEqual(worker.get(base + "search/1/edit/")[0], 200)
         status, body, _ = worker.post(
             base + "search/1/edit/",
@@ -614,7 +672,7 @@ class LauncherIntegrationTests(SimpleTestCase):
             listener.listen()
             port = listener.getsockname()[1]
             result = subprocess.run(
-                [sys.executable, str(self.clone / "launch.py"), "--port", str(port)],
+                [sys.executable, str(self.clone / "manage.py"), "runserver", str(port)],
                 env=self.env,
                 capture_output=True,
                 text=True,
@@ -623,6 +681,7 @@ class LauncherIntegrationTests(SimpleTestCase):
             )
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Address already in use", result.stderr)
+            self.assertIn("No unrelated listener was stopped", result.stderr)
             with socket.create_connection(("127.0.0.1", port), timeout=1):
                 pass
         self.start()
@@ -637,6 +696,154 @@ class LauncherIntegrationTests(SimpleTestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("already owns this XDG state", result.stderr)
         self.assertEqual(self.manager.get(self.base + "/")[0], 200)
+
+    def test_implicit_admin_writes_refuse_and_checks_use_memory(self):
+        env = dict(self.env)
+        env.pop("LOCAL_SURVEY_DB", None)
+        for command in ("migrate", "flush", "shell", "export_markdown"):
+            result = subprocess.run(
+                [sys.executable, str(self.clone / "manage.py"), command],
+                env=env,
+                cwd=self.clone,
+                capture_output=True,
+                text=True,
+                timeout=20,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 2, result.stderr)
+            self.assertIn("refusing the implicit projects/db.sqlite3", result.stderr)
+        for arguments in (("check",), ("makemigrations", "--check", "--dry-run")):
+            result = subprocess.run(
+                [sys.executable, str(self.clone / "manage.py"), *arguments],
+                env=env,
+                cwd=self.clone,
+                capture_output=True,
+                text=True,
+                timeout=20,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((self.clone / "projects").exists())
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "from config.settings import DATABASES; print(DATABASES['default']['NAME'])",
+            ],
+            env=env,
+            cwd=self.clone,
+            capture_output=True,
+            text=True,
+            timeout=20,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), ":memory:")
+
+        # A present legacy file must not even be opened by an implicit command.
+        projects = self.clone / "projects"
+        projects.mkdir()
+        old = projects / "db.sqlite3"
+        old.write_bytes(b"synthetic legacy sentinel, intentionally not SQLite")
+        before = old.read_bytes(), old.stat().st_mtime_ns
+        try:
+            result = subprocess.run(
+                [sys.executable, str(self.clone / "manage.py"), "migrate"],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=20,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 2, result.stderr)
+            self.assertEqual((old.read_bytes(), old.stat().st_mtime_ns), before)
+            # Deliberate opt-in still targets this default path, not memory.
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-c",
+                    "from config.settings import DATABASES; print(DATABASES['default']['NAME'])",
+                ],
+                env=dict(env, LOCAL_SURVEY_LEGACY_SHARED_DB="1"),
+                cwd=self.clone,
+                capture_output=True,
+                text=True,
+                timeout=20,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout.strip(), str(old))
+        finally:
+            old.unlink()
+            projects.rmdir()
+
+    def test_runserver_help_and_unsupported_options_do_not_start_django(self):
+        for arguments, code in (
+            (("runserver", "--help"), 0),
+            (("help", "runserver"), 0),
+            (("runserver", "--noreload"), 2),
+            (("runserver", "--nostatic"), 2),
+            (("runserver", "0.0.0.0:8000"), 2),
+            (("runserver", "65536"), 2),
+        ):
+            result = subprocess.run(
+                [sys.executable, str(self.clone / "manage.py"), *arguments],
+                env=self.env,
+                capture_output=True,
+                text=True,
+                timeout=20,
+                check=False,
+            )
+            self.assertEqual(result.returncode, code, result.stderr)
+            if code == 0:
+                self.assertIn("New / Load manager", result.stdout)
+                self.assertIn("--legacy-shared-db", result.stdout)
+            self.assertFalse((self.clone / "projects").exists())
+            self.assertFalse((self.work / "state").exists())
+
+    def test_explicit_developer_server_and_admin_target_preserved(self):
+        env = dict(self.env, LOCAL_SURVEY_DB=str(self.work / "developer.sqlite3"))
+        result = subprocess.run(
+            [sys.executable, str(self.clone / "manage.py"), "migrate", "--noinput"],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        with socket.socket() as sock:
+            sock.bind(("127.0.0.1", 0))
+            port = sock.getsockname()[1]
+        with self.log.open("a") as stream:
+            self.proc = subprocess.Popen(
+                [
+                    sys.executable,
+                    str(self.clone / "manage.py"),
+                    "runserver",
+                    f"127.0.0.1:{port}",
+                    "--legacy-shared-db",
+                    "--noreload",
+                ],
+                env=env,
+                stdout=stream,
+                stderr=stream,
+            )
+        self.assertTrue(
+            wait_for(
+                lambda: (
+                    f"http://127.0.0.1:{port}/" in self.log.read_text()
+                    or self.proc.poll() is not None
+                )
+            )
+        )
+        self.assertIsNone(self.proc.poll(), self.log.read_text())
+        status, body, _ = _Client().get(f"http://127.0.0.1:{port}/")
+        self.assertEqual(status, 200)
+        self.assertNotIn(b"Offline work is ready", body)
+        self.assertNotIn("Manager PID", self.log.read_text())
+        self.assertFalse((self.clone / "projects").exists())
 
     def test_first_install_offline_failure_is_readable(self):
         env = dict(

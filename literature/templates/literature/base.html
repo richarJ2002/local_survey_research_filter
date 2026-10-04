@@ -224,14 +224,14 @@
   <div class="page-actions"><a class="button-link" href="{{ request.project_copy_url }}" target="_blank" rel="noopener" aria-label="Save project copy (opens manager in a new tab)">Save project copy…</a><a href="{{ request.project_copy_url }}" target="_blank" rel="noopener" aria-label="Backup, Restore or manage project (opens manager in a new tab)">Backup / Restore / manage project…</a></div>
   <p class="meta">Opens the manager in a new tab; this tab's drafts and project handle stay here. Save Copy creates a separate portable project with a new ID, not a save of your unsent form. Choose a destination and confirm there. Backup and Restore require Exit from all project tabs and Close worker.</p>
   {% else %}
-  <p><strong>Save project copy…</strong> requires this project's owning manager. Reopen through New / Load in the manager launched with <code>python3 launch.py</code>; this standalone worker has no valid manager address.</p>
+  <p><strong>Save project copy…</strong> requires this project's owning manager. Reopen through New / Load in the manager launched with <code>python3.12 launch.py</code>; this standalone worker has no valid manager address.</p>
   {% endif %}
 </section>
 {% elif request.legacy_project %}
 <section id="project-save-status" class="card" role="note" aria-label="Legacy project saving">
-  <strong>Legacy shared-DB mode — submitted edits are saved immediately to the shared developer database.</strong>
-  <p>Unsaved form drafts are not saved. This logical project is not yet a portable single-project folder, so Save Copy / Backup / Restore cannot honestly copy it from this page.</p>
-  <p>Use the <strong>New / Load manager</strong>: run <code>python3 launch.py --port 8001</code> in another terminal if this legacy server already uses port 8000, then open the printed manager URL. New creates a separate project folder; Load opens an existing portable store. Existing shared projects need an explicitly run and verified legacy conversion before Load. Conversion / adoption is pending operator action, not performed by visiting this page. Keep using this legacy project until that work is completed.</p>
+  <strong>Legacy shared-DB mode — explicit developer / rollback mode; submitted edits are saved immediately to the shared developer database.</strong>
+  <p>Unsaved form drafts are not saved. This page uses the selected developer database, not a portable project's worker. Save Copy / Backup / Restore belong to the owning manager.</p>
+  <p>Use the <strong>New / Load manager</strong>: run <code>python3.12 launch.py --port 8001</code> in another terminal if this developer server uses port 8000, then open the printed manager URL. Load an already converted and verified project folder, or use New for a new project. This page does not determine conversion status and never converts, copies or synchronises stores. Edits here do not update a previously converted store.</p>
 </section>
 {% endif %}
 {% block content %}{% endblock %}</main>

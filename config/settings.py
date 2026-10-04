@@ -24,7 +24,9 @@ except ImportError:  # pragma: no cover - dotenv optional in some contexts
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 LOCAL_SURVEY_CREDENTIALS_FILE = Path(os.getenv("LOCAL_SURVEY_CREDENTIALS_FILE") or BASE_DIR / ".env")
-load_dotenv(LOCAL_SURVEY_CREDENTIALS_FILE)
+# Implicit checks/tests must not read legacy credentials or select legacy truth.
+if os.getenv("LOCAL_SURVEY_DB") or os.getenv("LOCAL_SURVEY_LEGACY_SHARED_DB") == "1":
+    load_dotenv(LOCAL_SURVEY_CREDENTIALS_FILE)
 
 
 # Quick-start development settings - unsuitable for production
@@ -88,11 +90,15 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# Developer commands retain the deliberate shared-store fallback; app roles never do.
+# Legacy truth is reachable only by explicit developer/rollback opt-in.
+_DEFAULT_DB = ":memory:"
 if os.getenv("WP_ROLE", "developer") == "developer":
     PROJECTS_DIR = BASE_DIR / "projects"
-    if not os.getenv("LOCAL_SURVEY_DB"):
-        PROJECTS_DIR.mkdir(mode=0o700, exist_ok=True)
+    _DEFAULT_DB = (
+        PROJECTS_DIR / "db.sqlite3"
+        if os.getenv("LOCAL_SURVEY_LEGACY_SHARED_DB") == "1"
+        else ":memory:"
+    )
 else:
     if not os.getenv("LOCAL_SURVEY_DB"):
         raise RuntimeError("manager/worker requires an explicit LOCAL_SURVEY_DB; no legacy fallback")
@@ -100,7 +106,7 @@ else:
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': Path(os.getenv("LOCAL_SURVEY_DB") or PROJECTS_DIR / "db.sqlite3"),
+        'NAME': os.getenv("LOCAL_SURVEY_DB") or _DEFAULT_DB,
     }
 }
 

@@ -1,7 +1,41 @@
-# Source-only preparation — 2026-10-03
+# Startup cutover — 2026-10-04
+
+Ordinary `python manage.py runserver [8000]` now enters the existing foreground
+New / Load manager, with the same private XDG state and worker ownership as
+`python3.12 launch.py`. Port-only and IPv4 loopback `localhost:port` /
+`127.0.0.1:port` syntax and help are supported; old Django flags fail explicitly.
+No automatic conversion, project migration or last-project fallback is introduced.
+
+The old Django server requires `--legacy-shared-db`. Administrative writes need
+an explicit `LOCAL_SURVEY_DB` or that deliberate legacy opt-in; ordinary checks,
+tests and migration-file generation default to memory rather than legacy truth.
+The developer banner no longer asserts that conversion is pending. See
+[README.md](README.md) and [LEGACY_CONVERSION.md](LEGACY_CONVERSION.md) for startup
+and retained-original rollback commands. The new entry-point dispatch takes effect
+on the next startup; an already-running `launch.py` manager does not need a restart
+for this alias change alone. This cutover does not stop a listener.
+
+This source change does not inspect or modify live stores and is not a new claim
+about their conversion status. The source-preparation evidence below is historical.
+
+Startup-cutover verification used a temporary source checkout, synthetic DBs and
+private temporary XDG state with dotenv disabled: **20/20** focused tests
+(93.697s), **408/408** full Django tests (204.157s, no failures/errors/skips),
+Django check/no migration drift and all four Node checks passed. Actual
+`manage.py runserver` started the manager for the offline Load/edit/Save Copy
+roundtrip and occupied-port refusal; explicit developer startup and fixed-worker
+dispatch remained usable. A synthetic legacy-file sentinel survived refused
+implicit `migrate` unchanged. Scoped Ruff lint and entry-point/test formatting
+passed; whole-file settings formatting remains outside scope because of existing
+style differences. The code-only graph update completed; semantic docs were not
+regenerated. No live database inspection, conversion, backup or process control
+was performed by this startup change.
+
+## Source-only preparation — 2026-10-03
 
 **Local synthetic/code qualification only; not a published Git release.**
-Live legacy adoption is **BLOCKED — NOT AUTHORISED / NOT RUN**. No live inventory,
+At that source-preparation stage, live legacy adoption was **BLOCKED — NOT
+AUTHORISED / NOT RUN**. No live inventory,
 backup, conversion, migration or research edits were performed. Source preparation
 does not authorise any such operation or a commit/push/tag/GitHub release.
 
@@ -76,11 +110,11 @@ notices resolve the licence-documentation hold; no remaining material finding in
 scope. This accepts local synthetic/code-qualified preparation, **not** live
 research adoption or Git publication. Earlier evidence and limitations remain.
 
-## Publication disposition
+## Publication disposition at source preparation — 2026-10-03
 
 The intended package is source/config/migrations/tests/docs/licences only,
-including the currently untracked predecessor files and dirty UI changes. The
-existing index is not that prepared package until explicitly reviewed/staged
+including the then-untracked predecessor files and dirty UI changes. The
+index at that stage was not that prepared package until explicitly reviewed/staged
 under separate publication authority. Read-only validation found **102 actual
 indexed text files**, an empty staged diff and **138 current public source files**,
 including **36 not yet indexed** files. Forbidden private paths/binaries were absent

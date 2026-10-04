@@ -5,10 +5,11 @@ Local-first tool to turn a messy literature search into a fast, auditable survey
 
 Pick any topic, search OpenAlex, Semantic Scholar, Crossref and arXiv, then screen papers Yes / No — first by title, then by abstract — with an auditable citation graph.
 
-**2026-10-03: source-only preparation, synthetic/code-qualified.** The per-project
-Linux application below is implemented and tested, including preserved local
-graph/editor/table work. Live legacy adoption is **BLOCKED — NOT AUTHORISED / NOT
-RUN**. These instructions are not a claim of a Git release or live migration.
+**Per-project Linux application; synthetic/code-qualified.** Ordinary startup
+opens the New / Load manager, never the original shared database. Existing
+converted stores are opened with Load; startup does not convert or synchronise
+databases. Live adoption is a separate operator-controlled operation, not a
+condition inferred from a developer page or these source qualification results.
 See [RELEASE_NOTES.md](RELEASE_NOTES.md) for evidence and unqualified platforms.
 
 ## Workflow
@@ -33,9 +34,18 @@ Linux filesystem already available, run from the checkout:
 python3.12 launch.py
 ```
 
-Use the complete prepared source tree, including its new source/migration/static
-files. An archive of the older Git HEAD alone does not include this unstaged
-preparation; remote availability/publication is not asserted here.
+The familiar command also starts this same foreground manager:
+
+```bash
+python manage.py runserver 8000
+```
+
+Use Python 3.12 for either command. `runserver` accepts an omitted port (8000),
+a port, `localhost:port` or `127.0.0.1:port`, and `--help`. It binds IPv4 loopback
+only. Old Django flags such as `--noreload`, `--nostatic` and non-loopback binds
+are rejected rather than dropped. Use `launch.py` for `--install` or
+`--legacy-env`; explicit developer/rollback server options are described below.
+There is no preparatory bare `manage.py migrate` step for ordinary launch.
 
 Open the printed loopback URL (default http://127.0.0.1:8000/). Choose **New** or
 **Load**, then type an absolute project-folder path. JavaScript and native **Web
@@ -155,10 +165,11 @@ handle; drafts are not included in the copy. Choose a destination and confirm.
 the required action there. Submitted edits are already committed immediately—
 Save Copy makes a separate portable folder, not a save of unsubmitted form text.
 
-Direct `manage.py runserver` pages show a **Legacy shared-DB mode** indicator and
-New/Load manager instructions instead of pretending a logical shared project is
-a portable store. That project's portable save workflow requires an explicitly
-completed and verified conversion; opening a page does not convert or copy it.
+Explicit `manage.py runserver --legacy-shared-db` pages show a **Legacy shared-DB
+mode** developer/rollback indicator and New/Load manager instructions. They do
+not infer whether conversion has happened elsewhere. Load a previously converted
+and verified folder in the manager for portable saving; developer edits do not
+update that converted store. Opening either page does not convert or copy data.
 
 Use the manager's **Save Copy / Backup / Restore** form. Supply absolute source
 and destination folders and confirm the resolved paths. Destination parents must
@@ -352,17 +363,43 @@ title/queue entry are identified in a separate note, not labelled as pending.
 The launcher never opens/converts the old shared `projects/db.sqlite3`, and Load
 never auto-upgrades schemas. See [LEGACY_CONVERSION.md](LEGACY_CONVERSION.md) for
 explicit inventory → approved mapping → dry-run → conversion and recovery.
-Actual legacy schema eligibility is unknown until separately approved inspection.
+For a database not yet inspected, schema eligibility needs separately approved inspection.
 Live adoption needs exact path/ownership approval, a verified WAL-aware private
 backup, closed writers/maintenance window, reviewed field projections and PK/FK
 hash checks, then read-only adoption validation and a rollback plan. Retain the
 original and backup. Synthetic success does not authorise any live step.
 
-Direct `manage.py` use is the **legacy developer mode**, not the launcher:
-without `LOCAL_SURVEY_DB` it selects `projects/db.sqlite3`, loads the source `.env`,
-and `migrate` writes that selected DB. Do not use bare `migrate` as an upgrade
-instruction for a loaded project. Unknown/older stores need a separately backed-up
-upgrade procedure; no general project-store upgrade command is delivered.
+Ordinary `manage.py runserver` is the launcher. The old Django server requires
+**explicit developer/rollback opt-in**, even when `LOCAL_SURVEY_DB` is set:
+
+```bash
+# Synthetic development only; the parent directory must already exist.
+PYTHON_DOTENV_DISABLED=1 LOCAL_SURVEY_DB=/absolute/synthetic/dev.sqlite3 \
+  .venv/bin/python manage.py migrate
+PYTHON_DOTENV_DISABLED=1 LOCAL_SURVEY_DB=/absolute/synthetic/dev.sqlite3 \
+  .venv/bin/python manage.py runserver 8001 --legacy-shared-db --noreload
+```
+
+For deliberately approved rollback to the retained original (not a restore or
+merge), stop the per-project manager through its owning terminal, then select the
+original **explicitly** and use the opt-in command above. Keep the converted store
+and original separate: subsequent edits in either are not synchronised. Omitting
+`LOCAL_SURVEY_DB` with `--legacy-shared-db` deliberately selects
+`projects/db.sqlite3`; that mode may load the source `.env` unless dotenv is
+disabled. Prefer the absolute DB override so the intended target is unambiguous.
+Do not migrate a retained original merely to run it, or run writers against it
+while checking conversion equivalence. The operator, not the launcher, closes
+any pre-existing developer server; startup never kills an occupied-port listener.
+
+Administrative commands that might write (including `migrate`, `flush`, `shell`
+and custom commands) refuse before Django loads unless `LOCAL_SURVEY_DB` or
+`--legacy-shared-db` is explicit. Without either, `check`, `test`, `makemigrations`
+and help use an in-memory DB and do not load source credentials. `makemigrations`
+can still write source migration files unless `--dry-run` is supplied. Fixed
+manager/worker roles retain their explicit startup DB requirement. Do not use
+`migrate` as an upgrade instruction for a loaded project. Unknown/older stores
+need a separately backed-up upgrade procedure; no general project-store upgrade
+command is delivered.
 Developer `export_markdown <project_id> --output /chosen/report.md` also uses the
 selected developer DB, not whichever project a browser tab shows. Prefer the
 loaded project's download controls.
@@ -371,6 +408,7 @@ loaded project's download controls.
 
 ```
 launch.py            Foreground Linux manager + owned fixed-store workers
+manage.py            Ordinary runserver → launcher; explicit developer/admin targets
 config/              Django settings/URLs (role and DB selected before startup)
 literature/
   models.py          Projects, papers, discovery/audit records, screening and project keyword assignments
@@ -463,5 +501,5 @@ of the intended source package. Plotly and other installed dependencies keep
 their own licences/notices; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 The source licence does **not** grant reuse rights to abstracts, bibliographies,
 provider datasets or the user's research; review applicable data licences and
-provider terms before redistributing them. Preparation here has not staged,
-committed, pushed, tagged or published a release.
+provider terms before redistributing them. This documentation does not assert
+a published or tagged release.

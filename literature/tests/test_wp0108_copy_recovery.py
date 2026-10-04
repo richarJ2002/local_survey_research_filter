@@ -1011,8 +1011,10 @@ class MarkdownPrivacyTests(TestCase):
         )
         self.assertContains(response, "Save / project folders")
         self.assertContains(response, "New / Load manager")
-        self.assertContains(response, "python3 launch.py --port 8001")
-        self.assertContains(response, "Conversion / adoption is pending operator action")
+        self.assertContains(response, "python3.12 launch.py --port 8001")
+        self.assertContains(response, "explicit developer / rollback mode")
+        self.assertContains(response, "does not determine conversion status")
+        self.assertNotContains(response, "Conversion / adoption is pending operator action")
         self.assertNotContains(response, "Save project copy…</a>")
 
     def test_shared_paper_notes_provenance_and_keyword_scope(self):

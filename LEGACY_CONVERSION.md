@@ -3,14 +3,15 @@
 This utility converts explicitly approved shared databases. It is **not** a startup migration and does
 not authorise inspecting or converting the user's live database. The examples
 below are for synthetic fixtures; live inspection and conversion each require
-separate operator approval. No live conversion has been run.
+separate operator approval. Synthetic qualification does not establish the current
+conversion status of any user's database.
 
 For the per-project launcher and copy/recovery UI, see [README.md](README.md).
 Before any live step, obtain exact source/destination/ownership approval, establish
 a no-write maintenance window and an independently verified WAL-aware private
 backup, review dry-run projections/hashes and every PK/FK mapping, and retain an
 original-launch rollback plan. Read-only inventory approval is not conversion,
-backup or process-stop authority. Actual live schema eligibility remains unknown.
+backup or process-stop authority. An uninspected source's schema eligibility is unknown.
 
 ## Preconditions
 
@@ -108,3 +109,25 @@ and staging paths, PK/FK maps and source-selected/projected/target hashes. Close
 converted stores before an explicitly approved recovery/move operation. The
 original needs no restoration because conversion never writes it. Genuine power
 loss, full-filesystem and network-filesystem qualification remain unrun.
+
+Ordinary `python manage.py runserver 8000` now opens the New / Load manager,
+just like `python3.12 launch.py`. Load the verified converted folder; do not
+rerun conversion or `migrate` as a startup step. The remembered workspace is a
+location preference, not an automatically selected project.
+
+To deliberately use the retained original for approved rollback, first close the
+manager in its owning terminal and close any old writers yourself. Then use an
+explicit absolute original DB target and the developer opt-in:
+
+```bash
+PYTHON_DOTENV_DISABLED=1 LOCAL_SURVEY_DB=/absolute/retained-original.sqlite3 \
+  .venv/bin/python manage.py runserver 8000 --legacy-shared-db --noreload
+```
+
+This starts the old Django server without migrating/restoring/merging anything.
+Omit `PYTHON_DOTENV_DISABLED=1` only when deliberately opting into the source
+`.env` compatibility. The developer banner reports the selected mode, not whether
+conversion was completed. Any new edits to the original and converted stores
+diverge; they are never synchronised. Never delete either database to change
+startup behavior. See README's developer section for explicit administrative
+targets and startup flag limitations.
