@@ -22,4 +22,9 @@ addopts = "-v --tb=short"
 
 [tool.ruff]
 target-version = "py312"
-line-length = 100
+line-length = 79
+
+[tool.autopep8]
+max_line_length = 79
+indent_size = 4
+aggressive = 0
