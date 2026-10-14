@@ -1,4 +1,5 @@
-"""Verify graph-node popup details, escaping, and renderer consistency.
+"""
+Verify graph-node popup details, escaping, and renderer consistency.
 
 @File:   test_graph_node_popup.py
 
@@ -30,11 +31,14 @@ from literature.services.plots_service import build_citation_figure
 
 
 class GraphNodePopupTests(TestCase):
-    """Raw per-node details ride in meta; hover text and layout stay put."""
+    """
+    Raw per-node details ride in meta; hover text and layout stay put.
+    """
 
     # --- Draft fixture ---
     def _draft_graph(self) -> dict:
-        """Build two draft nodes with one newer-to-older citation.
+        """
+        Build two draft nodes with one newer-to-older citation.
 
         Two draft papers citing backwards, newest first.
 
@@ -72,7 +76,8 @@ class GraphNodePopupTests(TestCase):
 
     # --- Curated fixture ---
     def _curated_graph(self) -> dict:
-        """Build linked curated nodes with reference labels and a missing year.
+        """
+        Build linked curated nodes with reference labels and a missing year.
 
         Survey snapshots carry project-unique ref IDs.
 
@@ -116,7 +121,8 @@ class GraphNodePopupTests(TestCase):
 
     # --- Raw details travel with the points ---
     def test_meta_carries_raw_details_for_draft(self) -> None:
-        """Include draft popup metadata, escaped hover text, and readiness.
+        """
+        Include draft popup metadata, escaped hover text, and readiness.
 
         Meta holds raw dicts aligned to points; customdata HTML is kept.
 
@@ -138,7 +144,8 @@ class GraphNodePopupTests(TestCase):
     def test_full_title_and_trace_alignment_are_safe_in_inline_html(
         self,
     ) -> None:
-        """Align full titles to nodes without emitting an inline script attack.
+        """
+        Align full titles to nodes without emitting an inline script attack.
 
         Args:
             None
@@ -168,7 +175,8 @@ class GraphNodePopupTests(TestCase):
 
     # --- Curated graph shares the renderer ---
     def test_meta_carries_ref_ids_for_curated(self) -> None:
-        """Render curated reference labels with popup metadata and readiness.
+        """
+        Render curated reference labels with popup metadata and readiness.
 
         Curated ref IDs appear in meta and in the circle labels.
 
@@ -191,7 +199,8 @@ class GraphNodePopupTests(TestCase):
 
     # --- Existing chrome untouched ---
     def test_legends_hover_and_layout_preserved(self) -> None:
-        """Keep legends, citation tooltips, width guidance, and native hover.
+        """
+        Keep legends, citation tooltips, width guidance, and native hover.
 
         Colours, edge tooltips, year labels and width survive the popup.
 
@@ -216,7 +225,8 @@ class GraphNodePopupTests(TestCase):
 
     # --- Full colour key when every role is present ---
     def test_all_three_roles_keep_colour_key(self) -> None:
-        """Retain all three role legends for seeds, joiners, and branches.
+        """
+        Retain all three role legends for seeds, joiners, and branches.
 
         Seed, joiner and outer traces each keep their legend entry.
 
@@ -261,7 +271,8 @@ class GraphNodePopupTests(TestCase):
 
     # --- Empty graph stays ordinary ---
     def test_no_node_case_stays_ordinary_empty_graph(self) -> None:
-        """Render an empty graph without popup metadata, script, or readiness.
+        """
+        Render an empty graph without popup metadata, script, or readiness.
 
         No papers means no popup metadata, readiness or script.
 
@@ -284,7 +295,8 @@ class GraphNodePopupTests(TestCase):
 
     # --- Both live builders flow through one renderer ---
     def test_draft_and_curated_builders_share_renderer(self) -> None:
-        """Render popup-ready figures from draft and curated graph builders.
+        """
+        Render popup-ready figures from draft and curated graph builders.
 
         Stored draft and survey entries both emit popup-ready figures.
 

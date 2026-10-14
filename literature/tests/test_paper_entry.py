@@ -1,4 +1,5 @@
-"""!
+"""
+!
 @File: test_paper_entry.py
 @Brief: End-to-end tests for read-only DOI previews and atomic entry changes.
 @Date: 30/09/2026
@@ -40,10 +41,13 @@ from literature.services.screening_service import InvalidTransition
 
 
 class PaperEntryTests(TestCase):
-    """! @brief Exercise preview, validation, persistence and project isolation together."""
+    """
+    ! @brief Exercise preview, validation, persistence and project isolation together.
+    """
 
     def setUp(self) -> None:
-        """Create current synthetic settings and a fictional provider result.
+        """
+        Create current synthetic settings and a fictional provider result.
 
         Args:
             None
@@ -82,7 +86,8 @@ class PaperEntryTests(TestCase):
         }
 
     def preview(self):
-        """Explicitly fetch a synthetic signed preview without saving research.
+        """
+        Explicitly fetch a synthetic signed preview without saving research.
 
         Args:
             None
@@ -98,7 +103,8 @@ class PaperEntryTests(TestCase):
                 self.url, {"action": "fetch", "doi": self.metadata["doi"]})
 
     def submit(self, **overrides):
-        """!
+        """
+        !
         @brief Submit a real preview and assert that saving never calls the providers.
         @param overrides Form values overriding the valid entry defaults.
         @return Django test response.
@@ -113,7 +119,9 @@ class PaperEntryTests(TestCase):
             return self.client.post(self.url, data)
 
     def test_preview_is_read_only_complete_and_unselected(self) -> None:
-        """! @brief Show all metadata and links without default keyword/status or database writes."""
+        """
+        ! @brief Show all metadata and links without default keyword/status or database writes.
+        """
         page = self.preview()
         self.assertContains(page, "Jane Researcher")
         self.assertContains(page, "Research Journal")
@@ -132,7 +140,9 @@ class PaperEntryTests(TestCase):
         self.assertContains(page, "Where was this paper found?")
 
     def test_add_passes_both_stages_and_keeps_provider_metadata(self) -> None:
-        """! @brief Persist displayed metadata and both choices, ignoring forged detail fields."""
+        """
+        ! @brief Persist displayed metadata and both choices, ignoring forged detail fields.
+        """
         response = self.submit(title="Forged title",
                                abstract="Forged abstract", references="junk")
         self.assertEqual(response.status_code, 302)
@@ -169,7 +179,9 @@ class PaperEntryTests(TestCase):
         self.assertFalse(Paper.objects.exists())
 
     def test_legacy_origin_can_be_selected_by_user_without_rewriting_history(self) -> None:
-        """Only a synthetic user POST records a known origin; a preview changes nothing."""
+        """
+        Only a synthetic user POST records a known origin; a preview changes nothing.
+        """
         paper = Paper.objects.create(
             **self.metadata, sources=["manual"], keywords=["navigation"])
         old_run = SearchRun.objects.create(
@@ -238,7 +250,9 @@ class PaperEntryTests(TestCase):
         self.assertEqual(Discovery.objects.get().source, "crossref")
 
     def test_provider_ids_survive_creation_for_citation_matching(self) -> None:
-        """! @brief Keep the paper's own OpenAlex and S2 identifiers for incoming graph edges."""
+        """
+        ! @brief Keep the paper's own OpenAlex and S2 identifiers for incoming graph edges.
+        """
         self.metadata["openalex_id"] = "W1234567"
         self.metadata["source_ids"] = {
             "openalex": "W1234567", "semantic_scholar": "abcdef"}
@@ -248,7 +262,9 @@ class PaperEntryTests(TestCase):
         self.assertEqual(paper.source_ids, self.metadata["source_ids"])
 
     def test_missing_status_and_keyword_produce_visible_field_errors(self) -> None:
-        """! @brief Require explicit assignment and screening choices without side effects."""
+        """
+        ! @brief Require explicit assignment and screening choices without side effects.
+        """
         response = self.submit(
             search_keyword="", title_decision="", abstract_decision="")
         self.assertContains(response, "Entry not saved")
@@ -260,7 +276,9 @@ class PaperEntryTests(TestCase):
         self.assertFalse(SearchRun.objects.exists())
 
     def test_new_keyword_requires_name_and_destination(self) -> None:
-        """! @brief Require both new-keyword fields only for the explicit creation option."""
+        """
+        ! @brief Require both new-keyword fields only for the explicit creation option.
+        """
         response = self.submit(search_keyword="NEW",
                                new_keyword="", new_keyword_search="")
         self.assertEqual(
@@ -270,7 +288,9 @@ class PaperEntryTests(TestCase):
         self.assertFalse(Paper.objects.exists())
 
     def test_existing_selection_ignores_stale_new_keyword_fields(self) -> None:
-        """! @brief Previously typed creation fields cannot override a selected existing keyword."""
+        """
+        ! @brief Previously typed creation fields cannot override a selected existing keyword.
+        """
         self.assertEqual(
             self.submit(new_keyword="unwanted", new_keyword_search=str(
                 self.search.pk)).status_code,
@@ -280,7 +300,9 @@ class PaperEntryTests(TestCase):
         self.assertNotIn("unwanted", self.search.keywords)
 
     def test_impossible_abstract_choice_does_not_create_keyword(self) -> None:
-        """! @brief Validate Title/Abstract dependency before saving any keyword or paper."""
+        """
+        ! @brief Validate Title/Abstract dependency before saving any keyword or paper.
+        """
         response = self.submit(
             search_keyword="NEW",
             new_keyword="new",
@@ -293,13 +315,17 @@ class PaperEntryTests(TestCase):
         self.assertFalse(Paper.objects.exists())
 
     def test_mid_save_failure_rolls_back_everything(self) -> None:
-        """! @brief A failing second correction rolls back the first and all entry writes."""
+        """
+        ! @brief A failing second correction rolls back the first and all entry writes.
+        """
         from literature.services.screening_service import correct_decision
 
         calls = 0
 
         def fail_second(**kwargs):
-            """! @brief Allow Title then inject a failure in Abstract correction."""
+            """
+            ! @brief Allow Title then inject a failure in Abstract correction.
+            """
             nonlocal calls
             calls += 1
             if calls == 2:
@@ -326,7 +352,9 @@ class PaperEntryTests(TestCase):
             self.assertFalse(model.objects.exists(), model.__name__)
 
     def test_preview_tampering_expiry_and_project_replay_are_rejected(self) -> None:
-        """! @brief Refuse unauthenticated, expired and wrong-project preview data."""
+        """
+        ! @brief Refuse unauthenticated, expired and wrong-project preview data.
+        """
         token = self.preview().context["preview_token"]
         response = self.submit(preview_token=token + "broken")
         self.assertContains(response, "preview has expired or is invalid")
@@ -358,7 +386,9 @@ class PaperEntryTests(TestCase):
         self.assertFalse(Paper.objects.exists())
 
     def test_retrying_same_new_preview_does_not_duplicate_paper_or_audit(self) -> None:
-        """! @brief Double submission returns a stale-preview error without additional writes."""
+        """
+        ! @brief Double submission returns a stale-preview error without additional writes.
+        """
         token = self.preview().context["preview_token"]
         data = {**self.values, "preview_token": token}
         self.assertEqual(self.client.post(self.url, data).status_code, 302)
@@ -370,7 +400,9 @@ class PaperEntryTests(TestCase):
                          ScreeningRevision.objects.count()), before)
 
     def test_reassignment_is_current_and_does_not_rewrite_discovery(self) -> None:
-        """! @brief Change the assignment on update while retaining original discovery history."""
+        """
+        ! @brief Change the assignment on update while retaining original discovery history.
+        """
         self.submit()
         paper = Paper.objects.get(doi=self.metadata["doi"])
         discovery = paper.discoveries.get()
@@ -388,7 +420,9 @@ class PaperEntryTests(TestCase):
         self.assertEqual(paper.title, self.metadata["title"])
 
     def test_unchanged_update_is_success_without_duplicate_audit(self) -> None:
-        """! @brief Treat an unchanged update as a no-op, not an invalid transition."""
+        """
+        ! @brief Treat an unchanged update as a no-op, not an invalid transition.
+        """
         self.submit()
         before = (SearchRun.objects.count(), ScreeningRevision.objects.count())
         self.assertEqual(self.submit().status_code, 302)
@@ -396,7 +430,9 @@ class PaperEntryTests(TestCase):
                          ScreeningRevision.objects.count()), before)
 
     def test_title_rejection_removes_previous_abstract_status(self) -> None:
-        """! @brief Apply Title dependency to an already accepted Abstract without stale skips."""
+        """
+        ! @brief Apply Title dependency to an already accepted Abstract without stale skips.
+        """
         self.submit()
         self.assertEqual(
             self.submit(title_decision="REJECT",
@@ -408,7 +444,9 @@ class PaperEntryTests(TestCase):
             new_decision="REMOVED").exists())
 
     def test_global_existing_paper_does_not_fetch_or_modify_metadata(self) -> None:
-        """! @brief Link a shared record without overwriting metadata or other-project statuses."""
+        """
+        ! @brief Link a shared record without overwriting metadata or other-project statuses.
+        """
         other = Project.objects.create(name="Other")
         other.ensure_default_stages()
         other_search = Search.objects.create(
@@ -445,7 +483,9 @@ class PaperEntryTests(TestCase):
         self.assertContains(self.preview(), "Edit paper details manually")
 
     def test_invalid_doi_never_calls_providers(self) -> None:
-        """! @brief Validate directly visited lookup URLs as well as the DOI search form."""
+        """
+        ! @brief Validate directly visited lookup URLs as well as the DOI search form.
+        """
         with patch("literature.services.reference_service.lookup_doi") as provider:
             response = self.client.get(
                 reverse("paper_lookup", args=[
@@ -455,7 +495,9 @@ class PaperEntryTests(TestCase):
         self.assertEqual(response.status_code, 302)
 
     def test_missing_references_does_not_block_content_screening(self) -> None:
-        """Missing references defer final selection, not Title or Abstract screening."""
+        """
+        Missing references defer final selection, not Title or Abstract screening.
+        """
         from literature.services.screening_service import pending_references
 
         self.metadata["references"] = []
@@ -471,7 +513,9 @@ class PaperEntryTests(TestCase):
         self.assertFalse(Paper.objects.exists())
 
     def test_stale_keyword_is_revalidated_at_transaction_boundary(self) -> None:
-        """! @brief A keyword removed after form validation cannot be saved."""
+        """
+        ! @brief A keyword removed after form validation cannot be saved.
+        """
         self.search.keywords = ["robotics"]
         self.search.save()
         with self.assertRaisesMessage(ValueError, "no longer in the search"):
@@ -480,7 +524,9 @@ class PaperEntryTests(TestCase):
         self.assertFalse(Paper.objects.exists())
 
     def test_assignment_is_visible_in_table_and_keyword_counts(self) -> None:
-        """! @brief Explicit reassignment takes precedence over stale text-based keyword matches."""
+        """
+        ! @brief Explicit reassignment takes precedence over stale text-based keyword matches.
+        """
         from literature.services.metrics_service import keyword_stage_counts
 
         self.metadata["abstract"] = "The navigation abstract mentions navigation many times."
@@ -493,7 +539,9 @@ class PaperEntryTests(TestCase):
         self.assertContains(page, "Linked keyword: robotics")
 
     def test_duplicate_merge_retains_assignment_for_each_project(self) -> None:
-        """! @brief Assignment rows survive normal keep/drop deduplication."""
+        """
+        ! @brief Assignment rows survive normal keep/drop deduplication.
+        """
         from literature.services.dedup_service import merge_papers
 
         self.submit()
@@ -505,7 +553,9 @@ class PaperEntryTests(TestCase):
         self.assertEqual(assignment.keyword, "navigation")
 
     def test_old_tab_cannot_overwrite_newer_status_or_assignment(self) -> None:
-        """! @brief Reject stale updates even when the DOI still resolves to the same paper."""
+        """
+        ! @brief Reject stale updates even when the DOI still resolves to the same paper.
+        """
         self.submit()
         token = self.preview().context["preview_token"]
         self.submit(search_keyword=f"{self.search.pk}|robotics")
@@ -516,7 +566,9 @@ class PaperEntryTests(TestCase):
             PaperKeywordAssignment.objects.get().keyword, "robotics")
 
     def test_database_lock_returns_retry_message(self) -> None:
-        """! @brief A contending SQLite writer produces a retry message, not an HTTP 500."""
+        """
+        ! @brief A contending SQLite writer produces a retry message, not an HTTP 500.
+        """
         from django.db import OperationalError
 
         with patch(
@@ -528,7 +580,9 @@ class PaperEntryTests(TestCase):
         self.assertFalse(Paper.objects.exists())
 
     def test_existing_incomplete_metadata_cannot_gain_screening_decisions(self) -> None:
-        """! @brief Stored metadata gaps cannot be bypassed by an update or forged preview."""
+        """
+        ! @brief Stored metadata gaps cannot be bypassed by an update or forged preview.
+        """
         paper = Paper.objects.create(
             title="Incomplete", doi=self.metadata["doi"])
         Discovery.objects.create(
@@ -539,7 +593,9 @@ class PaperEntryTests(TestCase):
         self.assertFalse(PaperKeywordAssignment.objects.exists())
 
     def test_reassignment_retains_provider_attributed_keyword_index(self) -> None:
-        """! @brief Preserve provider keywords while changing this project's explicit assignment."""
+        """
+        ! @brief Preserve provider keywords while changing this project's explicit assignment.
+        """
         self.submit()
         paper = Paper.objects.get(doi=self.metadata["doi"])
         Discovery.objects.create(

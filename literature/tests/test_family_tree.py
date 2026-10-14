@@ -1,4 +1,5 @@
-"""Readability-first citation layout and responsive rendering.
+"""
+Readability-first citation layout and responsive rendering.
 
 @File: test_family_tree.py
 @Brief: Geometry, soft chronology, deterministic bounded layout and preserved edges.
@@ -53,7 +54,8 @@ def crossings(points, edges):
 # --- Classes
 class FamilyTreeTests(SimpleTestCase):
     def test_geometry_viewport_bounds_and_offline_controller(self):
-        """Start at full fit while preserving readable minimum zoom geometry.
+        """
+        Start at full fit while preserving readable minimum zoom geometry.
 
         Args:
             None
@@ -132,7 +134,8 @@ class FamilyTreeTests(SimpleTestCase):
         self.assertNotIn("graph_node_popup.js", html)
 
     def test_empty_graph_has_no_unbounded_viewport(self):
-        """Keep an empty graph axis-free without pan or zoom bounds.
+        """
+        Keep an empty graph axis-free without pan or zoom bounds.
 
         Args:
             None
@@ -337,7 +340,8 @@ class FamilyTreeTests(SimpleTestCase):
         )
 
     def test_initial_canvas_has_buffer_outside_largest_node_and_unrelated_edge(self):
-        """Retain a readable zoom reference while the initial view fits all.
+        """
+        Retain a readable zoom reference while the initial view fits all.
 
         Args:
             None

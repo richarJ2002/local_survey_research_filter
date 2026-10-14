@@ -1,4 +1,5 @@
-"""Preserve saved project names without bypassing the explicit schema gate.
+"""
+Preserve saved project names without bypassing the explicit schema gate.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -37,10 +38,13 @@ from literature.project_store import ProjectStoreError, create_project_store
 
 
 class WorkspaceSchemaNameTests(SimpleTestCase):
-    """Use an isolated old-schema package; never use real survey records."""
+    """
+    Use an isolated old-schema package; never use real survey records.
+    """
 
     def test_saved_name_survives_schema_refusal_without_writes(self) -> None:
-        """Display the old project's actual name while keeping Load refused.
+        """
+        Display the old project's actual name while keeping Load refused.
 
         Args:
             None
@@ -86,7 +90,8 @@ class WorkspaceSchemaNameTests(SimpleTestCase):
                     hashlib.sha256(database.read_bytes()).hexdigest(), before)
 
     def test_missing_database_is_not_created_for_a_name(self) -> None:
-        """Return no name instead of creating a database at a missing path.
+        """
+        Return no name instead of creating a database at a missing path.
 
         Args:
             None

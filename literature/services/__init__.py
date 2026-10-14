@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group.
-"""Define the literature.services package.
+"""
+Define the literature.services package.
 
 @File:   __init__.py
 

@@ -1,4 +1,5 @@
-"""Store the current keyword assignment without replacing discovery provenance.
+"""
+Store the current keyword assignment without replacing discovery provenance.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -29,7 +30,9 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    """Create one keyword assignment per paper/project linked to its search."""
+    """
+    Create one keyword assignment per paper/project linked to its search.
+    """
 
     dependencies: ClassVar = [("literature", "0008_screeningrevision")]
 

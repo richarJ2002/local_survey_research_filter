@@ -1,4 +1,5 @@
-"""Qualify WP02 controls with isolated synthetic data.
+"""
+Qualify WP02 controls with isolated synthetic data.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -38,10 +39,13 @@ from literature.services.metrics_service import project_revision
 
 
 class InlineChartTests(TestCase):
-    """Reuse the reviewed IN/THROUGH and option-parity synthetic gates."""
+    """
+    Reuse the reviewed IN/THROUGH and option-parity synthetic gates.
+    """
 
     def setUp(self) -> None:
-        """Create dated and undated final/pending synthetic selections.
+        """
+        Create dated and undated final/pending synthetic selections.
 
         Args:
             None
@@ -68,7 +72,8 @@ class InlineChartTests(TestCase):
                     stage=stage, paper=paper, decision="ACCEPT")
 
     def test_six_controls_preserve_normalized_options(self) -> None:
-        """Check every card preserves the other cards' exact settings.
+        """
+        Check every card preserves the other cards' exact settings.
 
         Args:
             None
@@ -97,7 +102,8 @@ class InlineChartTests(TestCase):
             self.assertIn("prune=on", response.context["chart_query"])
 
     def test_window_totals_and_final_popup_parity(self) -> None:
-        """Check THROUGH includes earlier years and excludes pending refs.
+        """
+        Check THROUGH includes earlier years and excludes pending refs.
 
         Args:
             None
@@ -131,7 +137,8 @@ class InlineChartTests(TestCase):
             ["abstract", "through", 2021], ["abstract", "through", 2022]])
 
     def test_display_download_parity_and_modebars(self) -> None:
-        """Check identical app/export data and retained offline modebars.
+        """
+        Check identical app/export data and retained offline modebars.
 
         Args:
             None
@@ -170,7 +177,8 @@ class InlineChartTests(TestCase):
         self.assertNotContains(response, "Chart <example>")
 
     def test_invalid_empty_windows_are_local(self) -> None:
-        """Check invalid feedback, empty windows and unchanged stored data.
+        """
+        Check invalid feedback, empty windows and unchanged stored data.
 
         Args:
             None
@@ -197,7 +205,8 @@ class InlineChartTests(TestCase):
         self.assertEqual(project_revision(self.project), before)
 
     def test_metrics_reused_and_dashboard_includes_curated(self) -> None:
-        """Check dashboard constructs metrics once and restores curation.
+        """
+        Check dashboard constructs metrics once and restores curation.
 
         Args:
             None
@@ -224,7 +233,8 @@ class InlineChartTests(TestCase):
         self.assertContains(response, 'id="curated-survey-section"')
 
     def test_curated_graph_uses_same_renderer_and_dashboard_navigation(self) -> None:
-        """Draw chosen entries with the same Plotly style and view controls.
+        """
+        Draw chosen entries with the same Plotly style and view controls.
 
         Args:
             None
@@ -279,7 +289,8 @@ class InlineChartTests(TestCase):
         self.assertContains(response, "Selected entry")
 
     def test_citation_controls_only_offer_movement_with_nodes(self) -> None:
-        """Offer only download and full-graph reset when papers are present.
+        """
+        Offer only download and full-graph reset when papers are present.
 
         Args:
             None
@@ -311,7 +322,8 @@ class InlineChartTests(TestCase):
             self.assertNotIn(f'data-chart-action="{action}"', section)
 
     def test_default_and_single_step_totals_menus(self) -> None:
-        """Check native series controls never leave obsolete trace masks.
+        """
+        Check native series controls never leave obsolete trace masks.
 
         Args:
             None
@@ -339,7 +351,8 @@ class InlineChartTests(TestCase):
             self.assertEqual(len(figure.data), traces)
 
     def test_ordering_flow_categories_and_default_options(self) -> None:
-        """Check useful order/count controls preserve default figure data.
+        """
+        Check useful order/count controls preserve default figure data.
 
         Args:
             None
@@ -397,10 +410,13 @@ class InlineChartTests(TestCase):
 
 
 class PaperOverviewTests(TestCase):
-    """Reuse bounded status/paging/projection gates on the existing route."""
+    """
+    Reuse bounded status/paging/projection gates on the existing route.
+    """
 
     def test_exact_statuses_share_membership_and_escape_text(self) -> None:
-        """Check all eight filters and local foreign-project isolation.
+        """
+        Check all eight filters and local foreign-project isolation.
 
         Args:
             None
@@ -474,7 +490,8 @@ class PaperOverviewTests(TestCase):
             url, {"view": "hud"}).status_code, 405)
 
     def test_paging_filters_sort_and_no_eager_dashboard_rows(self) -> None:
-        """Check stable pages and explicit pre-pagination query/filtering.
+        """
+        Check stable pages and explicit pre-pagination query/filtering.
 
         Args:
             None
@@ -533,7 +550,8 @@ class PaperOverviewTests(TestCase):
         self.assertNotContains(dashboard, 'data-paper-id="')
 
     def test_10000_papers_bounded_sql_projection_and_payload(self) -> None:
-        """Measure core SQLite reads, elapsed time and bounded 25-row payloads.
+        """
+        Measure core SQLite reads, elapsed time and bounded 25-row payloads.
 
         Args:
             None

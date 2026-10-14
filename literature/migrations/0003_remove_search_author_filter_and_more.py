@@ -1,4 +1,5 @@
-"""Replace scalar search filters with author, keyword and venue JSON lists.
+"""
+Replace scalar search filters with author, keyword and venue JSON lists.
 
 Removed scalar filter values are not copied into the new lists.
 
@@ -29,7 +30,9 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    """Drop old filter columns, add lists and allow an empty derived query."""
+    """
+    Drop old filter columns, add lists and allow an empty derived query.
+    """
 
     dependencies = [
         ('literature', '0002_alter_paper_doi_alter_paper_openalex_id_and_more'),

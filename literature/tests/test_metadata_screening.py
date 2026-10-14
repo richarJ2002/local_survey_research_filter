@@ -1,4 +1,5 @@
-"""Verify staged metadata completion, final selection, and migration.
+"""
+Verify staged metadata completion, final selection, and migration.
 
 Regression tests for staged metadata completion, final selection and migration.
 
@@ -59,14 +60,16 @@ from literature.services.search_service import gate_papers
 
 
 class MetadataScreeningTests(TestCase):
-    """Exercise staged completion with isolated data and no HTTP calls.
+    """
+    Exercise staged completion with isolated data and no HTTP calls.
 
     Exercise the full workflow with isolated databases and no provider
     requests.
     """
 
     def setUp(self):
-        """Discover a titled paper pending Title review with missing metadata.
+        """
+        Discover a titled paper pending Title review with missing metadata.
 
         Args:
             None
@@ -98,7 +101,8 @@ class MetadataScreeningTests(TestCase):
             "reference_review", args=[self.project.pk])
 
     def pass_title(self):
-        """Accept the fixture's Title decision to open Abstract review.
+        """
+        Accept the fixture's Title decision to open Abstract review.
 
         Args:
             None
@@ -112,7 +116,8 @@ class MetadataScreeningTests(TestCase):
         decide(paper=self.paper, stage=self.title, decision="ACCEPT")
 
     def pass_abstract(self):
-        """Accept Title and a manually completed abstract without adding refs.
+        """
+        Accept Title and a manually completed abstract without adding refs.
 
         Args:
             None
@@ -132,7 +137,8 @@ class MetadataScreeningTests(TestCase):
         decide(paper=self.paper, stage=self.abstract, decision="ACCEPT")
 
     def test_missing_fields_enter_title_and_then_abstract(self):
-        """Admit thin metadata to Title but require an abstract for acceptance.
+        """
+        Admit thin metadata to Title but require an abstract for acceptance.
 
         Args:
             None
@@ -155,7 +161,8 @@ class MetadataScreeningTests(TestCase):
     def test_manual_abstract_save_keeps_same_paper_and_enables_acceptance(
         self,
     ):
-        """Save a trimmed abstract with provenance for the same review paper.
+        """
+        Save a trimmed abstract with provenance for the same review paper.
 
         Args:
             None
@@ -182,7 +189,8 @@ class MetadataScreeningTests(TestCase):
         self.assertNotContains(page, 'data-decision="ACCEPT" disabled')
 
     def test_blank_abstract_returns_field_error_without_changes(self):
-        """Reject a blank abstract with a field error and no saved text.
+        """
+        Reject a blank abstract with a field error and no saved text.
 
         Args:
             None
@@ -203,7 +211,8 @@ class MetadataScreeningTests(TestCase):
         self.assertEqual(self.paper.abstract, "")
 
     def test_existing_abstract_cannot_be_overwritten(self):
-        """Refuse abstract replacement and retain the original pasted text.
+        """
+        Refuse abstract replacement and retain the original pasted text.
 
         Args:
             None
@@ -223,7 +232,8 @@ class MetadataScreeningTests(TestCase):
         self.assertEqual(self.paper.abstract, "Original pasted abstract")
 
     def test_unknown_metadata_can_be_filled_without_entering_abstract(self):
-        """Save unknown details while preserving known fields and review state.
+        """
+        Save unknown details while preserving known fields and review state.
 
         Args:
             None
@@ -271,7 +281,8 @@ class MetadataScreeningTests(TestCase):
             response["Location"]), "No abstract found")
 
     def test_known_metadata_is_not_exposed_in_completion_form(self):
-        """Hide known title, year, and abstract but offer missing authors.
+        """
+        Hide known title, year, and abstract but offer missing authors.
 
         Args:
             None
@@ -295,7 +306,8 @@ class MetadataScreeningTests(TestCase):
         self.assertContains(page, "Complete other unknown details")
 
     def test_metadata_date_conflict_rolls_back_all_fields(self):
-        """Reject a conflicting date without saving the submitted authors.
+        """
+        Reject a conflicting date without saving the submitted authors.
 
         Args:
             None
@@ -318,7 +330,8 @@ class MetadataScreeningTests(TestCase):
         self.assertIsNone(self.paper.publication_date)
 
     def test_duplicate_doi_cannot_partially_save_metadata(self):
-        """Report an existing DOI collision without saving submitted metadata.
+        """
+        Report an existing DOI collision without saving submitted metadata.
 
         Args:
             None
@@ -342,7 +355,8 @@ class MetadataScreeningTests(TestCase):
         self.assertIsNone(self.paper.doi)
 
     def test_metadata_identifier_race_returns_a_form_error(self):
-        """Render an identifier-race error and preserve the empty authors.
+        """
+        Render an identifier-race error and preserve the empty authors.
 
         Args:
             None
@@ -370,7 +384,8 @@ class MetadataScreeningTests(TestCase):
         self.assertEqual(self.paper.authors, [])
 
     def test_reported_zero_citation_count_stays_read_only(self):
-        """Treat a provider-reported zero citation count as read-only.
+        """
+        Treat a provider-reported zero citation count as read-only.
 
         Args:
             None
@@ -388,7 +403,8 @@ class MetadataScreeningTests(TestCase):
             self.abstract_url), 'name="citation_count"')
 
     def test_new_publication_date_supplies_missing_year(self):
-        """Populate the missing publication year from a newly supplied date.
+        """
+        Populate the missing publication year from a newly supplied date.
 
         Args:
             None
@@ -412,7 +428,8 @@ class MetadataScreeningTests(TestCase):
         self.assertEqual(self.paper.publication_date.isoformat(), "2026-02-03")
 
     def test_audience_tag_shows_paste_box_and_can_be_replaced(self):
-        """Replace the audience tag and retain provenance before acceptance.
+        """
+        Replace the audience tag and retain provenance before acceptance.
 
         SMaNa's stored provider tag must not masquerade as an abstract.
 
@@ -458,7 +475,8 @@ class MetadataScreeningTests(TestCase):
     def test_abstract_detection_does_not_discard_short_or_prefixed_real_text(
         self,
     ):
-        """Reject empty text and audience tags but accept short real abstracts.
+        """
+        Reject empty text and audience tags but accept short real abstracts.
 
         Args:
             None
@@ -481,7 +499,8 @@ class MetadataScreeningTests(TestCase):
             self.assertTrue(abstract_available(text), text)
 
     def test_manually_pasting_the_provider_tag_is_rejected(self):
-        """Reject a pasted audience tag and leave Abstract review pending.
+        """
+        Reject a pasted audience tag and leave Abstract review pending.
 
         Args:
             None
@@ -504,7 +523,8 @@ class MetadataScreeningTests(TestCase):
             stage=self.abstract).decision, "PENDING")
 
     def test_missing_abstract_can_be_rejected_but_not_accepted(self):
-        """Block acceptance without an abstract but allow audited rejection.
+        """
+        Block acceptance without an abstract but allow audited rejection.
 
         Args:
             None
@@ -526,7 +546,8 @@ class MetadataScreeningTests(TestCase):
         self.assertFalse(pending_references(self.project).exists())
 
     def test_abstract_requires_title_acceptance_and_project_membership(self):
-        """Require Title acceptance and project membership for stage decisions.
+        """
+        Require Title acceptance and project membership for stage decisions.
 
         Args:
             None
@@ -548,7 +569,8 @@ class MetadataScreeningTests(TestCase):
             stage__project=other).exists())
 
     def test_content_pass_is_pending_references_not_final_selection(self):
-        """Exclude reference-pending papers from final counts and output.
+        """
+        Exclude reference-pending papers from final counts and output.
 
         Args:
             None
@@ -580,7 +602,8 @@ class MetadataScreeningTests(TestCase):
             self.reference_url), self.paper.title)
 
     def test_manually_pasted_bibliography_is_retained_and_finalizes(self):
-        """Retain pasted refs, normalize identifiers, and finalize selection.
+        """
+        Retain pasted refs, normalize identifiers, and finalize selection.
 
         Args:
             None
@@ -625,7 +648,8 @@ class MetadataScreeningTests(TestCase):
     def test_unresolved_plain_bibliography_counts_as_available_not_graph_edges(
         self,
     ):
-        """Finalize plain bibliography text without inventing citation edges.
+        """
+        Finalize plain bibliography text without inventing citation edges.
 
         Args:
             None
@@ -645,7 +669,8 @@ class MetadataScreeningTests(TestCase):
         self.assertEqual(build_graph(self.project)["edges"], [])
 
     def test_blank_bibliography_returns_visible_error_and_stays_pending(self):
-        """Keep reference review pending after a blank-bibliography error.
+        """
+        Keep reference review pending after a blank-bibliography error.
 
         Args:
             None
@@ -671,7 +696,8 @@ class MetadataScreeningTests(TestCase):
     def test_repeat_reference_actions_never_overwrite_completed_bibliography(
         self,
     ):
-        """Refuse repeated reference actions without provider calls or edits.
+        """
+        Refuse repeated reference actions without provider calls or edits.
 
         Args:
             None
@@ -706,7 +732,8 @@ class MetadataScreeningTests(TestCase):
             stage=self.abstract).decision, "ACCEPT")
 
     def test_reference_rejection_is_audited_as_abstract_reject(self):
-        """Audit reference rejection as Abstract REJECT, not final selection.
+        """
+        Audit reference rejection as Abstract REJECT, not final selection.
 
         Args:
             None
@@ -739,7 +766,8 @@ class MetadataScreeningTests(TestCase):
     def test_reference_actions_are_project_scoped_and_after_content_pass_only(
         self,
     ):
-        """Reject early reference actions and actions from another project.
+        """
+        Reject early reference actions and actions from another project.
 
         Args:
             None
@@ -770,7 +798,8 @@ class MetadataScreeningTests(TestCase):
             stage=self.abstract).decision, "ACCEPT")
 
     def test_provider_retry_is_explicit_post_and_can_finalize(self):
-        """Avoid GET lookups and finalize a paper after an explicit retry POST.
+        """
+        Avoid GET lookups and finalize a paper after an explicit retry POST.
 
         Args:
             None
@@ -789,7 +818,8 @@ class MetadataScreeningTests(TestCase):
             provider.assert_not_called()
 
         def fill(papers):
-            """Save a provider DOI reference on the retry batch's first paper.
+            """
+            Save a provider DOI reference on the retry batch's first paper.
 
             Args:
                 papers (list[Paper]): Retry batch whose first paper receives
@@ -818,7 +848,8 @@ class MetadataScreeningTests(TestCase):
         self.assertEqual(final_decisions(self.project).count(), 1)
 
     def test_finished_abstract_round_points_to_reference_queue(self):
-        """Send the completed Abstract round to the reference-completion queue.
+        """
+        Send the completed Abstract round to the reference-completion queue.
 
         Args:
             None
@@ -841,7 +872,8 @@ class MetadataScreeningTests(TestCase):
         self.assertEqual(response.json()["next_paper_url"], self.reference_url)
 
     def test_existing_reference_list_skips_reference_completion_queue(self):
-        """Finalize an accepted abstract when references already exist.
+        """
+        Finalize an accepted abstract when references already exist.
 
         Args:
             None
@@ -859,7 +891,8 @@ class MetadataScreeningTests(TestCase):
         self.assertEqual(final_decisions(self.project).count(), 1)
 
     def test_graphs_have_no_incomplete_category(self):
-        """Keep obsolete incomplete-paper categories off dashboard plots.
+        """
+        Keep obsolete incomplete-paper categories off dashboard plots.
 
         Args:
             None
@@ -879,7 +912,8 @@ class MetadataScreeningTests(TestCase):
                 page, "Where incomplete papers were excluded")
 
     def test_unqueued_untitled_records_are_not_reported_as_pending(self):
-        """Report untitled discoveries as unqueued, not pending Title review.
+        """
+        Report untitled discoveries as unqueued, not pending Title review.
 
         Args:
             None
@@ -919,7 +953,8 @@ class MetadataScreeningTests(TestCase):
                       figure.layout.annotations[0].text)
 
     def test_doi_punctuation_and_duplicate_identifiers(self):
-        """Strip trailing DOI punctuation and dedupe without losing brackets.
+        """
+        Strip trailing DOI punctuation and dedupe without losing brackets.
 
         Args:
             None
@@ -939,7 +974,8 @@ class MetadataScreeningTests(TestCase):
         )
 
     def test_arxiv_ids_in_bibliography_prose_match_cached_arxiv_papers(self):
-        """Resolve an arXiv ID in pasted prose to a discovered paper edge.
+        """
+        Resolve an arXiv ID in pasted prose to a discovered paper edge.
 
         Args:
             None
@@ -965,7 +1001,8 @@ class MetadataScreeningTests(TestCase):
                          "edges"], [(self.paper.pk, cited.pk)])
 
     def test_resolved_manual_reference_matches_only_discovered_targets(self):
-        """Link manual references only to targets discovered in the project.
+        """
+        Link manual references only to targets discovered in the project.
 
         Args:
             None
@@ -997,7 +1034,8 @@ class MetadataScreeningTests(TestCase):
     def test_migration_admits_existing_excluded_papers_preserving_decisions(
         self,
     ):
-        """Admit legacy titled papers once and preserve prior rejection.
+        """
+        Admit legacy titled papers once and preserve prior rejection.
 
         Args:
             None
@@ -1028,7 +1066,8 @@ class MetadataScreeningTests(TestCase):
         self.assertEqual(self.paper.decisions.count(), 1)
 
     def test_backfill_admits_a_paper_after_its_title_becomes_available(self):
-        """Queue an untitled paper after explicit backfill supplies its title.
+        """
+        Queue an untitled paper after explicit backfill supplies its title.
 
         Args:
             None
@@ -1044,7 +1083,8 @@ class MetadataScreeningTests(TestCase):
         self.paper.save(update_fields=["title"])
 
         def fill(project):
-            """Supply the title and report one successful backfill batch.
+            """
+            Supply the title and report one successful backfill batch.
 
             Args:
                 project (Project): Project passed by the backfill view; the
@@ -1071,7 +1111,8 @@ class MetadataScreeningTests(TestCase):
             stage=self.title).decision, "PENDING")
 
     def test_details_edit_cannot_silently_remove_final_reference_list(self):
-        """Refuse removal of final references and preserve the selected paper.
+        """
+        Refuse removal of final references and preserve the selected paper.
 
         Args:
             None
@@ -1102,7 +1143,8 @@ class MetadataScreeningTests(TestCase):
         self.assertEqual(final_decisions(self.project).count(), 1)
 
     def test_manual_bibliography_does_not_trigger_repeated_enrichment(self):
-        """Skip enrichment and client creation for a manual bibliography.
+        """
+        Skip enrichment and client creation for a manual bibliography.
 
         Args:
             None
@@ -1127,7 +1169,8 @@ class MetadataScreeningTests(TestCase):
         provider.assert_not_called()
 
     def test_manual_reference_formats_are_consistent(self):
-        """Retain S2 IDs and normalize arXiv PDF links in the details form.
+        """
+        Retain S2 IDs and normalize arXiv PDF links in the details form.
 
         Args:
             None
@@ -1151,7 +1194,8 @@ class MetadataScreeningTests(TestCase):
         )
 
     def test_reference_retry_outage_keeps_paper_pending(self):
-        """Report a provider outage and keep the reference paper pending.
+        """
+        Report a provider outage and keep the reference paper pending.
 
         Args:
             None
@@ -1177,7 +1221,8 @@ class MetadataScreeningTests(TestCase):
         self.assertEqual(pending_references(self.project).count(), 1)
 
     def test_json_payload_shape_is_checked_before_screening(self):
-        """Return HTTP 400 for non-object payloads and malformed paper IDs.
+        """
+        Return HTTP 400 for non-object payloads and malformed paper IDs.
 
         Args:
             None

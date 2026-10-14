@@ -71,7 +71,8 @@ EDITABLE_FIELDS = (
 
 
 def effective_providers(selection: list[str] | None) -> list[str]:
-    """Resolve stored sources using the executable legacy fallback rule.
+    """
+    Resolve stored sources using the executable legacy fallback rule.
 
     Args:
         selection: Stored choices, including explicit Scopus selection;
@@ -90,7 +91,8 @@ def effective_providers(selection: list[str] | None) -> list[str]:
 
 
 def require_current_search(project: Project, search_id: int) -> Search:
-    """Resolve this project's sole writable configuration from fresh rows.
+    """
+    Resolve this project's sole writable configuration from fresh rows.
 
     Args:
         project: Owning project in the fixed database.
@@ -115,7 +117,8 @@ def require_current_search(project: Project, search_id: int) -> Search:
 
 
 def _configuration_sources(project: Project) -> list[dict]:
-    """Capture project-scoped business settings in stable identity order.
+    """
+    Capture project-scoped business settings in stable identity order.
 
     Args:
         project: Owning project whose settings will be confirmed.
@@ -130,7 +133,8 @@ def _configuration_sources(project: Project) -> list[dict]:
 
 
 def _configuration_fingerprint(sources: list[dict]) -> str:
-    """Fingerprint constituent settings, including executable legacy queries.
+    """
+    Fingerprint constituent settings, including executable legacy queries.
 
     Args:
         sources: Stable configuration snapshots captured from one project.
@@ -146,7 +150,8 @@ def _configuration_fingerprint(sources: list[dict]) -> str:
 
 
 def configuration_preview(project: Project, binding: list[str]) -> dict:
-    """Propose editable future settings without changing research or history.
+    """
+    Propose editable future settings without changing research or history.
 
     Args:
         project: Owning project.
@@ -194,7 +199,8 @@ def configuration_preview(project: Project, binding: list[str]) -> dict:
 def _verify_configuration_preview(
     project: Project, sources: list[dict], token: str, binding: list[str],
 ) -> None:
-    """Reject stale, forged or expired confirmation before any mutation.
+    """
+    Reject stale, forged or expired confirmation before any mutation.
 
     Args:
         project: Owning project.
@@ -232,7 +238,8 @@ def update_current_configuration(
     project: Project, search_id: int, values: dict, token: str,
     binding: list[str],
 ) -> Search:
-    """Apply confirmed business settings without overwriting run counters.
+    """
+    Apply confirmed business settings without overwriting run counters.
 
     Args:
         project: Owning project.
@@ -265,7 +272,8 @@ def save_current_configuration(
     project: Project, values: dict, token: str, binding: list[str], *,
     adopt: bool = False, translated: bool = False,
 ) -> Search:
-    """Adopt an unchanged legacy row or create a new current snapshot.
+    """
+    Adopt an unchanged legacy row or create a new current snapshot.
 
     Args:
         project: Owning project.
@@ -323,7 +331,8 @@ def _store_batch(
     query_for_provenance: str,
     create_decisions: bool = True,
 ) -> tuple[int, int, int, list[int]]:
-    """Deduplicate and persist one provider batch with discovery provenance.
+    """
+    Deduplicate and persist one provider batch with discovery provenance.
 
     Every returned paper is stored with provenance (complete database).
     When create_decisions is False, queue rows are left to gate_papers
@@ -401,7 +410,8 @@ def _store_batch(
 
 # --- Completeness gate ---
 def is_complete(paper: Paper) -> bool:
-    """Check full metadata completeness, not eligibility for Title admission.
+    """
+    Check full metadata completeness, not eligibility for Title admission.
 
     Args:
         paper: Canonical paper whose title, abstract and references are checked.
@@ -421,7 +431,8 @@ def is_complete(paper: Paper) -> bool:
 
 # --- Gate touched papers into the screening queue ---
 def gate_papers(papers: list[Paper], title_stage) -> int:
-    """Admit titled papers without replacing existing screening decisions.
+    """
+    Admit titled papers without replacing existing screening decisions.
 
     Args:
         papers: Touched canonical papers to consider for Title admission.
@@ -459,7 +470,8 @@ def _run_provider(
     max_pages: int,
     title_stage,
 ) -> tuple[SearchRun, list[int]]:
-    """Execute one provider and retain a distinct audit of success or failure.
+    """
+    Execute one provider and retain a distinct audit of success or failure.
 
     Decisions are deferred: run_search enriches incomplete papers first,
     then gates them into the queue. OpenAlex/Crossref/arXiv get one
@@ -490,7 +502,8 @@ def _run_provider(
 
     # --- Escape one row for OR embedding ---
     def _escape_row(term: str) -> str:
-        """Escape a keyword row before placing it in quoted provider syntax.
+        """
+        Escape a keyword row before placing it in quoted provider syntax.
 
         Args:
             term: Keyword text to escape.
@@ -615,7 +628,8 @@ def _run_provider(
 
 # --- Run one search across providers ---
 def run_search(search_id: int, *, max_pages: int = 4) -> list[SearchRun]:
-    """Fetch from ticked providers, complete the database, gate screening.
+    """
+    Fetch from ticked providers, complete the database, gate screening.
 
     Pipeline per run: store and deduplicate -> enrich missing metadata ->
     admit every titled paper to Title screening. Missing abstracts and

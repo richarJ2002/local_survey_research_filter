@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Serve installed Plotly.js locally and embed it in standalone chart exports.
+"""
+Serve installed Plotly.js locally and embed it in standalone chart exports.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -46,7 +47,8 @@ THIRD_PARTY_NOTICE = (
 # --- Pinned-by-installation Plotly version for labels and tests ---
 @functools.lru_cache(maxsize=1)
 def plotly_version() -> str:
-    """Read and cache the installed Plotly Python package version.
+    """
+    Read and cache the installed Plotly Python package version.
 
     Args:
         None
@@ -63,7 +65,8 @@ def plotly_version() -> str:
 # --- Read the installed bundle; no vendored copy, no npm, no CDN ---
 @functools.lru_cache(maxsize=1)
 def plotly_bundle() -> bytes:
-    """Read and cache Plotly.js from the installed dependency, never a CDN.
+    """
+    Read and cache Plotly.js from the installed dependency, never a CDN.
 
     Args:
         None
@@ -87,7 +90,8 @@ def plotly_bundle() -> bytes:
 
 # --- Inline bundle tag for self-contained standalone chart exports ---
 def standalone_bundle_tag() -> str:
-    """Embed the installed bundle and its third-party notice in a script tag.
+    """
+    Embed the installed bundle and its third-party notice in a script tag.
 
     Args:
         None
@@ -107,7 +111,8 @@ def standalone_bundle_tag() -> str:
 # --- Local Plotly.js endpoint: research path so workers serve it prefixed ---
 @require_safe
 def plotly_js(request):
-    """Serve installed Plotly.js with immutable caching and a version header.
+    """
+    Serve installed Plotly.js with immutable caching and a version header.
 
     Args:
         request (HttpRequest): GET/HEAD request enforced by require_safe;

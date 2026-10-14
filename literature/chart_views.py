@@ -1,4 +1,5 @@
-"""Preview project-scoped chart entries and stored-content revision stamps.
+"""
+Preview project-scoped chart entries and stored-content revision stamps.
 
 Yearly points mean IN; running totals mean THROUGH. Final selections require
 reference completion, and previews create no temporary exports.
@@ -36,7 +37,8 @@ from literature.services.screening_service import final_decisions
 
 @require_safe
 def project_revision(request, pk):
-    """Return a stored-content revision stamp for same-project revalidation.
+    """
+    Return a stored-content revision stamp for same-project revalidation.
 
     Args:
         request (HttpRequest): Safe request; method validation is delegated
@@ -64,7 +66,8 @@ def project_revision(request, pk):
 
 @require_safe
 def chart_entries(request, pk):
-    """List discovered papers matching a yearly or cumulative chart point.
+    """
+    List discovered papers matching a yearly or cumulative chart point.
 
     Args:
         request (HttpRequest): Safe request with GET filters: step defaults to

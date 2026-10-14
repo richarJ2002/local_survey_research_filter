@@ -1,4 +1,5 @@
-"""WP01.11 narrow regression qualification; synthetic stores only.
+"""
+WP01.11 narrow regression qualification; synthetic stores only.
 
 @File: test_wp0111_qualification.py
 @Brief: Real revision mutations, lease continuity and concurrent drain/cancel.
@@ -375,7 +376,8 @@ class DrainQualificationTests(SimpleTestCase):
             self.assertTrue(ws.release_handle(self.tab["handle_id"]))
 
     def test_no_migration_drift_against_two_opened_synthetic_stores(self):
-        """Check opened synthetic schemas using the guarded developer entry.
+        """
+        Check opened synthetic schemas using the guarded developer entry.
 
         Args:
             None

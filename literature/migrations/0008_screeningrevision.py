@@ -1,4 +1,5 @@
-"""Create an audit model for explicit screening decision corrections.
+"""
+Create an audit model for explicit screening decision corrections.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -28,7 +29,9 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    """Record previous/new decisions, reasons and paper/stage links."""
+    """
+    Record previous/new decisions, reasons and paper/stage links.
+    """
 
     dependencies = [
         ("literature", "0007_opencitationslookup"),

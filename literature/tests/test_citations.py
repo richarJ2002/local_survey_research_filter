@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Verify citation paths, graph lenses, pruning, and resumable queues.
+"""
+Verify citation paths, graph lenses, pruning, and resumable queues.
 
 @File:   test_citations.py
 
@@ -36,10 +37,13 @@ from literature.services.plots_service import build_citation_figure
 
 
 class CitationTests(TestCase):
-    """Within-library links form stories; shuffle keeps queue resumable."""
+    """
+    Within-library links form stories; shuffle keeps queue resumable.
+    """
 
     def _select_final(self, paper: Paper, stage) -> None:
-        """Complete the fixture's references and accept Title and Abstract.
+        """
+        Complete the fixture's references and accept Title and Abstract.
 
         Construct a reference-completed fixture without inventing any citation
         edges.
@@ -72,7 +76,8 @@ class CitationTests(TestCase):
 
     # --- Graph links ---
     def test_chain_links_and_depth(self) -> None:
-        """Build chains at full and zero depth and render the full graph.
+        """
+        Build chains at full and zero depth and render the full graph.
 
         A cites B cites C chains with depth cutoff.
 
@@ -115,7 +120,8 @@ class CitationTests(TestCase):
 
     # --- Found lens ---
     def test_found_lens_seeds_everything(self) -> None:
-        """Keep low- and high-citation papers linked in the found lens.
+        """
+        Keep low- and high-citation papers linked in the found lens.
 
         Found lens seeds every paper, however cited, links intact.
 
@@ -148,7 +154,8 @@ class CitationTests(TestCase):
         self.assertEqual(len(graph["edges"]), 1)
 
     def test_references_match_doi_and_semantic_scholar_id(self) -> None:
-        """Resolve DOI and Semantic Scholar references to directed edges.
+        """
+        Resolve DOI and Semantic Scholar references to directed edges.
 
         Fallback reference identifiers create real directed edges.
 
@@ -180,7 +187,8 @@ class CitationTests(TestCase):
                          {(source.pk, doi_paper.pk), (source.pk, s2_paper.pk)})
 
     def test_long_citation_chain_avoids_recursion_limit(self) -> None:
-        """Find all 1,498 interior chain nodes without recursive traversal.
+        """
+        Find all 1,498 interior chain nodes without recursive traversal.
 
         Finding paths in a large project must not use recursive DFS.
 
@@ -201,7 +209,8 @@ class CitationTests(TestCase):
 
     # --- Final seeds + prune ---
     def test_final_seeds_and_prune(self) -> None:
-        """Prune a single selected paper's branches but keep the seed.
+        """
+        Prune a single selected paper's branches but keep the seed.
 
         One kept paper cannot turn its side branches into connections.
 
@@ -254,7 +263,8 @@ class CitationTests(TestCase):
     def test_depth_follows_references_backward_not_incoming_citations(
         self,
     ) -> None:
-        """Follow cited references by depth without adding incoming citers.
+        """
+        Follow cited references by depth without adding incoming citers.
 
         Each hop reaches an older cited paper, never an unselected citer.
 
@@ -305,7 +315,8 @@ class CitationTests(TestCase):
     def test_shared_cited_paper_connects_newest_selected_branches(
         self,
     ) -> None:
-        """Retain a shared cited ancestor as a joiner between selected tips.
+        """
+        Retain a shared cited ancestor as a joiner between selected tips.
 
         Two selected tips citing one ancestor form a visible cluster.
 
@@ -350,7 +361,8 @@ class CitationTests(TestCase):
 
     # --- Prune keeps seed-to-seed stories ---
     def test_prune_keeps_story_between_seeds(self) -> None:
-        """Keep the middle paper of a chain joining two selected endpoints.
+        """
+        Keep the middle paper of a chain joining two selected endpoints.
 
         A chain starting and ending with selected papers survives prune.
 
@@ -394,7 +406,8 @@ class CitationTests(TestCase):
     def test_backbone_keeps_directed_edges_when_traversed_backwards(
         self,
     ) -> None:
-        """Keep citing-to-cited directions when selecting an undirected path.
+        """
+        Keep citing-to-cited directions when selecting an undirected path.
 
         Undirected path selection still displays the actual citing direction.
 
@@ -433,7 +446,8 @@ class CitationTests(TestCase):
 
     # --- Prune chooses one shortest track ---
     def test_prune_chooses_one_of_parallel_shortest_tracks(self) -> None:
-        """Choose the same equal-length backbone on repeated graph builds.
+        """
+        Choose the same equal-length backbone on repeated graph builds.
 
         Equal-length routes resolve deterministically to one backbone.
 
@@ -487,7 +501,8 @@ class CitationTests(TestCase):
 
     # --- Joiner flags ---
     def test_joiner_grey_outer_blue(self) -> None:
-        """Distinguish joiners from branches and omit unreachable newer citers.
+        """
+        Distinguish joiners from branches and omit unreachable newer citers.
 
         Connectivity, not publication year, determines grey vs blue.
 
@@ -555,7 +570,8 @@ class CitationTests(TestCase):
 
     # --- Cyclic branch is not a connection ---
     def test_attached_cycle_does_not_join_selected_papers(self) -> None:
-        """Exclude an attached cycle from joiners and the pruned backbone.
+        """
+        Exclude an attached cycle from joiners and the pruned backbone.
 
         A loop hung off one selected paper is still an outer branch.
 
@@ -595,7 +611,8 @@ class CitationTests(TestCase):
 
     # --- Unequal routes still connect ---
     def test_longer_alternative_path_is_interior(self) -> None:
-        """Show longer alternative routes but prune to the shortest backbone.
+        """
+        Show longer alternative routes but prune to the shortest backbone.
 
         Not only shortest paths count when two kept papers share a cluster.
 
@@ -639,7 +656,8 @@ class CitationTests(TestCase):
     def test_backbone_spans_three_selected_papers_and_keeps_isolates(
         self,
     ) -> None:
-        """Span three selected papers with two edges and keep an isolated seed.
+        """
+        Span three selected papers with two edges and keep an isolated seed.
 
         A connected trio uses two shortest links; other seeds stay visible.
 
@@ -677,7 +695,8 @@ class CitationTests(TestCase):
 
     # --- Smallest chain ---
     def test_min_chain_hides_outliers(self) -> None:
-        """Keep a three-paper component and hide a seed below min_chain.
+        """
+        Keep a three-paper component and hide a seed below min_chain.
 
         Groups smaller than min_chain vanish; the main line stays.
 
@@ -719,7 +738,8 @@ class CitationTests(TestCase):
 
     # --- Isolated seeds stay visible ---
     def test_isolated_seeds_kept(self) -> None:
-        """Display an isolated final seed even when it has no citation links.
+        """
+        Display an isolated final seed even when it has no citation links.
 
         Final papers with no links still appear (seeds never vanish).
 
@@ -746,7 +766,8 @@ class CitationTests(TestCase):
 
     # --- Seed stage lens ---
     def test_seed_stage_lens(self) -> None:
-        """Check Title, final, found, and unknown lens seed selection.
+        """
+        Check Title, final, found, and unknown lens seed selection.
 
         Title lens seeds title-kept papers; final lens seeds abstract-kept.
 
@@ -785,7 +806,8 @@ class CitationTests(TestCase):
 
     # --- Shuffle resumable ---
     def test_shuffled_queue_stays_resumable(self) -> None:
-        """Drain the shuffled Title queue once per paper, then return no item.
+        """
+        Drain the shuffled Title queue once per paper, then return no item.
 
         Random order still drains the pending pool exactly once.
 

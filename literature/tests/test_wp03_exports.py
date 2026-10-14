@@ -1,4 +1,5 @@
-"""Verify shared WP03 image controls and read-only chart boundaries.
+"""
+Verify shared WP03 image controls and read-only chart boundaries.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -39,10 +40,13 @@ from literature.models import (
 
 
 class WP03ExportTests(TestCase):
-    """Use only fictional runner-owned projects, with provider traffic blocked."""
+    """
+    Use only fictional runner-owned projects, with provider traffic blocked.
+    """
 
     def setUp(self) -> None:
-        """Build a small selected-paper graph and independent curated snapshots.
+        """
+        Build a small selected-paper graph and independent curated snapshots.
 
         Args:
             None
@@ -84,7 +88,8 @@ class WP03ExportTests(TestCase):
         self.addCleanup(network.stop)
 
     def test_all_app_charts_share_accessible_export_controls(self) -> None:
-        """Cover all seven dashboard charts and the standalone curated page.
+        """
+        Cover all seven dashboard charts and the standalone curated page.
 
         Args:
             None
@@ -129,7 +134,8 @@ class WP03ExportTests(TestCase):
                 self.assertContains(response, "Fictional &lt;WP03&gt; project")
 
     def test_legacy_history_queries_and_export_options_never_write(self) -> None:
-        """Render ordinary charts for obsolete lenses without changing audits.
+        """
+        Render ordinary charts for obsolete lenses without changing audits.
 
         Args:
             None
@@ -168,7 +174,8 @@ class WP03ExportTests(TestCase):
                           for model in models], before)
 
     def test_empty_curated_graph_has_no_axes_title_or_invented_nodes(self) -> None:
-        """Keep the empty canvas blank with the same hidden-axis renderer.
+        """
+        Keep the empty canvas blank with the same hidden-axis renderer.
 
         Args:
             None

@@ -1,4 +1,5 @@
-"""Search Scopus with header-only credentials and bounded STANDARD pages.
+"""
+Search Scopus with header-only credentials and bounded STANDARD pages.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -32,7 +33,8 @@ from .mapping import map_scopus_to_canonical
 
 @dataclass(frozen=True)
 class ScopusConfig:
-    """Hold search text, OR-matched rows, year bounds and page ceilings.
+    """
+    Hold search text, OR-matched rows, year bounds and page ceilings.
 
     Empty keyword rows use query as one literal phrase. Venue/author groups
     are ANDed with keywords, with OR within each group. Defaults request
@@ -54,7 +56,8 @@ class ScopusConfig:
 
 @dataclass(frozen=True)
 class ProviderResult:
-    """Pair canonical paper metadata with its original Scopus search entry.
+    """
+    Pair canonical paper metadata with its original Scopus search entry.
 
     The search service owns persistence; this result has no credentials.
     """
@@ -64,11 +67,15 @@ class ProviderResult:
 
 
 class ScopusError(RuntimeError):
-    """Report access, query, quota or response failures without secret echoes."""
+    """
+    Report access, query, quota or response failures without secret echoes.
+    """
 
 
 class ScopusSource:
-    """Fetch opt-in Scopus metadata without saving papers or logging secrets."""
+    """
+    Fetch opt-in Scopus metadata without saving papers or logging secrets.
+    """
 
     # ponytail: STANDARD offset pages only; add cursor/detail APIs if needed.
     source_key = "scopus"
@@ -77,7 +84,8 @@ class ScopusSource:
     def __init__(
         self, api_key: str | None = None, insttoken: str | None = None,
     ) -> None:
-        """Select explicit credentials or the fixed startup settings.
+        """
+        Select explicit credentials or the fixed startup settings.
 
         Args:
             None
@@ -97,7 +105,8 @@ class ScopusSource:
             settings, "ELSEVIER_INSTTOKEN", "")
 
     def default_headers(self) -> dict[str, str]:
-        """Validate credentials and send them only in Elsevier headers.
+        """
+        Validate credentials and send them only in Elsevier headers.
 
         Args:
             None
@@ -129,7 +138,8 @@ class ScopusSource:
         return headers
 
     def build_request_params(self, config: ScopusConfig, offset: int) -> dict:
-        """Translate literal rows to Scopus fields without exposing credentials.
+        """
+        Translate literal rows to Scopus fields without exposing credentials.
 
         Args:
             config: Keywords, venue/author rows, optional years and page size.
@@ -150,7 +160,8 @@ class ScopusSource:
             raise ScopusError("Invalid Scopus page size or offset.")
 
         def quoted(value: str) -> str:
-            """Quote a literal row without allowing query-syntax injection.
+            """
+            Quote a literal row without allowing query-syntax injection.
 
             Args:
                 value: Nonblank user-entered row.
@@ -208,7 +219,8 @@ class ScopusSource:
     def _get_with_backoff(
         self, client: httpx.Client, params: dict,
     ) -> httpx.Response:
-        """Try one page up to three times for transport, throttle or 5xx errors.
+        """
+        Try one page up to three times for transport, throttle or 5xx errors.
 
         Args:
             client: Borrowed HTTP client; never redirected to another host.
@@ -266,7 +278,8 @@ class ScopusSource:
     def fetch(
         self, config: ScopusConfig, client: httpx.Client | None = None,
     ) -> tuple[list[ProviderResult], int]:
-        """Fetch bounded STANDARD pages and map bibliographic metadata only.
+        """
+        Fetch bounded STANDARD pages and map bibliographic metadata only.
 
         Args:
             config: Search rows, filters, page size and page ceiling.

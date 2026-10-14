@@ -1,4 +1,5 @@
-"""Add project research context and remembered search provider selections.
+"""
+Add project research context and remembered search provider selections.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -27,7 +28,9 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    """Add domain/topic/questions text and the sources_selected JSON list."""
+    """
+    Add domain/topic/questions text and the sources_selected JSON list.
+    """
 
     dependencies = [
         ('literature', '0003_remove_search_author_filter_and_more'),

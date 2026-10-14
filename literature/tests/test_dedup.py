@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Verify DOI precedence and normalized-title deduplication.
+"""
+Verify DOI precedence and normalized-title deduplication.
 
 @File:   test_dedup.py
 
@@ -31,11 +32,14 @@ from literature.services.dedup_service import find_duplicate
 
 
 class DedupTests(TestCase):
-    """Dedup must match DOI first, then same normalized title."""
+    """
+    Dedup must match DOI first, then same normalized title.
+    """
 
     # --- DOI match ---
     def test_doi_match_wins(self) -> None:
-        """Match a normalized DOI despite a different incoming title.
+        """
+        Match a normalized DOI despite a different incoming title.
 
         Same DOI returns existing paper.
 
@@ -56,7 +60,8 @@ class DedupTests(TestCase):
 
     # --- Title match ---
     def test_title_match(self) -> None:
-        """Match normalized titles despite different authors and years.
+        """
+        Match normalized titles despite different authors and years.
 
         Same normalized title matches whatever the author/year.
 
@@ -86,7 +91,8 @@ class DedupTests(TestCase):
 
     # --- No match ---
     def test_no_match_returns_none(self) -> None:
-        """Return no duplicate and the none match kind for different titles.
+        """
+        Return no duplicate and the none match kind for different titles.
 
         Different papers return none.
 

@@ -1,4 +1,5 @@
-"""Functional launcher qualification with synthetic checkout/state only.
+"""
+Functional launcher qualification with synthetic checkout/state only.
 
 @File: test_wp0110_launcher.py
 @Brief: First install, offline repeat, owned drain/crash recovery and port failures.
@@ -70,10 +71,13 @@ def wait_for(predicate, timeout=30):
 
 # --- Entry dispatch must happen before Django/legacy state is touched ---
 class StartupDispatchTests(SimpleTestCase):
-    """Keep manager isolation and fixed Django bindings on separate paths."""
+    """
+    Keep manager isolation and fixed Django bindings on separate paths.
+    """
 
     def test_default_and_loopback_ports_use_the_same_runtime(self):
-        """Preserve manager port selection without entering Django dispatch.
+        """
+        Preserve manager port selection without entering Django dispatch.
 
         Args:
             None
@@ -108,7 +112,8 @@ class StartupDispatchTests(SimpleTestCase):
                 django_command.assert_not_called()
 
     def test_fixed_roles_and_explicit_legacy_keep_django_arguments(self):
-        """Forward fixed-role and explicit rollback flags without bootstrap.
+        """
+        Forward fixed-role and explicit rollback flags without bootstrap.
 
         Args:
             None
@@ -144,10 +149,13 @@ class StartupDispatchTests(SimpleTestCase):
 
 
 class LauncherPreflightTests(SimpleTestCase):
-    """Reject incompatible environments before opening application state."""
+    """
+    Reject incompatible environments before opening application state.
+    """
 
     def test_python_and_dependency_errors(self):
-        """Expose Python, installation and dependency-probe failures.
+        """
+        Expose Python, installation and dependency-probe failures.
 
         Args:
             None
@@ -184,7 +192,8 @@ class LauncherPreflightTests(SimpleTestCase):
             self.assertIn("import django", run.call_args.args[0][2])
 
     def test_private_path_and_permission_errors(self):
-        """Refuse package state and surface private-directory permissions.
+        """
+        Refuse package state and surface private-directory permissions.
 
         Args:
             None
@@ -230,11 +239,14 @@ class LauncherPreflightTests(SimpleTestCase):
 
 
 class LauncherIntegrationTests(SimpleTestCase):
-    """One real first-run pip install, then only network-disabled repeat launches."""
+    """
+    One real first-run pip install, then only network-disabled repeat launches.
+    """
 
     @classmethod
     def setUpClass(cls):
-        """Install once in a copied source checkout and isolated XDG state.
+        """
+        Install once in a copied source checkout and isolated XDG state.
 
         Args:
             None
@@ -363,7 +375,8 @@ class LauncherIntegrationTests(SimpleTestCase):
             os.close(self.master)
 
     def start(self, extra=(), terminal=False):
-        """Start the copied manager, optionally in a real synthetic terminal.
+        """
+        Start the copied manager, optionally in a real synthetic terminal.
 
         Args:
             None
@@ -414,7 +427,8 @@ class LauncherIntegrationTests(SimpleTestCase):
         )
 
     def create(self):
-        """Confirm a signed New preview and attach to its real project worker.
+        """
+        Confirm a signed New preview and attach to its real project worker.
 
         Args:
             None
@@ -536,7 +550,8 @@ class LauncherIntegrationTests(SimpleTestCase):
     def test_source_only_synthetic_example_load_edit_share_roundtrip_offline(
         self,
     ):
-        """Keep offline source packaging, local edits and copies lossless.
+        """
+        Keep offline source packaging, local edits and copies lossless.
 
         Args:
             None
@@ -843,7 +858,8 @@ class LauncherIntegrationTests(SimpleTestCase):
                 "PRAGMA foreign_key_check").fetchall(), [])
 
     def test_busy_port_and_second_manager_leave_listener_untouched(self):
-        """Refuse occupied ports and duplicate managers without signalling them.
+        """
+        Refuse occupied ports and duplicate managers without signalling them.
 
         Args:
             None
@@ -886,7 +902,8 @@ class LauncherIntegrationTests(SimpleTestCase):
         self.assertEqual(self.manager.get(self.base + "/")[0], 200)
 
     def test_implicit_admin_writes_refuse_and_checks_use_memory(self):
-        """Reject implicit writes and retain safe in-memory developer checks.
+        """
+        Reject implicit writes and retain safe in-memory developer checks.
 
         Args:
             None
@@ -983,7 +1000,8 @@ class LauncherIntegrationTests(SimpleTestCase):
             projects.rmdir()
 
     def test_help_and_unsupported_startup_do_not_create_state(self):
-        """Retain discoverable help and reject invalid manager/DB startup.
+        """
+        Retain discoverable help and reject invalid manager/DB startup.
 
         Args:
             None
@@ -1024,7 +1042,8 @@ class LauncherIntegrationTests(SimpleTestCase):
             self.assertFalse((self.work / "state").exists())
 
     def test_explicit_developer_server_and_admin_target_preserved(self):
-        """Use explicit developer targets without manager bootstrap or state.
+        """
+        Use explicit developer targets without manager bootstrap or state.
 
         Args:
             None
@@ -1082,7 +1101,8 @@ class LauncherIntegrationTests(SimpleTestCase):
         self.assertFalse((self.work / "state").exists())
 
     def test_first_install_offline_failure_is_readable(self):
-        """Force a genuine empty offline install and assert its readable failure.
+        """
+        Force a genuine empty offline install and assert its readable failure.
 
         Args:
             None

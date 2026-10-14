@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Fetch bounded DOI citation lookups explicitly and cache graph edges.
+"""
+Fetch bounded DOI citation lookups explicitly and cache graph edges.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -52,16 +53,21 @@ DIRECTIONS = (("outgoing", "references"), ("incoming", "citations"))
 
 # --- Classes
 class OpenCitationsError(RuntimeError):
-    """Report an unsuccessful or invalid OpenCitations direction lookup."""
+    """
+    Report an unsuccessful or invalid OpenCitations direction lookup.
+    """
 
 
 class OpenCitationsRateLimit(OpenCitationsError):
-    """Signal HTTP 429 so the caller stops the current lookup batch."""
+    """
+    Signal HTTP 429 so the caller stops the current lookup batch.
+    """
 
 
 # --- Functions
 def _dois(value: object) -> list[str]:
-    """Extract normalized DOI identifiers from a provider PID field.
+    """
+    Extract normalized DOI identifiers from a provider PID field.
 
     Args:
         value (object): Space/semicolon-separated PIDs with doi: prefixes.
@@ -80,7 +86,8 @@ def _dois(value: object) -> list[str]:
 
 
 def parse_edges(payload: object) -> list[list[str]]:
-    """Extract unique directed DOI citation pairs from an API response.
+    """
+    Extract unique directed DOI citation pairs from an API response.
 
     Args:
         payload (object): List of rows with citing and cited PID fields.
@@ -110,7 +117,8 @@ def parse_edges(payload: object) -> list[list[str]]:
 
 
 def _fetch(doi: str, endpoint: str, client: httpx.Client) -> list[list[str]]:
-    """Fetch and parse one citation direction from the fixed API host.
+    """
+    Fetch and parse one citation direction from the fixed API host.
 
     Args:
         doi (str): Normalized DOI, URL-quoted before requesting.
@@ -151,7 +159,8 @@ def _fetch(doi: str, endpoint: str, client: httpx.Client) -> list[list[str]]:
 def enrich_project(
     project, *, max_requests: int = MAX_REQUESTS, client: httpx.Client | None = None,
 ) -> dict[str, int | bool]:
-    """Refresh stale DOI-direction caches for discovered project papers.
+    """
+    Refresh stale DOI-direction caches for discovered project papers.
 
     Successful empty results are cached too. Failed requests are not cached,
     so a later explicit retry can recover without losing a citation link.

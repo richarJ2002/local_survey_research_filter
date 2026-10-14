@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Build within-project citation graphs from stored identifiers and caches.
+"""
+Build within-project citation graphs from stored identifiers and caches.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -34,7 +35,8 @@ from literature.services.reference_service import normalize_doi
 
 
 def _short_id(raw: str) -> str:
-    """Strip the OpenAlex resolver prefix and surrounding whitespace.
+    """
+    Strip the OpenAlex resolver prefix and surrounding whitespace.
 
     Args:
         raw (str): OpenAlex URL or short ID; falsey values become blank.
@@ -50,7 +52,8 @@ def _short_id(raw: str) -> str:
 
 # --- Connectors between selected papers ---
 def _connecting_papers(neighbours: dict[int, set[int]], seeds: set[int]) -> set[int]:
-    """Find papers on a simple citation path between two selected papers.
+    """
+    Find papers on a simple citation path between two selected papers.
 
     Build the block-cut forest: cyclic branches attached at only one point
     are not connections, while every route through a joining block is.
@@ -168,7 +171,8 @@ def _connecting_papers(neighbours: dict[int, set[int]], seeds: set[int]) -> set[
 def _shortest_backbone(
     neighbours: dict[int, set[int]], seeds: set[int],
 ) -> set[frozenset[int]]:
-    """Choose a deterministic union of shortest paths spanning each seed group.
+    """
+    Choose a deterministic union of shortest paths spanning each seed group.
 
     Distances between selected papers form a metric graph. A minimum
     spanning forest on that graph chooses which pairs to join; one
@@ -214,7 +218,8 @@ def _shortest_backbone(
     leader = {pk: pk for pk in selected}
 
     def root(pk: int) -> int:
-        """Find a seed's union-find representative and compress its path.
+        """
+        Find a seed's union-find representative and compress its path.
 
         Args:
             pk (int): Seed ID in the enclosing leader mapping.
@@ -254,7 +259,8 @@ def build_graph(
     project, *, depth: int = 2, prune: bool = False,
     seed_stage: str = "final", min_chain: int = 1,
 ) -> dict:
-    """Build a citation lens using only papers discovered in the project.
+    """
+    Build a citation lens using only papers discovered in the project.
 
     Match stored OpenAlex, DOI, S2 and cached arXiv DOI aliases, plus cached
     OpenCitations edges; bibliography prose alone supplies no edges. Explore
@@ -386,7 +392,8 @@ def build_graph(
     by_pk = {p.pk: p for p in papers}
 
     def newest_first(pk: int) -> tuple[bool, int, int]:
-        """Order dated papers newest first, then undated papers and stable IDs.
+        """
+        Order dated papers newest first, then undated papers and stable IDs.
 
         Args:
             pk (int): ID in the enclosing paper mapping.
@@ -490,7 +497,8 @@ def build_graph(
 
 # --- Per-track table ---
 def track_summaries(project, graph: dict) -> list[dict]:
-    """Summarize each linked component of the displayed graph.
+    """
+    Summarize each linked component of the displayed graph.
 
     Use common fieldsOfStudy/tags and keyword-row text hits to describe member
     papers; year ranges and top venues serve as field/industry proxies.

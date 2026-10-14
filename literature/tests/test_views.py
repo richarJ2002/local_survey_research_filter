@@ -33,10 +33,14 @@ from literature.models import Paper, Project, ScreeningDecision, Search
 
 
 class ViewTests(TestCase):
-    """Title round shows metadata, abstract round shows abstract."""
+    """
+    Title round shows metadata, abstract round shows abstract.
+    """
 
     def test_new_project_help_appears_below_each_field(self) -> None:
-        """Field examples and guidance are separate from their inputs."""
+        """
+        Field examples and guidance are separate from their inputs.
+        """
         response = self.client.get(reverse("project_create"))
         self.assertEqual(response.status_code, 200)
         html = response.content.decode()
@@ -58,7 +62,8 @@ class ViewTests(TestCase):
         self.assertContains(invalid, 'id="id_name_error"')
 
     def test_project_context_is_at_top_of_detail_page(self) -> None:
-        """Keep project context before the simplified Search controls.
+        """
+        Keep project context before the simplified Search controls.
 
         Args:
             None
@@ -88,7 +93,8 @@ class ViewTests(TestCase):
                         html.index('id="search-heading"'))
 
     def test_search_form_has_accessible_loading_state(self) -> None:
-        """Keep loading feedback and duplicate-submit guards on current runs.
+        """
+        Keep loading feedback and duplicate-submit guards on current runs.
 
         Args:
             None
@@ -115,7 +121,8 @@ class ViewTests(TestCase):
         self.assertContains(response, 'prefers-reduced-motion: reduce')
 
     def test_launch_entry_help_and_port_hint(self) -> None:
-        """Keep top-level startup help distinct from Django subcommand help.
+        """
+        Keep top-level startup help distinct from Django subcommand help.
 
         Args:
             None
@@ -151,7 +158,9 @@ class ViewTests(TestCase):
         self.assertIn("runserver", django_result.stdout)
 
     def test_project_trash_link_requires_confirmation(self) -> None:
-        """A card's trash icon opens confirmation; only POST deletes it."""
+        """
+        A card's trash icon opens confirmation; only POST deletes it.
+        """
         target = Project.objects.create(name="Review Alpha")
         other = Project.objects.create(name="Review Beta")
         delete_url = reverse("project_delete", args=[target.pk])
@@ -172,7 +181,8 @@ class ViewTests(TestCase):
         self.assertTrue(Project.objects.filter(pk=other.pk).exists())
 
     def test_shared_layout_and_workflow_controls_render(self) -> None:
-        """Retain shared navigation, results summary and form controls.
+        """
+        Retain shared navigation, results summary and form controls.
 
         Args:
             None
@@ -217,7 +227,9 @@ class ViewTests(TestCase):
         self.assertContains(search, 'name="keywords_json"')
 
     def test_opencitations_setting_never_displays_saved_token(self) -> None:
-        """The optional credential stays in .env and is not echoed in HTML."""
+        """
+        The optional credential stays in .env and is not echoed in HTML.
+        """
         from unittest.mock import patch
 
         from django.test import override_settings
@@ -237,7 +249,8 @@ class ViewTests(TestCase):
                             for call in save.call_args_list))
 
     def test_elsevier_settings_hide_secrets_and_preserve_blanks(self) -> None:
-        """Save only submitted Elsevier credentials without echoing secrets.
+        """
+        Save only submitted Elsevier credentials without echoing secrets.
 
         Args:
             None
@@ -340,7 +353,8 @@ class ViewTests(TestCase):
                             "research@example.org")
 
     def test_elsevier_settings_reject_unsafe_input_without_echoing(self) -> None:
-        """Reject unsafe header values and hide failed POST credentials.
+        """
+        Reject unsafe header values and hide failed POST credentials.
 
         Args:
             None
@@ -423,7 +437,9 @@ class ViewTests(TestCase):
 
     # --- Title round metadata ---
     def test_screening_title_reserves_four_lines_without_clipping(self) -> None:
-        """Both screening rounds reserve title space without imposing a height limit."""
+        """
+        Both screening rounds reserve title space without imposing a height limit.
+        """
         import re
 
         project = Project.objects.create(name="Stable screening layout")
@@ -452,7 +468,9 @@ class ViewTests(TestCase):
                         css, r"(?:^|;)\s*(?:height|max-height|overflow|text-overflow|line-clamp)\s*:")
 
     def test_title_round_shows_metadata_not_abstract(self) -> None:
-        """Round 1 displays venue/date but hides abstract text."""
+        """
+        Round 1 displays venue/date but hides abstract text.
+        """
         project = Project.objects.create(name="P")
         project.ensure_default_stages()
         title = project.stages.get(name="Title")
@@ -473,7 +491,9 @@ class ViewTests(TestCase):
         assert "Secret abstract words" not in content
 
     def test_screening_metadata_has_stable_slots_for_missing_and_long_values(self) -> None:
-        """Keep all rows in both rounds and retain long text without clamping."""
+        """
+        Keep all rows in both rounds and retain long text without clamping.
+        """
         import re
 
         project = Project.objects.create(name="Stable metadata layout")
@@ -519,7 +539,9 @@ class ViewTests(TestCase):
 
     # --- Abstract round ---
     def test_abstract_round_shows_abstract(self) -> None:
-        """Round 2 displays abstract."""
+        """
+        Round 2 displays abstract.
+        """
         project = Project.objects.create(name="P")
         project.ensure_default_stages()
         abstract = project.stages.get(name="Abstract")

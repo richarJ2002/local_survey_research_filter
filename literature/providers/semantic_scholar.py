@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Fetch Semantic Scholar search pages with optional key headers and backoff.
+"""
+Fetch Semantic Scholar search pages with optional key headers and backoff.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -36,7 +37,8 @@ from .mapping import map_semantic_scholar_to_canonical
 
 @dataclass(frozen=True)
 class SemanticScholarConfig:
-    """Hold immutable Graph API query, reusable rows and page settings.
+    """
+    Hold immutable Graph API query, reusable rows and page settings.
 
     query supplies search text; year_min/year_max default to None, and
     keywords/venues/author_names to empty tuples. keywords does not rebuild
@@ -57,7 +59,8 @@ class SemanticScholarConfig:
 
 @dataclass(frozen=True)
 class ProviderResult:
-    """Pair canonical paper_data with its original raw_response paper object.
+    """
+    Pair canonical paper_data with its original raw_response paper object.
 
     raw_response and paper_data['raw'] reference the same Graph API payload;
     callers own subsequent persistence, not this result container.
@@ -68,11 +71,14 @@ class ProviderResult:
 
 
 class SemanticScholarError(RuntimeError):
-    """Report a rejected Semantic Scholar response or exhausted retries."""
+    """
+    Report a rejected Semantic Scholar response or exhausted retries.
+    """
 
 
 class SemanticScholarSource:
-    """Query Graph API paper search with an optional stripped api_key.
+    """
+    Query Graph API paper search with an optional stripped api_key.
 
     Send the key only through x-api-key headers, never query parameters or
     logging. The source does not own a persistent client or write papers.
@@ -86,7 +92,8 @@ class SemanticScholarSource:
     )
 
     def __init__(self, api_key: str | None = None) -> None:
-        """Set the explicit or configured API key for later request headers.
+        """
+        Set the explicit or configured API key for later request headers.
 
         Args:
             None
@@ -105,7 +112,8 @@ class SemanticScholarSource:
 
     # --- Headers ---
     def default_headers(self) -> dict:
-        """Build JSON request headers with an optional x-api-key.
+        """
+        Build JSON request headers with an optional x-api-key.
 
         Args:
             None
@@ -124,7 +132,8 @@ class SemanticScholarSource:
 
     # --- Year param ---
     def _year_param(self, config: SemanticScholarConfig) -> str | None:
-        """Format inclusive year bounds for the Graph API.
+        """
+        Format inclusive year bounds for the Graph API.
 
         Args:
             config (SemanticScholarConfig): Optional year_min/year_max bounds.
@@ -148,7 +157,8 @@ class SemanticScholarSource:
     def build_request_params(
         self, config: SemanticScholarConfig, offset: int
     ) -> dict:
-        """Build Graph API search parameters for an offset page.
+        """
+        Build Graph API search parameters for an offset page.
 
         Args:
             config (SemanticScholarConfig): Query, year/venue rows, page size.
@@ -179,7 +189,8 @@ class SemanticScholarSource:
     def _get_with_backoff(
         self, client: httpx.Client, params: dict, max_retries: int = 3
     ) -> httpx.Response:
-        """GET a search page with retry backoff for selected failures.
+        """
+        GET a search page with retry backoff for selected failures.
 
         Args:
             client (httpx.Client): Borrowed client; timeout is 30 seconds.
@@ -242,7 +253,8 @@ class SemanticScholarSource:
         config: SemanticScholarConfig,
         client: httpx.Client | None = None,
     ) -> tuple[list[ProviderResult], int]:
-        """Fetch offset pages and apply local author substring filters.
+        """
+        Fetch offset pages and apply local author substring filters.
 
         Args:
             config (SemanticScholarConfig): Query, provider year/venue filters,

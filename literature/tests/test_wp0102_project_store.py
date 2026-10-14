@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Test versioned project-store creation, loading and refusal boundaries.
+"""
+Test versioned project-store creation, loading and refusal boundaries.
 
 WP01.02: versioned project-store create/open/refusal checks (synthetic).
 
@@ -88,11 +89,14 @@ print(f"OK project={project.pk}", flush=True)
 
 
 class ProjectStoreTests(SimpleTestCase):
-    """One folder holds exactly one valid, independently editable project."""
+    """
+    One folder holds exactly one valid, independently editable project.
+    """
 
     # --- Child worker plumbing ---
     def _run_worker(self, store_db: Path, script: str) -> str:
-        """Run a child script with its default DB fixed to a synthetic store.
+        """
+        Run a child script with its default DB fixed to a synthetic store.
 
         Args:
             store_db (Path): Synthetic SQLite file for the child process.
@@ -126,7 +130,8 @@ class ProjectStoreTests(SimpleTestCase):
     # --- Read-only row readers over synthetic stores (quoting-safe URIs) ---
     @staticmethod
     def _papers(store_db: Path) -> list[tuple]:
-        """Read synthetic paper IDs and titles through a read-only URI.
+        """
+        Read synthetic paper IDs and titles through a read-only URI.
 
         Args:
             store_db (Path): SQLite file whose path is URI-quoted.
@@ -143,7 +148,8 @@ class ProjectStoreTests(SimpleTestCase):
 
     # --- Create / open / reopen retains data and identity ---
     def test_create_open_reopen_retains_data_and_identity(self) -> None:
-        """Retain the project UUID and a child-added paper after reopening.
+        """
+        Retain the project UUID and a child-added paper after reopening.
 
         Args:
             None
@@ -171,7 +177,8 @@ class ProjectStoreTests(SimpleTestCase):
 
     # --- New refuses populated destinations and never wipes them ---
     def test_new_refuses_populated_destinations(self) -> None:
-        """Refuse populated directories and file targets without wiping data.
+        """
+        Refuse populated directories and file targets without wiping data.
 
         Args:
             None
@@ -198,7 +205,8 @@ class ProjectStoreTests(SimpleTestCase):
 
     # --- Load refuses every bad shape without creating or migrating ---
     def test_load_refuses_bad_stores(self) -> None:
-        """Reject missing, malformed, unsupported and path-traversing stores.
+        """
+        Reject missing, malformed, unsupported and path-traversing stores.
 
         Args:
             None
@@ -271,7 +279,8 @@ class ProjectStoreTests(SimpleTestCase):
 
     # --- Identity, count and drift refusals on real (synthetic) stores ---
     def test_open_refuses_identity_and_count_problems(self) -> None:
-        """Reject mismatched manifest UUIDs and multiple stored projects.
+        """
+        Reject mismatched manifest UUIDs and multiple stored projects.
 
         Args:
             None
@@ -304,7 +313,8 @@ class ProjectStoreTests(SimpleTestCase):
 
     # --- Empty and unmigrated databases are incomplete, not loadable ---
     def test_open_refuses_empty_project_table(self) -> None:
-        """Reject and diagnose a store whose project rows were removed.
+        """
+        Reject and diagnose a store whose project rows were removed.
 
         Args:
             None
@@ -331,7 +341,8 @@ class ProjectStoreTests(SimpleTestCase):
 
     # --- Migration history and FK integrity ride with the store ---
     def test_schema_history_and_fk_integrity(self) -> None:
-        """Check migration history, foreign keys and SQLite integrity.
+        """
+        Check migration history, foreign keys and SQLite integrity.
 
         Args:
             None
@@ -359,7 +370,8 @@ class ProjectStoreTests(SimpleTestCase):
 
     # --- Stores, default DB and registry stay mutually untouched ---
     def test_no_writes_to_other_default_or_registry(self) -> None:
-        """Keep the other store, default DB and registry unchanged by saves.
+        """
+        Keep the other store, default DB and registry unchanged by saves.
 
         Args:
             None
@@ -397,7 +409,8 @@ class ProjectStoreTests(SimpleTestCase):
 
     # --- No credential or session rows travel inside research packages ---
     def test_no_credentials_or_sessions_in_package(self) -> None:
-        """Exclude credential tables and populated user or session rows.
+        """
+        Exclude credential tables and populated user or session rows.
 
         Args:
             None
@@ -448,7 +461,8 @@ class ProjectStoreTests(SimpleTestCase):
 
     # --- Interrupted creation is refused, diagnosed and left intact ---
     def test_interrupted_creation_is_refused_and_diagnosed(self) -> None:
-        """Preserve a partial manifest and report its missing database.
+        """
+        Preserve a partial manifest and report its missing database.
 
         Args:
             None
@@ -481,7 +495,8 @@ class ProjectStoreTests(SimpleTestCase):
 
     # --- Backup snapshots stay restorable without touching the source ---
     def test_backup_snapshot_is_restorable(self) -> None:
-        """Restore a snapshot with the original project UUID and paper row.
+        """
+        Restore a snapshot with the original project UUID and paper row.
 
         Args:
             None
@@ -513,7 +528,8 @@ class ProjectStoreTests(SimpleTestCase):
 
     # --- Registry helper creates only the frozen private schema ---
     def test_registry_holds_no_research_tables(self) -> None:
-        """Limit the private registry to project, worker and lease tables.
+        """
+        Limit the private registry to project, worker and lease tables.
 
         Args:
             None
@@ -536,7 +552,8 @@ class ProjectStoreTests(SimpleTestCase):
 
     # --- Manifest version needs the exact int 1, not True/1.0/"1" ---
     def test_manifest_version_requires_exact_int(self) -> None:
-        """Reject boolean, floating-point and string manifest versions.
+        """
+        Reject boolean, floating-point and string manifest versions.
 
         Args:
             None
@@ -569,7 +586,8 @@ class ProjectStoreTests(SimpleTestCase):
 
     # --- Applied migration names must equal on-disk names in both directions ---
     def test_schema_status_rejects_extra_and_missing(self) -> None:
-        """Reject both unknown and missing applied migration names.
+        """
+        Reject both unknown and missing applied migration names.
 
         Args:
             None
@@ -616,7 +634,8 @@ class ProjectStoreTests(SimpleTestCase):
 
     # --- Identity table needs exactly one row with UUID and version ---
     def test_identity_requires_single_matching_row(self) -> None:
-        """Reject extra identity rows and versions until the identity matches.
+        """
+        Reject extra identity rows and versions until the identity matches.
 
         Args:
             None
@@ -663,7 +682,8 @@ class ProjectStoreTests(SimpleTestCase):
 
     # --- Valid Linux ?/#/% names must open through the quoted-URI readers ---
     def test_special_characters_in_store_path(self) -> None:
-        """Open, inspect and back up a store with URI-sensitive path characters.
+        """
+        Open, inspect and back up a store with URI-sensitive path characters.
 
         Args:
             None
@@ -689,7 +709,8 @@ class ProjectStoreTests(SimpleTestCase):
 
     # --- Garbage and truncated databases fail wrapped, never raw ---
     def test_corrupt_and_truncated_db_refused(self) -> None:
-        """Wrap refusals for garbage, invalid headers and truncated databases.
+        """
+        Wrap refusals for garbage, invalid headers and truncated databases.
 
         Args:
             None
@@ -735,7 +756,8 @@ class ProjectStoreTests(SimpleTestCase):
 
     # --- Backup never creates a missing source ---
     def test_backup_refuses_missing_source(self) -> None:
-        """Refuse a missing backup source without creating files or directories.
+        """
+        Refuse a missing backup source without creating files or directories.
 
         Args:
             None
@@ -756,7 +778,8 @@ class ProjectStoreTests(SimpleTestCase):
 
     # --- A held claim blocks a second creator without touching files ---
     def test_claim_blocks_second_creator(self) -> None:
-        """Refuse creation while a claim exists and allow it after removal.
+        """
+        Refuse creation while a claim exists and allow it after removal.
 
         Args:
             None
@@ -785,7 +808,8 @@ class ProjectStoreTests(SimpleTestCase):
 
     # --- Two racing creators: exactly one wins, the store stays valid ---
     def test_concurrent_creation_single_winner(self) -> None:
-        """Allow one racing creator and leave a valid store without a claim.
+        """
+        Allow one racing creator and leave a valid store without a claim.
 
         Args:
             None
@@ -801,7 +825,8 @@ class ProjectStoreTests(SimpleTestCase):
             outcomes: list[str] = []
 
             def attempt() -> None:
-                """Record whether this racing store-creation attempt succeeds.
+                """
+                Record whether this racing store-creation attempt succeeds.
 
                 Args:
                     None
@@ -835,7 +860,8 @@ class ProjectStoreTests(SimpleTestCase):
 
     # --- Canonical location resolves symlinks; file identity keys dedup ---
     def test_canonical_location_and_db_identity(self) -> None:
-        """Resolve symlink locations and retain device-and-inode DB identity.
+        """
+        Resolve symlink locations and retain device-and-inode DB identity.
 
         Args:
             None
@@ -866,7 +892,8 @@ class ProjectStoreTests(SimpleTestCase):
     # --- Table-name reader for the private registry ---
     @staticmethod
     def _tables(database: Path) -> set[str]:
-        """Read table names from the synthetic private registry.
+        """
+        Read table names from the synthetic private registry.
 
         Args:
             database (Path): Synthetic SQLite registry file to inspect.

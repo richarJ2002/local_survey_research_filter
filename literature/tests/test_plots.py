@@ -37,11 +37,15 @@ from literature.services.plots_service import (
 
 
 class PlotTests(TestCase):
-    """Counts attribute papers to keywords; figures carry plain titles."""
+    """
+    Counts attribute papers to keywords; figures carry plain titles.
+    """
 
     # --- Setup helper ---
     def _setup(self) -> Project:
-        """Create project with two papers and one accepted."""
+        """
+        Create project with two papers and one accepted.
+        """
         project = Project.objects.create(name="P")
         project.ensure_default_stages()
         search = Search.objects.create(
@@ -63,7 +67,9 @@ class PlotTests(TestCase):
 
     # --- Counts ---
     def test_keyword_counts_split_stages(self) -> None:
-        """Battery row hits its paper through title check."""
+        """
+        Battery row hits its paper through title check.
+        """
         project = self._setup()
         counts = keyword_stage_counts(project)
         self.assertEqual(counts["battery"]["found"], 1)
@@ -72,7 +78,9 @@ class PlotTests(TestCase):
 
     # --- Figures explain themselves ---
     def test_figures_have_plain_titles(self) -> None:
-        """Every figure embeds a plain-English title."""
+        """
+        Every figure embeds a plain-English title.
+        """
         project = self._setup()
         counts = keyword_stage_counts(project)
         self.assertIn("How many papers each keyword found",
@@ -100,7 +108,9 @@ class PlotTests(TestCase):
                       build_yearly_figure(stage_data))
 
     def test_source_pies_show_outcome_share_and_within_source_rate(self) -> None:
-        """Percent-of-category slices also explain unequal source volumes."""
+        """
+        Percent-of-category slices also explain unequal source volumes.
+        """
         sources = {
             "openalex": {"results": 100, "dups": 10, "incomplete": 5},
             "semantic_scholar": {"results": 10, "dups": 5, "incomplete": 0},
@@ -125,7 +135,8 @@ class PlotTests(TestCase):
                       empty.layout.annotations[0].text)
 
     def test_historical_unspecified_imports_do_not_mean_current_missing_sources(self) -> None:
-        """Retain unspecified-origin audits without exposing historical pies.
+        """
+        Retain unspecified-origin audits without exposing historical pies.
 
         Args:
             None
@@ -198,7 +209,9 @@ class PlotTests(TestCase):
 
     # --- Track table ---
     def test_tracks_table(self) -> None:
-        """Linked papers produce a track row with keywords."""
+        """
+        Linked papers produce a track row with keywords.
+        """
         from literature.services.citation_service import build_graph, track_summaries
 
         project = self._setup()
@@ -232,7 +245,8 @@ class PlotTests(TestCase):
 
     # --- Dashboard loads ---
     def test_plots_view_loads(self) -> None:
-        """Render current charts even for obsolete history-lens URLs.
+        """
+        Render current charts even for obsolete history-lens URLs.
 
         Args:
             None
@@ -269,7 +283,9 @@ class PlotTests(TestCase):
             download, "Where incomplete papers were excluded")
 
     def test_citation_colour_key_explains_circles(self) -> None:
-        """Both citation cards key green/grey/blue circles in plain words."""
+        """
+        Both citation cards key green/grey/blue circles in plain words.
+        """
         project = self._setup()
         for url in (f"/project/{project.pk}/", f"/project/{project.pk}/plots/"):
             response = self.client.get(url)
@@ -283,7 +299,9 @@ class PlotTests(TestCase):
                 "branches that do not connect selected papers", content)
 
     def test_track_summary_section_is_not_shown(self) -> None:
-        """Keep the citation graph, not the keyword-based track table."""
+        """
+        Keep the citation graph, not the keyword-based track table.
+        """
         project = self._setup()
         for url in (f"/project/{project.pk}/", f"/project/{project.pk}/plots/"):
             response = self.client.get(url)
@@ -292,7 +310,9 @@ class PlotTests(TestCase):
             self.assertNotContains(response, "What each track is about")
 
     def test_shortest_path_checkbox_renders_checked_and_explained(self) -> None:
-        """The existing filter can be activated from the charts page."""
+        """
+        The existing filter can be activated from the charts page.
+        """
         project = self._setup()
         resp = self.client.get(f"/project/{project.pk}/plots/?prune=on")
         self.assertEqual(resp.status_code, 200)
@@ -305,7 +325,9 @@ class PlotTests(TestCase):
         self.assertContains(resp, "prune=on")
 
     def test_download_matches_filtered_citation_graph(self) -> None:
-        """The charts download honors the checked graph filter from the page."""
+        """
+        The charts download honors the checked graph filter from the page.
+        """
         project = self._setup()
         search = project.searches.first()
         kept = Paper.objects.create(
@@ -327,7 +349,9 @@ class PlotTests(TestCase):
         self.assertNotIn("Unique branch paper", filtered.content.decode())
 
     def test_reference_lists_separate_final_and_visible_citation_papers(self) -> None:
-        """Markdown downloads respect final decisions and graph depth."""
+        """
+        Markdown downloads respect final decisions and graph depth.
+        """
         project = Project.objects.create(name="P")
         project.ensure_default_stages()
         search = Search.objects.create(

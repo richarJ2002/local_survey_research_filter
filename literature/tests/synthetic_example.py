@@ -1,4 +1,5 @@
-"""Create a shareable example from the existing synthetic roundtrip fixture only.
+"""
+Create a shareable example from the existing synthetic roundtrip fixture only.
 
 @File: synthetic_example.py
 @Brief: Explicit absent destination outside source; no live settings or data input.
@@ -27,7 +28,8 @@ from pathlib import Path
 
 
 def main() -> None:
-    """Publish a synthetic sample with explicitly current editable settings.
+    """
+    Publish a synthetic sample with explicitly current editable settings.
 
     Args:
         None
@@ -42,7 +44,10 @@ def main() -> None:
         SystemExit: If the destination argument is missing or unsafe.
         CalledProcessError: If the isolated fixture preparation fails.
     """
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    description = next(
+        line for line in (__doc__ or "").splitlines() if line.strip()
+    )
+    parser = argparse.ArgumentParser(description=description)
     parser.add_argument(
         "destination", type=Path,
         help="absent absolute folder outside the checkout"

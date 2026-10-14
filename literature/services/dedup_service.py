@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Find duplicates by DOI, OpenAlex/Scopus identity or normalized title.
+"""
+Find duplicates by DOI, OpenAlex/Scopus identity or normalized title.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -31,7 +32,8 @@ from literature.providers.mapping import normalize_scopus_id, normalize_title
 
 
 def find_duplicate(paper_data: dict) -> tuple[Paper | None, str]:
-    """Find the first match by DOI, OpenAlex/Scopus identity or normalized title.
+    """
+    Find the first match by DOI, OpenAlex/Scopus identity or normalized title.
 
     Stages in order: same DOI, then same provider ID, then same
     normalized title. Title alone merges (first author/year not
@@ -96,7 +98,8 @@ def find_duplicate(paper_data: dict) -> tuple[Paper | None, str]:
 
 # --- Duplicate groups ---
 def duplicate_groups(project) -> list[list[Paper]]:
-    """Group discovered project papers sharing a nonblank normalized title.
+    """
+    Group discovered project papers sharing a nonblank normalized title.
 
     Start rule per user: same titles (+ authors shown for confirmation).
 
@@ -139,7 +142,8 @@ def duplicate_groups(project) -> list[list[Paper]]:
 # --- Merge papers ---
 @transaction.atomic
 def merge_papers(*, keep: Paper, drop: Paper) -> Paper:
-    """Atomically merge metadata and audit relations into a retained paper.
+    """
+    Atomically merge metadata and audit relations into a retained paper.
 
     Fill eligible blanks and raise citation counts via merge_sources. Copy
     discoveries, move decisions when absent, and replace retained pending
@@ -213,7 +217,8 @@ def merge_papers(*, keep: Paper, drop: Paper) -> Paper:
 
 
 def merge_sources(existing: Paper, paper_data: dict) -> bool:
-    """Add source metadata and fill blanks without replacing curated values.
+    """
+    Add source metadata and fill blanks without replacing curated values.
 
     Args:
         existing (Paper): Stored paper to mutate and save if improved.

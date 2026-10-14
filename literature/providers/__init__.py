@@ -1,4 +1,5 @@
-"""Provide independent scholarly API clients and canonical metadata mapping.
+"""
+Provide independent scholarly API clients and canonical metadata mapping.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.

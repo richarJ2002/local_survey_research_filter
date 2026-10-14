@@ -1,4 +1,5 @@
-"""Explicit, mapping-approved shared-database conversion; never a startup hook.
+"""
+Explicit, mapping-approved shared-database conversion; never a startup hook.
 
 Inventory ownership and convert only approved field/destination mappings.
 Retain the original; write isolated stores and recovery evidence.
@@ -71,7 +72,8 @@ ROOT = Path(__file__).resolve().parent.parent
 
 # --- Functions
 def _digest(value: object) -> str:
-    """Hash a value's deterministic compact UTF-8 JSON representation.
+    """
+    Hash a value's deterministic compact UTF-8 JSON representation.
 
     Args:
         value (object): JSON-serializable value with sortable object keys.
@@ -89,7 +91,8 @@ def _digest(value: object) -> str:
 
 
 def _bootstrap(database: Path) -> None:
-    """Migrate only a fresh fixed target in a child with dotenv disabled.
+    """
+    Migrate only a fresh fixed target in a child with dotenv disabled.
 
     Args:
         database (Path): Absent database path, not an existing symlink.
@@ -114,7 +117,8 @@ def _bootstrap(database: Path) -> None:
 
 @lru_cache(maxsize=1)
 def _reference() -> tuple:
-    """Build and cache the trusted legacy schema from installed migrations.
+    """
+    Build and cache the trusted legacy schema from installed migrations.
 
     Args:
         None
@@ -138,7 +142,8 @@ def _reference() -> tuple:
 
 @contextmanager
 def _source(path: Path) -> Iterator[sqlite3.Connection]:
-    """Pin committed reads to the selected physical file, including its WAL.
+    """
+    Pin committed reads to the selected physical file, including its WAL.
 
     Args:
         path (Path): Existing legacy source file to retain open via /proc FD.
@@ -179,7 +184,8 @@ def _source(path: Path) -> Iterator[sqlite3.Connection]:
 
 
 def _read(connection: sqlite3.Connection) -> dict[str, list[dict]]:
-    """Materialize research rows after integrity, FK and history validation.
+    """
+    Materialize research rows after integrity, FK and history validation.
 
     Args:
         connection (sqlite3.Connection): Open legacy snapshot connection.
@@ -220,7 +226,8 @@ def _read(connection: sqlite3.Connection) -> dict[str, list[dict]]:
 
 
 def _ownership(rows: dict) -> tuple[dict, dict]:
-    """Follow stored project FKs and refuse inconsistent relational ownership.
+    """
+    Follow stored project FKs and refuse inconsistent relational ownership.
 
     Args:
         rows (dict): TABLES research rows from a validated legacy snapshot.
@@ -282,7 +289,8 @@ def _ownership(rows: dict) -> tuple[dict, dict]:
 
 
 def _inventory(rows: dict) -> dict:
-    """Describe ownership and build an unapproved stable mapping template.
+    """
+    Describe ownership and build an unapproved stable mapping template.
 
     Args:
         rows (dict): Complete research rows with JSON-encoded global fields.
@@ -363,7 +371,8 @@ def _inventory(rows: dict) -> dict:
 
 
 def inventory_legacy(source: Path | str) -> dict:
-    """Inventory an explicit source without modifying its research records.
+    """
+    Inventory an explicit source without modifying its research records.
 
     Args:
         source (Path | str): Existing legacy shared database to inspect.
@@ -392,7 +401,8 @@ def inventory_legacy(source: Path | str) -> dict:
 
 
 def _approved(rows: dict, mapping: dict) -> dict[str, Path]:
-    """Validate explicit approval, field policies and disjoint outputs.
+    """
+    Validate explicit approval, field policies and disjoint outputs.
 
     Args:
         rows (dict): Inventoried rows defining the exact source digest.
@@ -488,7 +498,8 @@ def _approved(rows: dict, mapping: dict) -> dict[str, Path]:
 
 
 def _doi(raw: str) -> str:
-    """Trim and lowercase a DOI string, removing HTTP(S) doi.org prefixes.
+    """
+    Trim and lowercase a DOI string, removing HTTP(S) doi.org prefixes.
 
     Args:
         raw (str): DOI or resolver URL; a false value becomes empty text.
@@ -506,7 +517,8 @@ def _doi(raw: str) -> str:
 
 
 def _local_dois(projection: dict) -> set[str]:
-    """Collect locally stored DOI and supported arXiv/curated identity aliases.
+    """
+    Collect locally stored DOI and supported arXiv/curated identity aliases.
 
     Args:
         projection (dict): Project paper and surveyentry rows, including
@@ -546,7 +558,8 @@ def _local_dois(projection: dict) -> set[str]:
 
 
 def _projection(rows: dict, mapping: dict, pid: str) -> dict:
-    """Project one project's rows with approved global-field policy.
+    """
+    Project one project's rows with approved global-field policy.
 
     Args:
         rows (dict): Complete inventoried research rows, left unchanged.
@@ -605,7 +618,8 @@ def _projection(rows: dict, mapping: dict, pid: str) -> dict:
 
 
 def _evidence(connection: sqlite3.Connection, rows: dict, projection: dict) -> dict:
-    """Record field projections and PK/FK evidence without printing notes.
+    """
+    Record field projections and PK/FK evidence without printing notes.
 
     Args:
         connection (sqlite3.Connection): Source connection supplying column/FK
@@ -675,7 +689,8 @@ def _evidence(connection: sqlite3.Connection, rows: dict, projection: dict) -> d
 
 
 def dry_run_legacy(source: Path | str, mapping: dict) -> dict:
-    """Validate mapping and projected fields without persistent output.
+    """
+    Validate mapping and projected fields without persistent output.
 
     Args:
         source (Path | str): Existing legacy database to read as a snapshot.
@@ -718,7 +733,8 @@ def dry_run_legacy(source: Path | str, mapping: dict) -> dict:
 
 # --- Stage all outputs, verify every field and FK, only then publish ---
 def _write_json(path: Path, document: dict) -> None:
-    """Durably replace a JSON document through its .tmp sibling.
+    """
+    Durably replace a JSON document through its .tmp sibling.
 
     Args:
         path (Path): Destination file whose parent already exists.
@@ -746,7 +762,8 @@ def _write_json(path: Path, document: dict) -> None:
 
 
 def _stage(staging: Path, projection: dict, project: dict, evidence: dict, created: str) -> None:
-    """Write and verify a fresh projected store before publication.
+    """
+    Write and verify a fresh projected store before publication.
 
     Args:
         staging (Path): Absent staging directory with an existing parent.
@@ -821,7 +838,8 @@ def _stage(staging: Path, projection: dict, project: dict, evidence: dict, creat
 
 
 def convert_legacy(source: Path | str, mapping: dict, recovery: Path | str) -> dict:
-    """Convert approved mappings, retaining the original and recovery evidence.
+    """
+    Convert approved mappings, retaining the original and recovery evidence.
 
     All destinations must be absent, including repeat runs. Each publication is
     atomic; a multi-directory batch is not atomic. Failed/interrupted batches
@@ -966,7 +984,8 @@ def convert_legacy(source: Path | str, mapping: dict, recovery: Path | str) -> d
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Dispatch explicit inventory, dry-run or conversion CLI operations.
+    """
+    Dispatch explicit inventory, dry-run or conversion CLI operations.
 
     Args:
         None
@@ -988,7 +1007,10 @@ def main(argv: list[str] | None = None) -> int:
         results/errors; operations may build a temporary schema or write the
         explicitly mapped conversion/recovery outputs, never modify the source.
     """
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    description = next(
+        line for line in (__doc__ or "").splitlines() if line.strip()
+    )
+    parser = argparse.ArgumentParser(description=description)
     parser.add_argument("operation", choices=(
         "inventory", "dry-run", "convert"))
     parser.add_argument("--source", required=True, type=Path)

@@ -29,7 +29,9 @@ from literature.providers import DEFAULT_SEARCH_PROVIDERS, SEARCH_PROVIDERS
 
 
 class Project(models.Model):
-    """Top-level survey container (topic-agnostic)."""
+    """
+    Top-level survey container (topic-agnostic).
+    """
 
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, default="")
@@ -40,7 +42,8 @@ class Project(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self) -> str:
-        """Return the stored project display name.
+        """
+        Return the stored project display name.
 
         Args:
             None
@@ -54,7 +57,8 @@ class Project(models.Model):
         return self.name
 
     def ensure_default_stages(self) -> None:
-        """Create missing Title/Abstract stages during an explicit write.
+        """
+        Create missing Title/Abstract stages during an explicit write.
 
         Args:
             None
@@ -78,7 +82,8 @@ class Project(models.Model):
 
 
 class Search(models.Model):
-    """A named query configuration inside a project.
+    """
+    A named query configuration inside a project.
 
     Keywords/venues/authors are stored as sorted atomic lists so different
     providers can build their own queries from the same rows.
@@ -108,7 +113,9 @@ class Search(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        """Allow history and zero current settings, but never two current rows."""
+        """
+        Allow history and zero current settings, but never two current rows.
+        """
 
         constraints = (
             models.UniqueConstraint(
@@ -118,7 +125,8 @@ class Search(models.Model):
         )
 
     def __str__(self) -> str:
-        """Identify a configuration within its owning project.
+        """
+        Identify a configuration within its owning project.
 
         Args:
             None
@@ -134,7 +142,8 @@ class Search(models.Model):
     # --- Normalise one row list ---
     @staticmethod
     def clean_rows(values: list) -> list[str]:
-        """Normalize rows while retaining the first spelling of each value.
+        """
+        Normalize rows while retaining the first spelling of each value.
 
         Args:
             values: Values to stringify and strip; empty/None yields no rows.
@@ -157,7 +166,8 @@ class Search(models.Model):
 
     # --- Query derivation ---
     def build_query(self) -> str:
-        """Derive a space-joined query from normalized keyword rows.
+        """
+        Derive a space-joined query from normalized keyword rows.
 
         Args:
             None
@@ -171,7 +181,8 @@ class Search(models.Model):
         return " ".join(self.clean_rows(self.keywords))
 
     def save(self, *args, **kwargs) -> None:
-        """Normalize future settings before delegating persistence to Django.
+        """
+        Normalize future settings before delegating persistence to Django.
 
         Args:
             *args: Positional Model.save arguments forwarded unchanged.
@@ -205,7 +216,9 @@ class Search(models.Model):
 
 
 class SearchRun(models.Model):
-    """Immutable audit record of one provider execution."""
+    """
+    Immutable audit record of one provider execution.
+    """
 
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
@@ -238,7 +251,8 @@ class SearchRun(models.Model):
         ordering = ["-executed_at"]
 
     def __str__(self) -> str:
-        """Identify a provider run and its current audit status.
+        """
+        Identify a provider run and its current audit status.
 
         Args:
             None
@@ -253,7 +267,9 @@ class SearchRun(models.Model):
 
 
 class Paper(models.Model):
-    """Canonical paper. Domain-independent; no hard-coded research fields."""
+    """
+    Canonical paper. Domain-independent; no hard-coded research fields.
+    """
 
     openalex_id = models.CharField(
         max_length=64, null=True, blank=True, db_index=True
@@ -298,7 +314,8 @@ class Paper(models.Model):
         ]
 
     def __str__(self) -> str:
-        """Provide a bounded paper title for administrative displays.
+        """
+        Provide a bounded paper title for administrative displays.
 
         Args:
             None
@@ -312,7 +329,8 @@ class Paper(models.Model):
         return self.title[:120]
 
     def author_display(self) -> str:
-        """Format author names without exposing raw provider author objects.
+        """
+        Format author names without exposing raw provider author objects.
 
         Args:
             None
@@ -340,7 +358,9 @@ class Paper(models.Model):
 
 
 class OpenCitationsLookup(models.Model):
-    """DOI citation edges fetched explicitly, cached across projects."""
+    """
+    DOI citation edges fetched explicitly, cached across projects.
+    """
 
     doi = models.CharField(max_length=320)
     direction = models.CharField(max_length=10)
@@ -356,7 +376,9 @@ class OpenCitationsLookup(models.Model):
 
 
 class Discovery(models.Model):
-    """Provenance: how a paper entered the corpus. Never deleted silently."""
+    """
+    Provenance: how a paper entered the corpus. Never deleted silently.
+    """
 
     paper = models.ForeignKey(
         Paper, on_delete=models.CASCADE, related_name="discoveries"
@@ -385,7 +407,8 @@ class Discovery(models.Model):
         ]
 
     def __str__(self) -> str:
-        """Describe a recorded discovery without changing its provenance.
+        """
+        Describe a recorded discovery without changing its provenance.
 
         Args:
             None
@@ -400,7 +423,9 @@ class Discovery(models.Model):
 
 
 class Stage(models.Model):
-    """Screening stage. MVP seeds Title (1) -> Abstract (2, final)."""
+    """
+    Screening stage. MVP seeds Title (1) -> Abstract (2, final).
+    """
 
     project = models.ForeignKey(
         Project, on_delete=models.CASCADE, related_name="stages"
@@ -418,7 +443,8 @@ class Stage(models.Model):
         ]
 
     def __str__(self) -> str:
-        """Identify the screening stage and its owning project.
+        """
+        Identify the screening stage and its owning project.
 
         Args:
             None
@@ -433,7 +459,9 @@ class Stage(models.Model):
 
 
 class ScreeningDecision(models.Model):
-    """Yes/No decision per paper per stage. Immutable once decided."""
+    """
+    Yes/No decision per paper per stage. Immutable once decided.
+    """
 
     class Decision(models.TextChoices):
         PENDING = "PENDING", "Pending"
@@ -467,7 +495,8 @@ class ScreeningDecision(models.Model):
         ]
 
     def __str__(self) -> str:
-        """Describe the stored paper/stage decision for an audit display.
+        """
+        Describe the stored paper/stage decision for an audit display.
 
         Args:
             None
@@ -481,7 +510,8 @@ class ScreeningDecision(models.Model):
         return f"{self.paper_id} @ {self.stage.name}: {self.decision}"
 
     def clean(self) -> None:
-        """Validate the finite decision vocabulary without saving a choice.
+        """
+        Validate the finite decision vocabulary without saving a choice.
 
         Args:
             None
@@ -504,7 +534,9 @@ class ScreeningDecision(models.Model):
 
 
 class ScreeningRevision(models.Model):
-    """Audit an explicit correction made from the project paper manager."""
+    """
+    Audit an explicit correction made from the project paper manager.
+    """
 
     paper = models.ForeignKey(
         Paper, on_delete=models.CASCADE, related_name="revisions")
@@ -520,7 +552,8 @@ class ScreeningRevision(models.Model):
 
 
 class PaperKeywordAssignment(models.Model):
-    """!
+    """
+    !
     @brief Store the current project-specific keyword separately from discovery history.
 
     A canonical paper can be shared across projects; changing one project's
@@ -543,7 +576,9 @@ class PaperKeywordAssignment(models.Model):
 
 
 class SurveyEntry(models.Model):
-    """Editable survey-writing snapshot; never overwrites the screening library."""
+    """
+    Editable survey-writing snapshot; never overwrites the screening library.
+    """
 
     class InclusionOrigin(models.TextChoices):
         SEARCH = "search", "Original project search"
@@ -585,7 +620,8 @@ class SurveyEntry(models.Model):
         )
 
     def __str__(self) -> str:
-        """Label the independent curated entry with its manuscript reference.
+        """
+        Label the independent curated entry with its manuscript reference.
 
         Args:
             None
@@ -600,7 +636,9 @@ class SurveyEntry(models.Model):
 
 
 class SurveyCitation(models.Model):
-    """A curator-confirmed citing → cited link between entries in the same project."""
+    """
+    A curator-confirmed citing → cited link between entries in the same project.
+    """
 
     citing = models.ForeignKey(
         SurveyEntry, on_delete=models.CASCADE, related_name="manual_outgoing")

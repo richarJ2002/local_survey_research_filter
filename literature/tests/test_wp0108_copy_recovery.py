@@ -1,4 +1,5 @@
-"""WP01.08 synthetic copies, closure, atomic recovery and real HTTP manager UX.
+"""
+WP01.08 synthetic copies, closure, atomic recovery and real HTTP manager UX.
 
 @File: test_wp0108_copy_recovery.py
 @Brief: Committed WAL snapshots, package privacy, roundtrip and recovery gates.
@@ -831,7 +832,8 @@ class CopyRecoveryTests(SimpleTestCase):
             parent.chmod(0o700)
 
     def test_real_http_manager_copy_close_backup_restore_and_csrf(self):
-        """Exercise confirmed copy and unchanged recovery operations over HTTP.
+        """
+        Exercise confirmed copy and unchanged recovery operations over HTTP.
 
         Args:
             None
@@ -865,7 +867,8 @@ class CopyRecoveryTests(SimpleTestCase):
             base = f"http://127.0.0.1:{server.server_port}"
 
             def post(action, source, destination="", *, csrf=True):
-                """Submit a previewed copy or recovery operation.
+                """
+                Submit a previewed copy or recovery operation.
 
                 Args:
                     action: Requested store operation.
@@ -963,7 +966,8 @@ class CopyRecoveryTests(SimpleTestCase):
                 server.server_close()
 
     def test_open_worker_save_control_to_prefilled_manager_and_real_copy(self):
-        """Confirm the manager copy preview without changing the worker source.
+        """
+        Confirm the manager copy preview without changing the worker source.
 
         Args:
             None
@@ -1092,7 +1096,8 @@ class CopyRecoveryTests(SimpleTestCase):
                 }
 
                 def post(values):
-                    """Submit the manager operation with its real CSRF token.
+                    """
+                    Submit the manager operation with its real CSRF token.
 
                     Args:
                         values: Form fields for this request.

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Test UUID-and-epoch worker isolation over real HTTP.
+"""
+Test UUID-and-epoch worker isolation over real HTTP.
 
 WP01.03: real worker HTTP proves UUID+epoch isolation (synthetic stores).
 
@@ -151,12 +152,15 @@ print("CPATH=" + s.CSRF_COOKIE_PATH, flush=True)
 
 
 class WorkerIsolationTests(SimpleTestCase):
-    """Two threaded workers + manager over real HTTP; synthetic stores only."""
+    """
+    Two threaded workers + manager over real HTTP; synthetic stores only.
+    """
 
     # --- Clean env so test children never inherit a production worker env ---
     @staticmethod
     def _child_env(extra: dict[str, str]) -> dict[str, str]:
-        """Replace inherited worker identity and DB bindings for a child.
+        """
+        Replace inherited worker identity and DB bindings for a child.
 
         Args:
             extra (dict[str, str]): Environment overrides to apply after
@@ -177,7 +181,8 @@ class WorkerIsolationTests(SimpleTestCase):
     # --- One ORM/file operation inside a fixed-default worker ---
     @staticmethod
     def _run_script(db: Path, script: str, *args: str, extra_env=None) -> str:
-        """Run a script in a child initially bound to a synthetic store.
+        """
+        Run a script in a child initially bound to a synthetic store.
 
         Args:
             db (Path): Default SQLite target before environment overrides.
@@ -208,7 +213,8 @@ class WorkerIsolationTests(SimpleTestCase):
     # --- Real threaded HTTP worker bound to one store file + identity ---
     @staticmethod
     def _launch(role, db=None, store_uuid="", epoch="", ready_path="/settings/"):
-        """Start a threaded HTTP child and register it for class teardown.
+        """
+        Start a threaded HTTP child and register it for class teardown.
 
         Args:
             role (str): Manager or worker role assigned to the child.
@@ -274,7 +280,8 @@ class WorkerIsolationTests(SimpleTestCase):
     # --- Per-worker browser jar: Path-scoped cookies never cross workers ---
     @staticmethod
     def _browser(base):
-        """Create a cookie-aware opener and its initially empty jar.
+        """
+        Create a cookie-aware opener and its initially empty jar.
 
         Args:
             base (str): Worker base URL accepted but not used to scope the jar.
@@ -293,7 +300,8 @@ class WorkerIsolationTests(SimpleTestCase):
 
     # --- GET through a worker jar; returns (status, body, set_cookie_headers) ---
     def _get(self, opener, url):
-        """Read a GET response or HTTP error through a cookie-aware opener.
+        """
+        Read a GET response or HTTP error through a cookie-aware opener.
 
         Args:
             opener (urllib.request.OpenerDirector): Opener used for the GET.
@@ -313,7 +321,8 @@ class WorkerIsolationTests(SimpleTestCase):
 
     # --- POST JSON with the jar CSRF cookie (real browser flow) ---
     def _post_json(self, opener, jar, url, payload, handle=""):
-        """POST JSON with the jar's worker CSRF token and optional tab handle.
+        """
+        POST JSON with the jar's worker CSRF token and optional tab handle.
 
         Args:
             opener (urllib.request.OpenerDirector): Cookie-aware request opener.
@@ -347,7 +356,8 @@ class WorkerIsolationTests(SimpleTestCase):
     # --- Raw single-shot HTTP (never follows redirects; real status/Location) ---
     @staticmethod
     def _raw_post(base, path, body, cookie="", csrf="", handle=""):
-        """POST form data once without following redirects.
+        """
+        POST form data once without following redirects.
 
         Args:
             base (str): HTTP origin providing the hostname and port.
@@ -388,7 +398,8 @@ class WorkerIsolationTests(SimpleTestCase):
     # --- Cookie/CSRF headers from one worker jar (Path-scoped by the server) ---
     @staticmethod
     def _jar_headers(jar):
-        """Build Cookie and worker-only CSRF header values from a jar.
+        """
+        Build Cookie and worker-only CSRF header values from a jar.
 
         Args:
             jar (cookiejar.CookieJar): Cookies collected from worker responses.
@@ -408,7 +419,8 @@ class WorkerIsolationTests(SimpleTestCase):
     # --- Class fixtures: two stores, overlapping PK/DOI, three HTTP servers ---
     @classmethod
     def setUpClass(cls):
-        """Seed two synthetic stores and launch their workers and a manager.
+        """
+        Seed two synthetic stores and launch their workers and a manager.
 
         Args:
             None
@@ -470,7 +482,8 @@ class WorkerIsolationTests(SimpleTestCase):
 
     @classmethod
     def tearDownClass(cls):
-        """Stop HTTP children, restore XDG paths and check the live DB mtime.
+        """
+        Stop HTTP children, restore XDG paths and check the live DB mtime.
 
         Args:
             None
@@ -502,7 +515,8 @@ class WorkerIsolationTests(SimpleTestCase):
     # --- Store rows via stdlib (parent never opens Django ORM on them) ---
     @staticmethod
     def _paper_rows(db: Path):
-        """Read synthetic paper content in primary-key order.
+        """
+        Read synthetic paper content in primary-key order.
 
         Args:
             db (Path): Synthetic SQLite store to inspect.
@@ -518,7 +532,8 @@ class WorkerIsolationTests(SimpleTestCase):
 
     @staticmethod
     def _decision_rows(db: Path):
-        """Read synthetic screening decisions in paper and stage order.
+        """
+        Read synthetic screening decisions in paper and stage order.
 
         Args:
             db (Path): Synthetic SQLite store to inspect.
@@ -536,7 +551,8 @@ class WorkerIsolationTests(SimpleTestCase):
 
     # --- Overlapping PKs/DOIs diverge independently over concurrent HTTP ---
     def test_concurrent_reads_stay_isolated(self) -> None:
-        """Keep abstracts distinct during concurrent reads with shared IDs/DOIs.
+        """
+        Keep abstracts distinct during concurrent reads with shared IDs/DOIs.
 
         Args:
             None
@@ -571,7 +587,8 @@ class WorkerIsolationTests(SimpleTestCase):
 
     # --- Wrong/stale/missing identity fails closed without writing ---
     def test_wrong_identity_fails_closed(self) -> None:
-        """Reject wrong, stale and missing prefixes without changing papers.
+        """
+        Reject wrong, stale and missing prefixes without changing papers.
 
         Args:
             None
@@ -599,7 +616,8 @@ class WorkerIsolationTests(SimpleTestCase):
 
     # --- Parent/manager never serves or mutates literature records ---
     def test_manager_cannot_serve_research(self) -> None:
-        """Render the manager landing but reject research reads and decisions.
+        """
+        Render the manager landing but reject research reads and decisions.
 
         Args:
             None
@@ -630,7 +648,8 @@ class WorkerIsolationTests(SimpleTestCase):
 
     # --- Independent decisions: HTTP ACCEPT on A leaves B pending ---
     def test_http_decision_on_a_leaves_b_pending(self) -> None:
-        """Accept A's title over HTTP while B stays pending and URLs stay bound.
+        """
+        Accept A's title over HTTP while B stays pending and URLs stay bound.
 
         Args:
             None
@@ -662,7 +681,8 @@ class WorkerIsolationTests(SimpleTestCase):
 
     # --- Misconfigured worker (right file, wrong UUID) serves nothing ---
     def test_misconfigured_worker_serves_nothing(self) -> None:
-        """Serve no research when a worker's UUID disagrees with its store.
+        """
+        Serve no research when a worker's UUID disagrees with its store.
 
         Args:
             None
@@ -686,7 +706,8 @@ class WorkerIsolationTests(SimpleTestCase):
 
     # --- Genuine CSRF form POST: prefixed Location, followable, divergent ---
     def test_prefixed_form_post_diverges_metadata(self) -> None:
-        """Enforce handle and CSRF gates before independent prefixed edits.
+        """
+        Enforce handle and CSRF gates before independent prefixed edits.
 
         Args:
             None
@@ -744,7 +765,8 @@ class WorkerIsolationTests(SimpleTestCase):
 
     # --- Concurrent workers render only their own prefixed links/fetch ---
     def test_rendered_links_keep_prefix(self) -> None:
-        """Keep each worker's UUID and epoch in concurrently rendered pages.
+        """
+        Keep each worker's UUID and epoch in concurrently rendered pages.
 
         Args:
             None
@@ -757,7 +779,8 @@ class WorkerIsolationTests(SimpleTestCase):
         """
 
         def fetch(args):
-            """Fetch a worker page and decode its body for prefix assertions.
+            """
+            Fetch a worker page and decode its body for prefix assertions.
 
             Args:
                 args (tuple): Cookie-aware opener and full page URL.
@@ -790,7 +813,8 @@ class WorkerIsolationTests(SimpleTestCase):
 
     # --- Mutation/download/provider contexts all require the worker prefix ---
     def test_contexts_require_prefix(self) -> None:
-        """Require prefixes for downloads and reject unbound provider POSTs.
+        """
+        Require prefixes for downloads and reject unbound provider POSTs.
 
         Args:
             None
@@ -823,7 +847,8 @@ class WorkerIsolationTests(SimpleTestCase):
 
     # --- Busy A never writes into B; failed atomic rolls back only its store ---
     def test_busy_and_rollback_isolation(self) -> None:
-        """Keep B readable while A is locked or rolls back a partial write.
+        """
+        Keep B readable while A is locked or rolls back a partial write.
 
         Args:
             None
@@ -856,7 +881,8 @@ class WorkerIsolationTests(SimpleTestCase):
 
     # --- Real Set-Cookie names/paths never collide; sessions stay out of research DBs ---
     def test_cookies_and_no_session_rows(self) -> None:
-        """Scope worker cookies independently and keep session rows out of stores.
+        """
+        Scope worker cookies independently and keep session rows out of stores.
 
         Args:
             None
@@ -869,7 +895,8 @@ class WorkerIsolationTests(SimpleTestCase):
         """
 
         def names(url, opener):
-            """Collect Set-Cookie headers from a worker's title-screening page.
+            """
+            Collect Set-Cookie headers from a worker's title-screening page.
 
             Args:
                 url (str): Worker base URL including its UUID/epoch prefix.
@@ -924,7 +951,8 @@ class WorkerIsolationTests(SimpleTestCase):
 
     # --- Static guard: one DATABASES owner, default-alias transactions, signed cookies ---
     def test_static_worker_guards(self) -> None:
-        """Check the sole DATABASES owner and the developer session backend.
+        """
+        Check the sole DATABASES owner and the developer session backend.
 
         Args:
             None
@@ -958,7 +986,8 @@ class WorkerIsolationTests(SimpleTestCase):
     # --- Row counter tolerant of pre-migration stores ---
     @staticmethod
     def _table_count(db: Path, table: str) -> int:
-        """Count synthetic table rows, treating an absent table as empty.
+        """
+        Count synthetic table rows, treating an absent table as empty.
 
         Args:
             db (Path): Synthetic SQLite store to inspect.

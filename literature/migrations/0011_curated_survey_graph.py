@@ -1,4 +1,5 @@
-"""Create independent curated survey snapshots and directed manual links.
+"""
+Create independent curated survey snapshots and directed manual links.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -28,7 +29,8 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    """Create entries with positive project-unique labels and non-self links.
+    """
+    Create entries with positive project-unique labels and non-self links.
 
     Enforce project-scoped nonblank DOI uniqueness and unique directed links;
     this schema migration does not seed snapshots or alter Paper rows.

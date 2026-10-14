@@ -1,4 +1,5 @@
-"""Create the initial research, discovery and screening database schema.
+"""
+Create the initial research, discovery and screening database schema.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -28,7 +29,9 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    """Create initial models and per-search/stage uniqueness constraints."""
+    """
+    Create initial models and per-search/stage uniqueness constraints.
+    """
 
     initial = True
 

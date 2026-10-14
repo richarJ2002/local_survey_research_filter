@@ -36,10 +36,13 @@ from literature.services.screening_service import InvalidTransition, decide
 
 
 class PaperManagerTests(TestCase):
-    """Curated additions still pass through screening; corrections remain auditable."""
+    """
+    Curated additions still pass through screening; corrections remain auditable.
+    """
 
     def setUp(self) -> None:
-        """Create current settings for synthetic manual and lookup writes.
+        """
+        Create current settings for synthetic manual and lookup writes.
 
         Args:
             None
@@ -76,7 +79,8 @@ class PaperManagerTests(TestCase):
         return self.client.post(reverse("paper_add", args=[self.project.pk]), data)
 
     def _lookup_post(self, url: str, data: dict):
-        """Fetch an explicit synthetic preview before a separate local save.
+        """
+        Fetch an explicit synthetic preview before a separate local save.
 
         Args:
             url: Project DOI-preview URL with its selected DOI query.
@@ -122,7 +126,9 @@ class PaperManagerTests(TestCase):
         self.assertEqual(SearchRun.objects.get().source, "arxiv")
 
     def test_full_doi_url_with_mixed_case_is_normalized(self) -> None:
-        """A pasted resolver URL like 10.48550/arXiv.2508.06283 is accepted."""
+        """
+        A pasted resolver URL like 10.48550/arXiv.2508.06283 is accepted.
+        """
         with patch("literature.services.reference_service.enrich_papers", return_value=0):
             response = self._add(
                 title="", abstract="", references="",
@@ -195,7 +201,8 @@ class PaperManagerTests(TestCase):
                          "PENDING")
 
     def test_local_doi_save_never_fetches_or_queues_a_missing_title(self) -> None:
-        """Keep entered blank details local and leave Title unqueued.
+        """
+        Keep entered blank details local and leave Title unqueued.
 
         Args:
             None
@@ -286,7 +293,9 @@ class PaperManagerTests(TestCase):
         self.assertEqual(ScreeningRevision.objects.count(), 0)
 
     def test_doi_search_opens_lookup_page(self) -> None:
-        """Searching a DOI redirects to its lookup result page."""
+        """
+        Searching a DOI redirects to its lookup result page.
+        """
         response = self.client.post(reverse("paper_add", args=[self.project.pk]), {
             "action": "search", "doi": "https://doi.org/10.1000/looked-up",
         })
@@ -295,7 +304,9 @@ class PaperManagerTests(TestCase):
                       response["Location"])
 
     def test_lookup_new_paper_shows_unified_add_panel(self) -> None:
-        """Unknown DOIs show read-only details plus keyword and filtering choices."""
+        """
+        Unknown DOIs show read-only details plus keyword and filtering choices.
+        """
         fetched = {"doi": "10.1000/fresh", "title": "Fresh find",
                    "abstract": "Found abstract", "references": ["https://doi.org/10.1000/ref"],
                    "found": True, "error": ""}
@@ -317,7 +328,9 @@ class PaperManagerTests(TestCase):
         self.assertNotContains(page, 'name="references"')
 
     def test_lookup_save_creates_pending_paper_from_provider_details(self) -> None:
-        """Saving links the keyword and queues Title as Pending."""
+        """
+        Saving links the keyword and queues Title as Pending.
+        """
         fetched = {"doi": "10.1000/fresh", "title": "Fresh find",
                    "abstract": "Found abstract", "references": ["https://doi.org/10.1000/ref"],
                    "found": True, "error": ""}
@@ -342,7 +355,9 @@ class PaperManagerTests(TestCase):
         self.assertEqual(ScreeningRevision.objects.count(), 0)
 
     def test_lookup_save_with_new_keyword_adds_it_to_search(self) -> None:
-        """Typing a new keyword stores it on the chosen search and links the paper."""
+        """
+        Typing a new keyword stores it on the chosen search and links the paper.
+        """
         fetched = {"doi": "10.1000/fresh", "title": "Fresh find",
                    "abstract": "Found abstract", "references": ["https://doi.org/10.1000/ref"],
                    "found": True, "error": ""}
@@ -362,7 +377,9 @@ class PaperManagerTests(TestCase):
         self.assertIn("new-topic", paper.keywords)
 
     def test_lookup_save_missing_keyword_shows_error(self) -> None:
-        """No keyword choice comes back as an error without saving."""
+        """
+        No keyword choice comes back as an error without saving.
+        """
         fetched = {"doi": "10.1000/fresh", "title": "Fresh find",
                    "abstract": "Found abstract", "references": ["https://doi.org/10.1000/ref"],
                    "found": True, "error": ""}
@@ -379,7 +396,9 @@ class PaperManagerTests(TestCase):
         self.assertFalse(Paper.objects.filter(doi="10.1000/fresh").exists())
 
     def test_lookup_title_pass_on_missing_abstract_is_allowed(self) -> None:
-        """Title screening does not require an abstract or references."""
+        """
+        Title screening does not require an abstract or references.
+        """
         fetched = {"doi": "10.1000/fresh", "title": "Fresh find",
                    "abstract": "", "references": [],
                    "found": True, "error": ""}
@@ -400,7 +419,9 @@ class PaperManagerTests(TestCase):
             stage=self.abstract_stage).decision, "PENDING")
 
     def test_lookup_existing_paper_shows_update_panel(self) -> None:
-        """Known DOIs show read-only stored details with an Update entry button."""
+        """
+        Known DOIs show read-only stored details with an Update entry button.
+        """
         paper = Paper.objects.create(
             title="Known study", doi="10.1000/known", abstract="Summary",
             references=["https://doi.org/10.1000/ref"],
@@ -424,7 +445,9 @@ class PaperManagerTests(TestCase):
         self.assertNotContains(page, 'name="abstract"')
 
     def test_lookup_update_entry_changes_keyword_and_states(self) -> None:
-        """Update path relinks the keyword and applies Title/Abstract choices."""
+        """
+        Update path relinks the keyword and applies Title/Abstract choices.
+        """
         paper = Paper.objects.create(
             title="Known study", doi="10.1000/known", abstract="Summary",
             references=["https://doi.org/10.1000/ref"],

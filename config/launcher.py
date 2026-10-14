@@ -42,7 +42,8 @@ ROOT = Path(__file__).resolve().parent.parent
 
 # --- XDG state cannot become a source/project package member ---
 def private_path(path: Path) -> Path:
-    """Reject relative XDG paths and source/project package locations.
+    """
+    Reject relative XDG paths and source/project package locations.
 
     Args:
         path: Proposed private state or environment directory.
@@ -71,7 +72,8 @@ def private_path(path: Path) -> Path:
 # --- First-run installation only; a successful repeat never invokes pip ---
 def bootstrap(install: bool = False, *,
               arguments: Sequence[str] | None = None) -> None:
-    """Create/check the private venv and replace this process when needed.
+    """
+    Create/check the private venv and replace this process when needed.
 
     Args:
         None
@@ -156,7 +158,8 @@ def bootstrap(install: bool = False, *,
 
 # --- Private manager configuration, never a legacy database fallback ---
 def configure(legacy_env: str | None = None) -> Path:
-    """Select private manager state before loading Django settings.
+    """
+    Select private manager state before loading Django settings.
 
     Args:
         None
@@ -216,7 +219,8 @@ def configure(legacy_env: str | None = None) -> Path:
 
 # --- Non-daemon HTTP threads join accepted edits on server_close ---
 def serve(port: int, *, worker: bool = False) -> None:
-    """Serve loopback HTTP and drain admitted work and owned children on exit.
+    """
+    Serve loopback HTTP and drain admitted work and owned children on exit.
 
     Args:
         port: Loopback TCP port; zero requests an available port.
@@ -265,10 +269,13 @@ def serve(port: int, *, worker: bool = False) -> None:
                 f"project worker binding refused: {binding['error']}")
 
     class RequestHandler(WSGIRequestHandler):
-        """Close expected idle connections without silencing request failures."""
+        """
+        Close expected idle connections without silencing request failures.
+        """
 
         def handle_one_request(self) -> None:
-            """Handle one request, quietly closing an expired request-line wait.
+            """
+            Handle one request, quietly closing an expired request-line wait.
 
             Args:
                 None
@@ -296,13 +303,16 @@ def serve(port: int, *, worker: bool = False) -> None:
                 self.close_connection = True
 
     class Server(ThreadedWSGIServer):
-        """Join accepted request threads before releasing worker ownership."""
+        """
+        Join accepted request threads before releasing worker ownership.
+        """
 
         daemon_threads = False
         block_on_close = True
 
         def get_request(self) -> tuple[socket, tuple[str, int]]:
-            """Bound idle-client waits without interrupting admitted edits.
+            """
+            Bound idle-client waits without interrupting admitted edits.
 
             Args:
                 None
@@ -327,7 +337,8 @@ def serve(port: int, *, worker: bool = False) -> None:
     # ponytail: handlers only request shutdown; the main thread owns cleanup.
 
     def request_stop(*signals: object) -> None:
-        """Request shutdown without running cleanup in a signal handler.
+        """
+        Request shutdown without running cleanup in a signal handler.
 
         Args:
             *signals: Signal number and frame supplied by signal.signal.
@@ -347,7 +358,8 @@ def serve(port: int, *, worker: bool = False) -> None:
         owner_read = int(os.environ["WP_OWNER_FD"])
 
         def watch_parent() -> None:
-            """Request a patient drain when the retained owner pipe closes.
+            """
+            Request a patient drain when the retained owner pipe closes.
 
             Args:
                 None
@@ -416,7 +428,8 @@ def serve(port: int, *, worker: bool = False) -> None:
 def run_manager(port: int = 8000, *, install: bool = False,
                 legacy_env: str | None = None, worker: bool = False,
                 arguments: Sequence[str] | None = None) -> int:
-    """Start the foreground manager or its internally supervised worker.
+    """
+    Start the foreground manager or its internally supervised worker.
 
     Args:
         None
@@ -474,7 +487,8 @@ def run_manager(port: int = 8000, *, install: bool = False,
 
 # --- Guard even unknown commands before Django/dotenv/database access ---
 def run_django(arguments: Sequence[str]) -> int:
-    """Dispatch Django in the current interpreter with an explicit DB guard.
+    """
+    Dispatch Django in the current interpreter with an explicit DB guard.
 
     Args:
         arguments: Unparsed Django command arguments, including help flags.

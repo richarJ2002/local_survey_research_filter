@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Verify screening advancement, rejection, and decision immutability.
+"""
+Verify screening advancement, rejection, and decision immutability.
 
 @File:   test_screening.py
 
@@ -33,11 +34,14 @@ from literature.services import screening_service
 
 
 class ScreeningTests(TestCase):
-    """Accept advances, reject stops, decided rows are immutable."""
+    """
+    Accept advances, reject stops, decided rows are immutable.
+    """
 
     # --- Setup helper ---
     def _setup(self) -> tuple:
-        """Create project with Title -> Abstract stages and one paper.
+        """
+        Create project with Title -> Abstract stages and one paper.
 
         Args:
             None
@@ -63,7 +67,8 @@ class ScreeningTests(TestCase):
 
     # --- Accept advances ---
     def test_accept_creates_next_stage(self) -> None:
-        """Create a pending Abstract decision after accepting the Title.
+        """
+        Create a pending Abstract decision after accepting the Title.
 
         Accept in Title creates PENDING Abstract row.
 
@@ -85,7 +90,8 @@ class ScreeningTests(TestCase):
 
     # --- Reject stops ---
     def test_reject_stops(self) -> None:
-        """Stop at Title rejection without creating an Abstract decision.
+        """
+        Stop at Title rejection without creating an Abstract decision.
 
         Reject creates no next row.
 
@@ -105,7 +111,8 @@ class ScreeningTests(TestCase):
 
     # --- Immutable ---
     def test_decided_is_immutable(self) -> None:
-        """Require InvalidTransition when changing an accepted Title decision.
+        """
+        Require InvalidTransition when changing an accepted Title decision.
 
         Second decision on same stage raises.
 

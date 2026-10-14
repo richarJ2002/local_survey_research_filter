@@ -70,7 +70,9 @@ _MAX_RECENT = 10
 
 # --- Load workspace preferences; a corrupt file falls back, never crashes ---
 def load_app_settings() -> dict:
-    """Read private settings.json; missing/corrupt files yield defaults."""
+    """
+    Read private settings.json; missing/corrupt files yield defaults.
+    """
     path = app_settings_path()
     data = dict(APP_SETTINGS_DEFAULTS)
     try:
@@ -89,7 +91,9 @@ def load_app_settings() -> dict:
 
 # --- Persist workspace preferences beside the registry, never in projects ---
 def save_app_settings(data: dict) -> Path:
-    """Write settings.json atomically; credentials never belong here."""
+    """
+    Write settings.json atomically; credentials never belong here.
+    """
     path = app_settings_path()
     try:
         path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -113,7 +117,9 @@ def save_app_settings(data: dict) -> Path:
 
 # --- Remembered root is the first stored workspace root, if any ---
 def get_workspace_root() -> Path | None:
-    """Return the remembered workspace root, or None when never chosen."""
+    """
+    Return the remembered workspace root, or None when never chosen.
+    """
     roots = load_app_settings().get("workspace_roots", [])
     if not roots:
         return None
@@ -122,7 +128,9 @@ def get_workspace_root() -> Path | None:
 
 # --- Validate and remember a workspace root directory ---
 def set_workspace_root(directory: str) -> Path:
-    """Remember a workspace root; the directory must already exist and be readable."""
+    """
+    Remember a workspace root; the directory must already exist and be readable.
+    """
     raw = (directory or "").strip()
     if not raw:
         raise ProjectStoreError("Enter a workspace folder path.")
@@ -146,7 +154,9 @@ def set_workspace_root(directory: str) -> Path:
 
 # --- Remember a successfully opened location for the next visit ---
 def remember_recent(canonical: str) -> None:
-    """Prepend a canonical location to recent_projects (memory only)."""
+    """
+    Prepend a canonical location to recent_projects (memory only).
+    """
     data = load_app_settings()
     recent = [canonical]
     recent += [p for p in data.get("recent_projects", []) if p != canonical]
@@ -161,7 +171,8 @@ def remember_recent(canonical: str) -> None:
 
 # --- Describe a typed directory without creating or migrating anything ---
 def describe_target(directory: str) -> dict:
-    """Describe a typed path without creating or migrating anything.
+    """
+    Describe a typed path without creating or migrating anything.
 
     Args:
         directory: Typed destination or existing project folder.
@@ -213,7 +224,9 @@ def describe_target(directory: str) -> dict:
 
 # --- New must never overwrite a populated directory ---
 def check_new_target(directory: str) -> Path:
-    """Validate a creation destination; refuses anything populated."""
+    """
+    Validate a creation destination; refuses anything populated.
+    """
     raw = (directory or "").strip()
     if not raw:
         raise ProjectStoreError("Enter a folder path for the new project.")
@@ -244,7 +257,9 @@ def check_new_target(directory: str) -> Path:
 
 # --- Load must never create a missing store ---
 def check_load_target(directory: str):
-    """Validate an existing store for loading; missing stores are refused."""
+    """
+    Validate an existing store for loading; missing stores are refused.
+    """
     raw = (directory or "").strip()
     if not raw:
         raise ProjectStoreError(
@@ -268,7 +283,8 @@ def check_load_target(directory: str):
 
 # --- Read-only project display name for a store database ---
 def _project_name(database_path: Path) -> str:
-    """Read the saved name without requiring the current application schema.
+    """
+    Read the saved name without requiring the current application schema.
 
     Args:
         database_path: Existing database of a manifest-verified single project.
@@ -296,7 +312,8 @@ def _project_name(database_path: Path) -> str:
 
 # --- List recognised projects directly inside a root (never recursive) ---
 def discover_workspace(root: Path | str | None) -> dict:
-    """List project manifests at most one level deep; aliases dedup, UUID clashes flagged.
+    """
+    List project manifests at most one level deep; aliases dedup, UUID clashes flagged.
 
     Never recurses, never follows untrusted manifest paths, never copies data.
     Broken/looping links become error entries, never crashes.
@@ -468,7 +485,9 @@ def _record_worker(canonical: str, pid: int, port: int, epoch: str) -> None:
 
 # --- Single project id of a store (stdlib read-only; ids stay store-local) ---
 def store_project_id(database_path: Path) -> int:
-    """Return the one literature_project id; load already proved exactly one."""
+    """
+    Return the one literature_project id; load already proved exactly one.
+    """
     try:
         uri = database_path.resolve().as_uri() + "?mode=ro"
         with sqlite3.connect(uri, uri=True, timeout=30) as connection:
@@ -537,7 +556,8 @@ def _store_lock_path(canonical: str) -> Path:
 # --- Serialize check-then-act across threads/processes sharing a registry ---
 @contextmanager
 def _hold_store_lock(canonical: str):
-    """Exclusive per-store lock for acquire/register/stop critical sections.
+    """
+    Exclusive per-store lock for acquire/register/stop critical sections.
 
     Heartbeats and releases stay single-statement SQLite writes outside the
     lock; only spawn/record/lease-insert/stop sequences take it.
@@ -592,7 +612,9 @@ def _lease_row(handle_id: str) -> dict | None:
 
 # --- Count live leases holding a canonical store open ---
 def live_handle_count(canonical: str) -> int:
-    """Leases currently holding this store open (stale epochs count until swept)."""
+    """
+    Leases currently holding this store open (stale epochs count until swept).
+    """
     registry = init_app_registry(app_registry_path())
     try:
         with sqlite3.connect(registry) as connection:
@@ -608,7 +630,9 @@ def live_handle_count(canonical: str) -> int:
 # --- Record one lease row for an already-running worker (manager or worker use) ---
 def register_handle(canonical: str, project_uuid: str, epoch: str, port: int,
                     tab_token: str | None = None) -> str:
-    """Insert a tab lease for this exact worker epoch; stale epochs never register."""
+    """
+    Insert a tab lease for this exact worker epoch; stale epochs never register.
+    """
     from datetime import UTC, datetime
 
     with _hold_store_lock(canonical):
@@ -641,7 +665,9 @@ def register_handle(canonical: str, project_uuid: str, epoch: str, port: int,
 
 # --- Last-use clock for the idle grace: every live tab refreshes its worker ---
 def _touch_last_use(canonical: str) -> None:
-    """Mark a worker used-now; best-effort, never fails a tab request."""
+    """
+    Mark a worker used-now; best-effort, never fails a tab request.
+    """
     from datetime import UTC, datetime
 
     try:
@@ -660,7 +686,8 @@ def _touch_last_use(canonical: str) -> None:
 def attach_lease(canonical: str, project_uuid: str, epoch: str, port: int,
                  handle_id: str | None, tab_token: str | None,
                  nav_type: str) -> dict:
-    """Bind one page load to a tab-owned handle.
+    """
+    Bind one page load to a tab-owned handle.
 
     Reload and history-Back keep the stored handle. A "navigate" arrival
     presenting a handle whose source tab still heartbeats is a duplicated tab
@@ -752,7 +779,8 @@ def _refresh_lease(handle_id: str, tab_token: str | None) -> None:
 
 # --- Open (or reuse) the worker, then issue this tab's own handle ---
 def acquire_handle(directory: Path | str, tab_token: str | None = None) -> dict:
-    """Ensure the store worker and record one tab-scoped lease on it.
+    """
+    Ensure the store worker and record one tab-scoped lease on it.
 
     A/A tabs share one worker (reuse) with distinct handles; A/B stores
     never share. The handle spans navigation/redirects via sessionStorage;
@@ -771,7 +799,8 @@ def acquire_handle(directory: Path | str, tab_token: str | None = None) -> dict:
 
 # --- Refresh a tab handle; stale epochs fail instead of following a reused port ---
 def heartbeat_handle(handle_id: str) -> dict | None:
-    """Touch last_seen when the lease still matches the recorded worker epoch.
+    """
+    Touch last_seen when the lease still matches the recorded worker epoch.
 
     Returns None when the handle is unknown/released/expired, or when the
     worker epoch moved on (restart/port-reuse): the tab must re-open
@@ -807,7 +836,9 @@ def heartbeat_handle(handle_id: str) -> dict | None:
 
 # --- Explicit Back/Exit releases only this tab's handle ---
 def release_handle(handle_id: str) -> bool:
-    """Release idempotently; raise ProjectStoreError if absence cannot be committed."""
+    """
+    Release idempotently; raise ProjectStoreError if absence cannot be committed.
+    """
     lease = _lease_row(handle_id)
     registry = init_app_registry(app_registry_path())
     try:
@@ -826,7 +857,8 @@ def release_handle(handle_id: str) -> bool:
 
 # --- Stop ONLY a positively tracked child; registry PIDs alone never signal ---
 def stop_worker(canonical: str, timeout: float = 20.0, *, _locked: bool = False) -> dict:
-    """Terminate the owned worker for a store after its handles are gone.
+    """
+    Terminate the owned worker for a store after its handles are gone.
 
     Operates solely on the live Popen started by this process whose pid
     still matches the registry row. Zero/negative/reused/unrelated pids,
@@ -902,7 +934,8 @@ _DRAIN_HTTP_TIMEOUT = 10.0
 
 # --- Cookie jar primed with the worker's own path-scoped CSRF token ---
 def _drain_session(base: str, prefix: str, project_id: int):
-    """Opener holding the worker CSRF cookie; genuine token, no bypass.
+    """
+    Opener holding the worker CSRF cookie; genuine token, no bypass.
 
     Primes from the drain endpoint itself: always 200 with no handle, so
     error responses never eat the cookie before the first POST.
@@ -945,7 +978,8 @@ def _drain_post(opener, token: str, url: str, fields: dict | None = None) -> dic
 # --- Reject new mutations, wait admitted ones out, then stop the owned child ---
 def drain_and_stop(canonical: str, in_flight_timeout: float = 30.0,
                    stop_timeout: float = 20.0) -> dict:
-    """Drain a worker before signalling it; never strands an admitted write.
+    """
+    Drain a worker before signalling it; never strands an admitted write.
 
     Sets the worker drain flag (new unsafe requests get 409), polls the
     in-flight counter until admitted transactions finish, then stops only the
@@ -958,7 +992,9 @@ def drain_and_stop(canonical: str, in_flight_timeout: float = 30.0,
 
 def _drain_and_stop_locked(canonical: str, in_flight_timeout: float,
                            stop_timeout: float) -> dict:
-    """Serialize lease admission through drain/stop; cancel every refused drain."""
+    """
+    Serialize lease admission through drain/stop; cancel every refused drain.
+    """
     if canonical not in _CHILDREN:
         return {"stopped": False, "reason": "not-owned"}
     if live_handle_count(canonical):
@@ -1018,7 +1054,8 @@ def _drain_and_stop_locked(canonical: str, in_flight_timeout: float,
 # --- Bounded idle sweep: expire leases, then drain only handle-free workers ---
 def sweep_idle(lease_ttl: float | None = None,
                worker_grace: float | None = None) -> dict:
-    """Drop expired leases; drain handle-free workers idle past the grace bound.
+    """
+    Drop expired leases; drain handle-free workers idle past the grace bound.
 
     Bounds default from WP_HANDLE_TTL / WP_WORKER_GRACE so tests and the
     later launcher tune them without code changes. The grace clock is the
@@ -1087,13 +1124,17 @@ def sweep_idle(lease_ttl: float | None = None,
 
 # --- Public lookup of the recorded worker for a canonical store ---
 def find_worker(canonical: str) -> dict | None:
-    """Return the recorded worker row for a store, if any (phase05 owns lifecycle)."""
+    """
+    Return the recorded worker row for a store, if any (phase05 owns lifecycle).
+    """
     return _registry_row(canonical)
 
 
 # --- Forget a registry worker row (tests/recovery; never deletes project files) ---
 def forget_worker(canonical: str) -> None:
-    """Drop a worker registry row; project files are untouched (phase05 owns lifecycle)."""
+    """
+    Drop a worker registry row; project files are untouched (phase05 owns lifecycle).
+    """
     registry = init_app_registry(app_registry_path())
     try:
         with sqlite3.connect(registry) as connection:
@@ -1108,7 +1149,8 @@ def forget_worker(canonical: str) -> None:
 
 # --- Start (or reuse) the app-owned worker for a validated store directory ---
 def start_worker(directory: Path | str) -> dict:
-    """Ensure one live worker serves this store; returns base URL parts.
+    """
+    Ensure one live worker serves this store; returns base URL parts.
 
     Reuse AND spawn take the operation lock, so neither can pass a restore.
     Concurrent first-openers elect exactly one child. A port already held by an
@@ -1186,7 +1228,9 @@ def _register_location(manifest: StoreManifest) -> StoreManifest:
 
 # --- Manager operations share acquire/stop locks; primitive gates own the inode ---
 def operate_store(action: str, source: Path | str, destination: Path | str) -> StoreManifest:
-    """Save Copy/Backup/Restore; never stop a worker implicitly to perform a write."""
+    """
+    Save Copy/Backup/Restore; never stop a worker implicitly to perform a write.
+    """
     operations = {"copy": save_copy_store, "backup": backup_project_store,
                   "restore": restore_project_store}
     if action not in operations:
@@ -1224,7 +1268,9 @@ def operate_store(action: str, source: Path | str, destination: Path | str) -> S
 
 
 def close_store(directory: Path | str) -> dict:
-    """Explicitly drain a positively owned, handle-free worker; no registry PID kills."""
+    """
+    Explicitly drain a positively owned, handle-free worker; no registry PID kills.
+    """
     manifest = read_manifest(directory)
     canonical = str(manifest.location)
     child = _CHILDREN.get(canonical)
@@ -1288,7 +1334,8 @@ def _port_occupied(port: int) -> bool:
 # --- Spawn one runserver child under the store lock, retrying port collisions ---
 def _spawn_worker(canonical: str, store_uuid: str, database_path: Path,
                   project_id: int) -> dict:
-    """Start an isolated worker and register only its verified binding.
+    """
+    Start an isolated worker and register only its verified binding.
 
     Args:
         canonical: Resolved project folder used as the registry key.

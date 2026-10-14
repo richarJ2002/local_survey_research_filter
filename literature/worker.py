@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Enforce fixed worker bindings, UUID/epoch routes and tab mutation admission.
+"""
+Enforce fixed worker bindings, UUID/epoch routes and tab mutation admission.
 
 Manager and research roles never switch database aliases per request. Cookie
 helpers scope names/paths; middleware preserves thread-local URL prefix state.
@@ -64,7 +65,8 @@ _PREFIX_RE = re.compile(
 
 # --- Immutable process role; developer preserves legacy single-DB behaviour ---
 def role() -> str:
-    """Read the process role expected to be fixed before Django startup.
+    """
+    Read the process role expected to be fixed before Django startup.
 
     Args:
         None
@@ -80,7 +82,8 @@ def role() -> str:
 
 # --- Worker manifest UUID this process is bound to (empty when unbound) ---
 def expected_uuid() -> str:
-    """Read the worker's configured logical project UUID.
+    """
+    Read the worker's configured logical project UUID.
 
     Args:
         None
@@ -96,7 +99,8 @@ def expected_uuid() -> str:
 
 # --- Worker epoch/instance this process serves (stale handles fail closed) ---
 def expected_epoch() -> str:
-    """Read the worker instance epoch used to reject stale routes and leases.
+    """
+    Read the worker instance epoch used to reject stale routes and leases.
 
     Args:
         None
@@ -112,7 +116,8 @@ def expected_epoch() -> str:
 
 # --- Short cookie suffix so names never collide across workers/manager ---
 def cookie_suffix(store_uuid: str) -> str:
-    """Derive a short cookie label from a valid project UUID.
+    """
+    Derive a short cookie label from a valid project UUID.
 
     Args:
         store_uuid (str): UUID accepted by uuid.UUID.
@@ -133,7 +138,8 @@ def cookie_suffix(store_uuid: str) -> str:
 
 # --- Non-colliding session/CSRF names per worker; manager has its own pair ---
 def cookie_names(store_uuid: str = "") -> tuple[str, str]:
-    """Choose the worker or manager session and CSRF cookie names.
+    """
+    Choose the worker or manager session and CSRF cookie names.
 
     Args:
         None
@@ -156,7 +162,8 @@ def cookie_names(store_uuid: str = "") -> tuple[str, str]:
 
 # --- Path scope for worker cookies so browsers never send A cookies to B ---
 def cookie_path(store_uuid: str, epoch: str) -> str:
-    """Build a worker cookie path with a trailing slash.
+    """
+    Build a worker cookie path with a trailing slash.
 
     Args:
         store_uuid (str): Project UUID text, already validated by the caller.
@@ -173,7 +180,8 @@ def cookie_path(store_uuid: str, epoch: str) -> str:
 
 # --- Public prefix helper for the launcher (phase04 contract) ---
 def url_prefix(store_uuid: str, epoch: str) -> str:
-    """Build the public worker route prefix without a trailing slash.
+    """
+    Build the public worker route prefix without a trailing slash.
 
     Args:
         store_uuid (str): Project UUID text, already validated by the caller.
@@ -189,7 +197,8 @@ def url_prefix(store_uuid: str, epoch: str) -> str:
 
 
 def manager_control_base() -> str:
-    """Accept only a configured HTTP loopback manager origin with a port.
+    """
+    Accept only a configured HTTP loopback manager origin with a port.
 
     Args:
         None
@@ -214,7 +223,8 @@ def manager_control_base() -> str:
 
 # --- Research URL test used by the middleware fail-closed rules ---
 def is_research_path(path: str) -> bool:
-    """Test whether a path begins with one of the research route prefixes.
+    """
+    Test whether a path begins with one of the research route prefixes.
 
     Args:
         path (str): Usually prefix-stripped request path; leading / is ignored.
@@ -246,7 +256,8 @@ _BIND_LOCK = threading.Lock()
 
 # --- Prove env UUID against manifest + identity row + canonical dev/ino ---
 def bound_store() -> dict:
-    """Validate the worker's fixed database once and cache the binding.
+    """
+    Validate the worker's fixed database once and cache the binding.
 
     Reads the manifest UUID, the stdlib-owned ``wp_store_identity`` row and
     the canonical ``(st_dev, st_ino)`` of the file named by the startup
@@ -276,7 +287,8 @@ def bound_store() -> dict:
 
 # --- One read-only validation; every failure mode refuses to serve ---
 def _validate_fixed_store() -> dict:
-    """Prove the fixed database, manifest and environment identify one store.
+    """
+    Prove the fixed database, manifest and environment identify one store.
 
     Args:
         None
@@ -370,7 +382,8 @@ def _validate_fixed_store() -> dict:
 
 # --- Mutation-time guard: the file behind the binding must be the same one ---
 def _store_file_intact(bound: dict) -> bool:
-    """Recheck the configured database member against the bound device/inode.
+    """
+    Recheck the configured database member against the bound device/inode.
 
     Args:
         bound (dict): Successful binding with configured_db, dev and ino keys.
@@ -407,7 +420,8 @@ _DRAIN_STATE = {"in_flight": 0, "draining": False}
 
 # --- Snapshot of admitted mutations (manager drain polls this, never the DB) ---
 def drain_snapshot() -> dict:
-    """Read drain admission state under its process-local thread lock.
+    """
+    Read drain admission state under its process-local thread lock.
 
     Args:
         None
@@ -425,7 +439,8 @@ def drain_snapshot() -> dict:
 
 # --- Drain flag flip; admitted requests finish, new unsafe work is refused ---
 def set_draining(value: bool) -> dict:
-    """Set drain admission state without cancelling already admitted mutations.
+    """
+    Set drain admission state without cancelling already admitted mutations.
 
     Args:
         value (bool): Truth value used for the new draining flag.
@@ -447,7 +462,8 @@ def set_draining(value: bool) -> dict:
 
 # --- Deny a mutation in the caller's content type (forms vs JSON fetch) ---
 def _mutation_denied(request, status: int, message: str):
-    """Build a mutation refusal in the caller's JSON or text content type.
+    """
+    Build a mutation refusal in the caller's JSON or text content type.
 
     Args:
         request (HttpRequest): Request whose Content-Type/Accept selects JSON.
@@ -474,7 +490,8 @@ def _mutation_denied(request, status: int, message: str):
 
 # --- Lifecycle paths mint or describe handles, so they carry no handle yet ---
 def _is_lifecycle_path(rest: str) -> bool:
-    """Detect the lifecycle substring used to exempt self-validating endpoints.
+    """
+    Detect the lifecycle substring used to exempt self-validating endpoints.
 
     Args:
         rest (str): Prefix-stripped path; a false value is treated as empty.
@@ -490,7 +507,8 @@ def _is_lifecycle_path(rest: str) -> bool:
 
 # --- A tab handle authorises one tab: header first, then the hidden form field ---
 def _presented_handle(request) -> str:
-    """Read the tab handle from its header before falling back to form data.
+    """
+    Read the tab handle from its header before falling back to form data.
 
     Args:
         request (HttpRequest): Request with META and lazily parsed POST data.
@@ -516,7 +534,8 @@ def _presented_handle(request) -> str:
 
 # --- Lease must exist for this exact UUID+epoch; anything else fails closed ---
 def _valid_tab_handle(request, bound: dict) -> bool:
-    """Require a presented tab lease matching this UUID and worker epoch.
+    """
+    Require a presented tab lease matching this UUID and worker epoch.
 
     Args:
         request (HttpRequest): Request presenting a header or form tab handle.
@@ -563,7 +582,8 @@ def _valid_tab_handle(request, bound: dict) -> bool:
 
 
 class WorkerBindingMiddleware:
-    """Bind research requests to the fixed worker store before any view runs.
+    """
+    Bind research requests to the fixed worker store before any view runs.
 
     Developer (default) keeps legacy int-pk URLs untouched. A worker serves
     research only under its own /p/<uuid>/<epoch>/ prefix with a
@@ -580,7 +600,8 @@ class WorkerBindingMiddleware:
     """
 
     def __init__(self, get_response):
-        """Retain Django's downstream middleware/view callable.
+        """
+        Retain Django's downstream middleware/view callable.
 
         Args:
             get_response (Callable): Downstream callable accepting a request
@@ -595,7 +616,8 @@ class WorkerBindingMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        """Bind routes and count admitted mutations across downstream handling.
+        """
+        Bind routes and count admitted mutations across downstream handling.
 
         Args:
             request (HttpRequest): Incoming request to annotate and route.
@@ -652,7 +674,8 @@ class WorkerBindingMiddleware:
 
     # --- Attach or reject worker context; never rebind DATABASES ---
     def _bind(self, request):
-        """Attach fixed-store context or refuse routes without DB rebinding.
+        """
+        Attach fixed-store context or refuse routes without DB rebinding.
 
         Args:
             request (HttpRequest): Request with initialized manager_base;

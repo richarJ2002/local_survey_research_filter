@@ -1,4 +1,5 @@
-"""!
+"""
+!
 @File: paper_lookup_service.py
 @Brief: Read-only paper previews and atomic keyword/status saves for DOI lookup.
 @Date: 30/09/2026
@@ -38,7 +39,8 @@ from literature.services.screening_service import abstract_available, correct_de
 
 
 def build_metadata(data: dict, doi: str) -> dict:
-    """Project typed preview fields without retaining raw provider responses.
+    """
+    Project typed preview fields without retaining raw provider responses.
 
     Args:
         data: Provider result or stored paper values to validate.
@@ -112,7 +114,8 @@ def build_metadata(data: dict, doi: str) -> dict:
 
 
 def reference_url(reference: str) -> str:
-    """Resolve a supported identifier without accepting arbitrary URLs.
+    """
+    Resolve a supported identifier without accepting arbitrary URLs.
 
     Args:
         reference: DOI, canonical OpenAlex URL or S2 identifier.
@@ -134,7 +137,8 @@ def reference_url(reference: str) -> str:
 
 
 def entry_initial(project: Project, paper: Paper | None) -> dict:
-    """Prefill saved linkage/status without guessing new-entry decisions.
+    """
+    Prefill saved linkage/status without guessing new-entry decisions.
 
     Args:
         project: Project whose assignment and decisions are displayed.
@@ -176,7 +180,8 @@ def entry_initial(project: Project, paper: Paper | None) -> dict:
 
 
 def entry_version(project: Project, paper: Paper) -> str:
-    """Fingerprint the stored entry to reject stale confirmation from a tab.
+    """
+    Fingerprint the stored entry to reject stale confirmation from a tab.
 
     Args:
         project: Project owning the relevant assignment and decisions.
@@ -212,7 +217,8 @@ def save_entry(
     expected_paper_id: int | None,
     expected_version: str | None = None,
 ) -> tuple[Paper, bool]:
-    """Save explicit assignment and statuses atomically, retaining old links.
+    """
+    Save explicit assignment and statuses atomically, retaining old links.
 
     Args:
         project: Owning project for screening and keyword assignment.

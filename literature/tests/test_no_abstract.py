@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Verify Title admission despite missing later-stage metadata.
+"""
+Verify Title admission despite missing later-stage metadata.
 
 @File:   test_no_abstract.py
 
@@ -34,11 +35,14 @@ from literature.services.search_service import (
 
 
 class InitialFilterTests(TestCase):
-    """Store everything, enrich, then gate complete papers into screening."""
+    """
+    Store everything, enrich, then gate complete papers into screening.
+    """
 
     # --- Helpers ---
     def _setup(self):
-        """Create the search and Title-stage fixtures for batch admission.
+        """
+        Create the search and Title-stage fixtures for batch admission.
 
         Project, search, run, title stage.
 
@@ -60,10 +64,13 @@ class InitialFilterTests(TestCase):
         return project, search, run, project.stages.get(name="Title")
 
     class Item:
-        """Supply canonical paper data and an empty raw provider response."""
+        """
+        Supply canonical paper data and an empty raw provider response.
+        """
 
         def __init__(self, data: dict) -> None:
-            """Wrap canonical metadata as a provider item for batch storage.
+            """
+            Wrap canonical metadata as a provider item for batch storage.
 
             Args:
                 data (dict): Canonical paper fields consumed by _store_batch.
@@ -78,7 +85,8 @@ class InitialFilterTests(TestCase):
             self.raw_response = {}
 
     def _data(self, **overrides):
-        """Build canonical metadata with an abstract, year, and references.
+        """
+        Build canonical metadata with an abstract, year, and references.
 
         Complete paper payload.
 
@@ -106,7 +114,8 @@ class InitialFilterTests(TestCase):
 
     # --- Complete paper enters queue ---
     def test_complete_paper_gated_in(self) -> None:
-        """Create a Title decision for a stored complete canonical paper.
+        """
+        Create a Title decision for a stored complete canonical paper.
 
         Stored paper with all fields gets a Title decision.
 
@@ -137,7 +146,8 @@ class InitialFilterTests(TestCase):
 
     # --- Incomplete paper stays out ---
     def test_missing_abstract_and_references_still_enter_title(self) -> None:
-        """Admit a titled paper despite blank abstract text and no references.
+        """
+        Admit a titled paper despite blank abstract text and no references.
 
         Missing later-stage metadata must not exclude a titled paper.
 
@@ -170,7 +180,8 @@ class InitialFilterTests(TestCase):
 
     # --- Enrichment completes ---
     def test_enrichment_completes_then_gates(self) -> None:
-        """Verify Title admission both before and after simulated enrichment.
+        """
+        Verify Title admission both before and after simulated enrichment.
 
         OpenAlex lookup filling blanks lets the paper through.
 

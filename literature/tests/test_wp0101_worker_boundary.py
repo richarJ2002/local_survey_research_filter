@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Test fixed-default worker isolation using synthetic stores.
+"""
+Test fixed-default worker isolation using synthetic stores.
 
 WP01.01 spike: two fixed-default workers stay isolated (synthetic stores).
 
@@ -82,11 +83,14 @@ elif mode == "fail":
 
 
 class WorkerBoundaryTests(SimpleTestCase):
-    """Two processes, each with an immutable default store, cannot cross."""
+    """
+    Two processes, each with an immutable default store, cannot cross.
+    """
 
     # --- Child worker plumbing ---
     def _run_worker(self, store: Path, mode: str, marker: str) -> str:
-        """Run one worker bound to ``store``; return its stdout.
+        """
+        Run one worker bound to ``store``; return its stdout.
 
         Args:
             store (Path): Synthetic SQLite file bound as the default DB.
@@ -123,7 +127,8 @@ class WorkerBoundaryTests(SimpleTestCase):
     # --- Row readers (parent inspects synthetic stores only) ---
     @staticmethod
     def _papers(store: Path) -> list[tuple]:
-        """Read ordered paper identities and content from a synthetic store.
+        """
+        Read ordered paper identities and content from a synthetic store.
 
         Args:
             store (Path): Synthetic SQLite file to inspect.
@@ -143,7 +148,8 @@ class WorkerBoundaryTests(SimpleTestCase):
 
     @staticmethod
     def _tables(store: Path) -> set[str]:
-        """Read table names from a synthetic SQLite file.
+        """
+        Read table names from a synthetic SQLite file.
 
         Args:
             store (Path): Synthetic store or registry file to inspect.
@@ -164,7 +170,8 @@ class WorkerBoundaryTests(SimpleTestCase):
 
     # --- Isolation with overlapping IDs and interleaved saves ---
     def test_overlapping_ids_and_interleaved_saves_stay_isolated(self) -> None:
-        """Keep distinct abstracts when worker IDs and titles overlap.
+        """
+        Keep distinct abstracts when worker IDs and titles overlap.
 
         Args:
             None
@@ -197,7 +204,8 @@ class WorkerBoundaryTests(SimpleTestCase):
 
     # --- Failed default-alias transaction rolls back only its own store ---
     def test_failed_transaction_rolls_back_only_own_store(self) -> None:
-        """Roll back a worker's partial pair without changing the other store.
+        """
+        Roll back a worker's partial pair without changing the other store.
 
         Args:
             None
@@ -222,7 +230,8 @@ class WorkerBoundaryTests(SimpleTestCase):
 
     # --- Parent/control registry never receives research records ---
     def test_parent_registry_receives_no_research_rows(self) -> None:
-        """Leave the registry schema unchanged when workers seed their stores.
+        """
+        Leave the registry schema unchanged when workers seed their stores.
 
         Args:
             None
@@ -264,7 +273,8 @@ class WorkerBoundaryTests(SimpleTestCase):
 
     # --- Cookie defaults confirm the port-sharing hazard (decision input) ---
     def test_cookie_defaults_confirm_port_sharing_hazard(self) -> None:
-        """Record legacy cookie defaults and the single default DB alias.
+        """
+        Record legacy cookie defaults and the single default DB alias.
 
         Args:
             None

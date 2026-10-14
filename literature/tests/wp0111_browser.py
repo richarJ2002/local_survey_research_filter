@@ -1,4 +1,5 @@
-"""Opt-in real Firefox qualification, isolated source/XDG/profile and offline.
+"""
+Opt-in real Firefox qualification, isolated source/XDG/profile and offline.
 
 @File: wp0111_browser.py
 @Brief: Run `.venv/bin/python -m literature.tests.wp0111_browser`; no installs.
@@ -140,7 +141,9 @@ def rows(db, sql, args=()):
 
 
 def qualify(browser, root, manager, restart):
-    """All writes use rendered forms in our synthetic two-project launcher."""
+    """
+    All writes use rendered forms in our synthetic two-project launcher.
+    """
     b = browser
     registry = root / "state" / "local-survey-filter" / "registry.sqlite3"
     a, other = root / "Project A", root / "Project B"

@@ -1,4 +1,5 @@
-"""Chart-list filters must match every plotted point.
+"""
+Chart-list filters must match every plotted point.
 
 @File: test_chart_entries.py
 @Brief: Yearly/cumulative semantics, pagination and point metadata.
@@ -33,10 +34,13 @@ from literature.services.plots_service import (
 
 
 class ChartEntryTests(TestCase):
-    """Compare chart-point membership, previews, pages, and popup metadata."""
+    """
+    Compare chart-point membership, previews, pages, and popup metadata.
+    """
 
     def setUp(self):
-        """Create dated, undated, rejected, and foreign chart-list fixtures.
+        """
+        Create dated, undated, rejected, and foreign chart-list fixtures.
 
         Args:
             None
@@ -77,7 +81,8 @@ class ChartEntryTests(TestCase):
         self.url = reverse("chart_entries", args=[self.project.pk])
 
     def test_all_point_counts_match_plots_and_preview_membership(self):
-        """Match chart lists to yearly, cumulative, and final plot counts.
+        """
+        Match chart lists to yearly, cumulative, and final plot counts.
 
         Args:
             None
@@ -115,7 +120,8 @@ class ChartEntryTests(TestCase):
                          for paper in final["papers"]], ["Paper 0"])
 
     def test_preview_cap_and_stable_pagination(self):
-        """Cap previews at ten and split 32 matches into disjoint 25/7 pages.
+        """
+        Cap previews at ten and split 32 matches into disjoint 25/7 pages.
 
         Args:
             None
@@ -147,7 +153,8 @@ class ChartEntryTests(TestCase):
         self.assertContains(first, "page=2")
 
     def test_invalid_filters_and_project_scope(self):
-        """Reject invalid filters, unknown projects, and POST list requests.
+        """
+        Reject invalid filters, unknown projects, and POST list requests.
 
         Args:
             None
@@ -175,7 +182,8 @@ class ChartEntryTests(TestCase):
         self.assertEqual(self.client.post(self.url).status_code, 405)
 
     def test_trace_filters_hover_and_async_ready_event(self):
-        """Attach step, mode, and year filters plus hover counts and readiness.
+        """
+        Attach step, mode, and year filters plus hover counts and readiness.
 
         Args:
             None
@@ -209,7 +217,8 @@ class ChartEntryTests(TestCase):
                           render.call_args.kwargs["post_script"])
 
     def test_dialog_on_both_chart_pages(self):
-        """Include the chart dialog, script, and list URL on both chart pages.
+        """
+        Include the chart dialog, script, and list URL on both chart pages.
 
         Args:
             None

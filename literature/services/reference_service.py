@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Preview DOI metadata and fill missing paper fields through provider lookups.
+"""
+Preview DOI metadata and fill missing paper fields through provider lookups.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -44,12 +45,15 @@ BATCH_SIZE = 50
 
 # --- Classes
 class RefbackfillError(RuntimeError):
-    """Report an OpenAlex lookup failure or Semantic Scholar rate limit."""
+    """
+    Report an OpenAlex lookup failure or Semantic Scholar rate limit.
+    """
 
 
 # --- Normalize DOI ---
 def normalize_doi(raw: str | None) -> str | None:
-    """Strip whitespace and DOI resolver prefixes and lowercase the result.
+    """
+    Strip whitespace and DOI resolver prefixes and lowercase the result.
 
     Args:
         raw: DOI string or resolver URL; None is treated as blank.
@@ -73,7 +77,8 @@ def normalize_doi(raw: str | None) -> str | None:
 
 # --- Headers ---
 def _headers() -> dict:
-    """Build JSON lookup headers with the configured optional contact email.
+    """
+    Build JSON lookup headers with the configured optional contact email.
 
     Args:
         None
@@ -94,7 +99,8 @@ def _headers() -> dict:
 
 # --- Fetch one batch ---
 def fetch_batch(dois: list[str], client: httpx.Client) -> dict[str, dict]:
-    """Fetch canonical preview metadata for an OpenAlex DOI batch.
+    """
+    Fetch canonical preview metadata for an OpenAlex DOI batch.
 
     Args:
         dois (list[str]): Normalized DOIs joined into one OR filter. Callers
@@ -160,7 +166,8 @@ def fetch_batch(dois: list[str], client: httpx.Client) -> dict[str, dict]:
 
 # --- Fill blanks on paper objects ---
 def _apply_enrichment(paper: Paper, data: dict) -> bool:
-    """Fill missing title, usable abstract or reference IDs and save changes.
+    """
+    Fill missing title, usable abstract or reference IDs and save changes.
 
     Args:
         paper (Paper): Stored paper to update, retaining usable values.
@@ -196,7 +203,8 @@ def _apply_enrichment(paper: Paper, data: dict) -> bool:
 
 # --- DOI fallback providers ---
 def _crossref_lookup(doi: str, client: httpx.Client) -> dict:
-    """Fetch Crossref DOI metadata and DOI-bearing references as a fallback.
+    """
+    Fetch Crossref DOI metadata and DOI-bearing references as a fallback.
 
     Args:
         doi (str): Normalized DOI to URL-quote in the lookup endpoint.
@@ -250,7 +258,8 @@ def _crossref_lookup(doi: str, client: httpx.Client) -> dict:
 
 
 def _s2_lookup(doi: str, client: httpx.Client) -> dict:
-    """Fetch Semantic Scholar DOI metadata and direct paper references.
+    """
+    Fetch Semantic Scholar DOI metadata and direct paper references.
 
     Args:
         doi (str): Normalized DOI to URL-quote in the paper lookup endpoint.
@@ -320,7 +329,8 @@ def _s2_lookup(doi: str, client: httpx.Client) -> dict:
 
 # --- Look up one DOI without writing ---
 def lookup_doi(doi: str, client: httpx.Client | None = None) -> dict:
-    """Merge read-only DOI metadata, retaining the first usable field value.
+    """
+    Merge read-only DOI metadata, retaining the first usable field value.
 
     No database writes occur. Caught provider transport, shape, parse and
     rate-limit errors are skipped; data from other providers is retained.
@@ -400,7 +410,8 @@ def lookup_doi(doi: str, client: httpx.Client | None = None) -> dict:
 def enrich_papers(
     papers: list, *, batch_size: int = BATCH_SIZE, client: httpx.Client | None = None
 ) -> int:
-    """Try OpenAlex, then Crossref and Semantic Scholar for missing fields.
+    """
+    Try OpenAlex, then Crossref and Semantic Scholar for missing fields.
 
     Only touches papers with a DOI that lack title, abstract, or a reference
     list. A manually pasted bibliography already satisfies that last need.
@@ -498,7 +509,8 @@ def enrich_papers(
 def backfill_missing_references(
     project, *, batch_size: int = BATCH_SIZE, client: httpx.Client | None = None
 ) -> dict[str, int]:
-    """Enrich missing fields on DOI papers discovered in a project.
+    """
+    Enrich missing fields on DOI papers discovered in a project.
 
     Args:
         project (Project): Project whose discovered papers are considered.

@@ -48,7 +48,8 @@ ORIGIN_SOURCES = (
 
 # --- Functions
 def selected_origin(value: str) -> str:
-    """Require a discovery origin; manual entry is a method, not a source.
+    """
+    Require a discovery origin; manual entry is a method, not a source.
 
     Args:
         value: Submitted origin identifier from the supported choices.
@@ -68,7 +69,8 @@ def selected_origin(value: str) -> str:
 
 
 def author_rows(raw: str) -> list[dict]:
-    """Parse one locally entered author per nonblank line.
+    """
+    Parse one locally entered author per nonblank line.
 
     Args:
         raw: Author text with newline-separated names.
@@ -86,7 +88,8 @@ def author_rows(raw: str) -> list[dict]:
 
 
 def selected_keyword(project: Project, value: str) -> tuple[Search, str]:
-    """Resolve a posted keyword only against this project's current settings.
+    """
+    Resolve a posted keyword only against this project's current settings.
 
     Args:
         project: Owning project.
@@ -116,7 +119,8 @@ def selected_keyword(project: Project, value: str) -> tuple[Search, str]:
 def add_manual_paper(
     project: Project, search: Search, keyword: str, data: dict,
 ) -> tuple[Paper, bool, Discovery]:
-    """Persist a manual paper under a fresh current keyword and real origin.
+    """
+    Persist a manual paper under a fresh current keyword and real origin.
 
     Args:
         project: Owning project.
@@ -190,7 +194,8 @@ def finish_manual_addition(
     project: Project, paper: Paper, discovery: Discovery, *, created: bool,
     keyword: str,
 ) -> None:
-    """Audit a current-keyword addition and admit titled papers to Title.
+    """
+    Audit a current-keyword addition and admit titled papers to Title.
 
     Args:
         project: Owning project.
@@ -229,7 +234,8 @@ def finish_manual_addition(
 
 @transaction.atomic
 def update_paper_details(project: Project, paper: Paper, data: dict) -> None:
-    """Save local details atomically without resetting research decisions.
+    """
+    Save local details atomically without resetting research decisions.
 
     Args:
         project: Project owning a discovery of this paper.

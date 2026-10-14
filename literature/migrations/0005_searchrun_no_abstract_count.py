@@ -1,4 +1,5 @@
-"""Add the historical blank-abstract counter to search-run audits.
+"""
+Add the historical blank-abstract counter to search-run audits.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -27,7 +28,9 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    """Add a zero-default counter without changing screening decisions."""
+    """
+    Add a zero-default counter without changing screening decisions.
+    """
 
     dependencies = [
         ('literature', '0004_project_domain_project_research_questions_and_more'),

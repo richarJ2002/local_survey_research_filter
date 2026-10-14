@@ -1,4 +1,5 @@
-"""WP01.07 offline local assets: local Plotly.js, self-contained exports, offline work.
+"""
+WP01.07 offline local assets: local Plotly.js, self-contained exports, offline work.
 
 @File: test_wp0107_offline_assets.py
 @Brief: No CDN paths, local bundle serving, standalone exports, offline pages.
@@ -233,7 +234,8 @@ class OfflineLocalWorkTests(TestCase):
         ELSEVIER_INSTTOKEN="synthetic-scopus-token-9f8e7d6c5b4a",
     )
     def test_settings_works_offline_without_printing_token(self) -> None:
-        """Keep optional saved secrets hidden without any network access.
+        """
+        Keep optional saved secrets hidden without any network access.
 
         Args:
             None

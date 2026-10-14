@@ -35,7 +35,8 @@ import plotly.graph_objects as go
 
 
 def _select_step(fig: go.Figure, step: str) -> None:
-    """Keep the requested trace without changing its point membership.
+    """
+    Keep the requested trace without changing its point membership.
 
     Args:
         fig: Figure with found, title and final-gated abstract traces.
@@ -58,7 +59,8 @@ def build_keyword_figure(
     counts: dict[str, dict[str, int]], *, order: str = "az",
     step: str = "all", plot_config: dict | None = None,
 ) -> str:
-    """Grouped bars per keyword: Found vs Title Yes vs Abstract Yes.
+    """
+    Grouped bars per keyword: Found vs Title Yes vs Abstract Yes.
 
     Plain English labels; muted colours; decreasing heights show filtering.
     Returns an embeddable HTML div (Plotly.js loaded locally from the app).
@@ -129,7 +131,8 @@ def build_keyword_figure(
 def source_pie_figure(
     per_source: dict[str, dict[str, int]], *, metric: str = "results",
 ) -> go.Figure:
-    """Show each source's share of one audited category.
+    """
+    Show each source's share of one audited category.
 
     Duplicate and incomplete slices are shares of all such outcomes. Their
     hover also shows the rate within that source's own raw record count.
@@ -206,7 +209,8 @@ def source_pie_figure(
 def current_source_figure(
     current: dict, *, order: str = "canonical",
 ) -> go.Figure:
-    """Plot only named current sources without changing source provenance.
+    """
+    Plot only named current sources without changing source provenance.
 
     A paper with several sources counts once per bar, so bar heights may sum
     past the distinct-paper total. Blank counts remain in the metrics and
@@ -273,7 +277,8 @@ def build_current_source_bars(
     current: dict, *, order: str = "canonical",
     plot_config: dict | None = None,
 ) -> str:
-    """One embeddable current-state bar chart with its own download button.
+    """
+    One embeddable current-state bar chart with its own download button.
 
     Args:
         current: Distinct-paper, blank and per-source counts.
@@ -292,7 +297,9 @@ def build_current_source_bars(
 def build_source_pie(
     per_source: dict[str, dict[str, int]], *, metric: str = "results",
 ) -> str:
-    """One embeddable Plotly pie with its own camera download button."""
+    """
+    One embeddable Plotly pie with its own camera download button.
+    """
     fig = source_pie_figure(per_source, metric=metric)
     return fig.to_html(full_html=False, include_plotlyjs=False)
 
@@ -301,7 +308,8 @@ def build_source_pie(
 def build_funnel_figure(
     metrics: dict, *, counts: bool = True, plot_config: dict | None = None,
 ) -> str:
-    """Left-to-right flow showing how papers split at each check.
+    """
+    Left-to-right flow showing how papers split at each check.
 
     Dropped lanes sit above, accepted lanes at the bottom. Node labels
     stay short (Plotly draws rightmost labels over the bands, so long
@@ -382,7 +390,8 @@ def build_yearly_figure(
     data: dict | list | tuple, *, step: str = "all",
     plot_config: dict | None = None,
 ) -> str:
-    """Bars per year, layered by step (largest behind).
+    """
+    Bars per year, layered by step (largest behind).
 
     Accepts the stage_year_cumulative dict (preferred) or a plain year
     list (single layer, backward compatible). The ring left showing
@@ -462,7 +471,8 @@ def build_stage_cumulative_figure(
     data: dict, *, step: str = "all", inline_controls: bool = False,
     plot_config: dict | None = None,
 ) -> str:
-    """Running totals per year, one line per filter step.
+    """
+    Running totals per year, one line per filter step.
 
     Gaps between lines in an era = papers from those years filtered out.
     Dropdown isolates one step or compares all.
@@ -509,7 +519,8 @@ def build_stage_cumulative_figure(
             full_html=False, include_plotlyjs=False, config=plot_config)
 
     def _trace(name: str, values: list[int], color: str) -> go.Scatter:
-        """Build one cumulative trace with the displayed year coordinates.
+        """
+        Build one cumulative trace with the displayed year coordinates.
 
         Args:
             name: Human-readable stage label.
@@ -591,7 +602,8 @@ def build_stage_cumulative_figure(
 def _layout_quality(
     points: dict[int, tuple[float, float]], edges: list
 ) -> tuple[tuple[int, int, float], set[int]]:
-    """Score proper crossings, unrelated nodes near edges, then squared edge length.
+    """
+    Score proper crossings, unrelated nodes near edges, then squared edge length.
 
     Coordinates are dimensionless display units. Shared endpoints are not
     crossings; 0.8 units keeps unrelated lines clear of the bounded markers.
@@ -633,7 +645,9 @@ def _layout_quality(
 def _spaced_positions(
     points: dict[int, tuple[float, float]], *, shrink: bool = False
 ) -> dict[int, tuple[float, float]]:
-    """Guarantee at least 2.5 display units between centres by uniform scaling."""
+    """
+    Guarantee at least 2.5 display units between centres by uniform scaling.
+    """
     if any(not isfinite(value) for point in points.values() for value in point):
         raise ValueError("Non-finite graph coordinates.")
     distance = min(
@@ -649,7 +663,8 @@ def _spaced_positions(
 
 
 def _spring_positions(order: list[int], edges: list) -> dict[int, tuple[float, float]]:
-    """Bounded, deterministic Fruchterman–Reingold-style settling, not physical simulation.
+    """
+    Bounded, deterministic Fruchterman–Reingold-style settling, not physical simulation.
 
     Repulsion is k²/d; connected nodes attract with d²/k, k=2.5 display units.
     Cooling bounds each displacement. No year enters these forces.
@@ -692,7 +707,9 @@ def _spring_positions(order: list[int], edges: list) -> dict[int, tuple[float, f
 def _topology_positions(
     order: list[int], neighbour: dict[int, set[int]]
 ) -> dict[int, tuple[float, float]]:
-    """A noncrossing tree scaffold is only a candidate; every real cyclic edge is still scored/drawn."""
+    """
+    A noncrossing tree scaffold is only a candidate; every real cyclic edge is still scored/drawn.
+    """
     children = {pk: [] for pk in order}
     depth = {order[0]: 0}
     for pk in order:
@@ -724,7 +741,8 @@ def _topology_positions(
 def _repair_positions(
     points: dict[int, tuple[float, float]], edges: list, neighbour: dict[int, set[int]]
 ) -> dict[int, tuple[float, float]]:
-    """Escape crossing-repair local minima, retaining the best lexicographic score.
+    """
+    Escape crossing-repair local minima, retaining the best lexicographic score.
 
     Temporary uphill moves are allowed during cooling, but the returned result
     never worsens crossings/clearance. Work is bounded by graph size; this is a
@@ -783,7 +801,8 @@ def _repair_positions(
 def family_positions(
     nodes: list[dict], edges: list
 ) -> tuple[dict[int, tuple[float, float]], set[int]]:
-    """Space and pack citation clusters; chronology only chooses a rigid orientation.
+    """
+    Space and pack citation clusters; chronology only chooses a rigid orientation.
 
     Crossing/clearance scores outrank compactness. Rotating a completed group
     towards a loose year trend cannot change its crossings or node spacing.
@@ -950,7 +969,8 @@ def build_citation_figure(
     graph: dict, *, include_app_script: bool = True,
     plot_config: dict | None = None,
 ) -> str:
-    """Interactive Plotly citation clusters with directed edge tooltips.
+    """
+    Interactive Plotly citation clusters with directed edge tooltips.
 
     Node traces keep their existing customdata HTML hover text untouched and
     additionally carry raw per-node dicts in meta.paper_details (aligned with
@@ -1063,7 +1083,8 @@ def build_citation_figure(
     max_cites = max((n["citations"] or 0) for n in nodes) or 1
 
     def _role(node: dict) -> str:
-        """Choose the existing graph color role without changing membership.
+        """
+        Choose the existing graph color role without changing membership.
 
         Args:
             node: Graph node with seed and joining-path flags.

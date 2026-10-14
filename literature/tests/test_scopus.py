@@ -1,4 +1,5 @@
-"""Qualify optional Scopus search with synthetic responses and project data.
+"""
+Qualify optional Scopus search with synthetic responses and project data.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -53,7 +54,8 @@ from literature.services.search_service import (
 
 
 def entry(number: int = 1) -> dict:
-    """Build a bibliographic search record with no real research data.
+    """
+    Build a bibliographic search record with no real research data.
 
     Args:
         None
@@ -79,7 +81,8 @@ def entry(number: int = 1) -> dict:
 
 
 def page(entries: list, total: int) -> httpx.Response:
-    """Build a synthetic JSON search page.
+    """
+    Build a synthetic JSON search page.
 
     Args:
         entries: Search entries, including an empty-result sentinel if needed.
@@ -98,10 +101,13 @@ def page(entries: list, total: int) -> httpx.Response:
 # --- Classes
 @override_settings(ELSEVIER_API_KEY="", ELSEVIER_INSTTOKEN="")
 class ScopusProviderTests(SimpleTestCase):
-    """Exercise the actual adapter through httpx's in-memory transport."""
+    """
+    Exercise the actual adapter through httpx's in-memory transport.
+    """
 
     def client_for(self, replies: list) -> httpx.Client:
-        """Create a borrowed mock client and record its requests.
+        """
+        Create a borrowed mock client and record its requests.
 
         Args:
             replies: Responses or transport exceptions in request order.
@@ -119,7 +125,8 @@ class ScopusProviderTests(SimpleTestCase):
         pending = iter(replies)
 
         def respond(request: httpx.Request) -> httpx.Response:
-            """Record one synthetic request and return its queued outcome.
+            """
+            Record one synthetic request and return its queued outcome.
 
             Args:
                 request: In-memory Scopus GET request.
@@ -146,7 +153,8 @@ class ScopusProviderTests(SimpleTestCase):
         return client
 
     def test_queries_mapping_and_input_boundaries(self) -> None:
-        """Translate literal filters and retain only real bibliographic fields.
+        """
+        Translate literal filters and retain only real bibliographic fields.
 
         Args:
             None
@@ -215,7 +223,8 @@ class ScopusProviderTests(SimpleTestCase):
                              "eid=2-s2.0-8500001")
 
     def test_pagination_header_secrecy_and_client_ownership(self) -> None:
-        """Page through results without putting credentials in query strings.
+        """
+        Page through results without putting credentials in query strings.
 
         Args:
             None
@@ -250,7 +259,8 @@ class ScopusProviderTests(SimpleTestCase):
         self.assertTrue(own.is_closed, "an owned client is closed")
 
     def test_page_ceiling_empty_results_and_offset_limit(self) -> None:
-        """Honor page ceilings, empty-result sentinels and the 5,000-hit limit.
+        """
+        Honor page ceilings, empty-result sentinels and the 5,000-hit limit.
 
         Args:
             None
@@ -282,7 +292,8 @@ class ScopusProviderTests(SimpleTestCase):
         self.assertEqual(self.requests[-1].url.params["start"], "4800")
 
     def test_access_quota_redirect_and_bad_response_errors_are_safe(self) -> None:
-        """Reject denied, redirected or malformed responses without secret echoes.
+        """
+        Reject denied, redirected or malformed responses without secret echoes.
 
         Args:
             None
@@ -318,7 +329,8 @@ class ScopusProviderTests(SimpleTestCase):
                 self.assertEqual(len(self.requests), 1)
 
     def test_retries_and_missing_credentials_fail_without_leaks(self) -> None:
-        """Bound retry waits and reject missing/invalid keys before HTTP creation.
+        """
+        Bound retry waits and reject missing/invalid keys before HTTP creation.
 
         Args:
             None
@@ -357,10 +369,13 @@ class ScopusProviderTests(SimpleTestCase):
 @override_settings(ELSEVIER_API_KEY="fake-key", ELSEVIER_INSTTOKEN="",
                    OPENALEX_EMAIL="")
 class ScopusIntegrationTests(TestCase):
-    """Keep Scopus opt-in and reuse project-scoped audits and deduplication."""
+    """
+    Keep Scopus opt-in and reuse project-scoped audits and deduplication.
+    """
 
     def test_private_settings_save_and_fresh_process_loading(self) -> None:
-        """Preserve hidden credentials across reload, blank save and restart.
+        """
+        Preserve hidden credentials across reload, blank save and restart.
 
         Args:
             None
@@ -420,7 +435,8 @@ class ScopusIntegrationTests(TestCase):
             self.assertFalse(unused_database.exists())
 
     def test_opt_in_defaults_settings_and_search_forms(self) -> None:
-        """Preserve legacy selections and permit Scopus-only credential setup.
+        """
+        Preserve legacy selections and permit Scopus-only credential setup.
 
         Args:
             None
@@ -469,7 +485,8 @@ class ScopusIntegrationTests(TestCase):
                              for item in save.call_args_list))
 
     def test_scopus_run_reuses_dedup_and_preserves_curated_fields(self) -> None:
-        """Store Scopus provenance without overwriting existing paper edits.
+        """
+        Store Scopus provenance without overwriting existing paper edits.
 
         Args:
             None
@@ -525,7 +542,8 @@ class ScopusIntegrationTests(TestCase):
             self.assertEqual(paper.title, "User-maintained title")
 
     def test_scopus_failure_is_audited_without_stopping_other_providers(self) -> None:
-        """Retain a safe Scopus failure audit while other providers succeed.
+        """
+        Retain a safe Scopus failure audit while other providers succeed.
 
         Args:
             None

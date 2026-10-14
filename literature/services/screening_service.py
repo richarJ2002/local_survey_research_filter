@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Apply immutable screening actions and explicit audited status corrections.
+"""
+Apply immutable screening actions and explicit audited status corrections.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -33,12 +34,15 @@ from literature.models import Paper, Project, ScreeningDecision, ScreeningRevisi
 
 
 class InvalidTransition(ValueError):
-    """Report invalid screening prerequisites, status changes or completion."""
+    """
+    Report invalid screening prerequisites, status changes or completion.
+    """
 
 
 # --- Functions
 def title_ready(paper: Paper) -> bool:
-    """Check the sole metadata prerequisite for Title screening.
+    """
+    Check the sole metadata prerequisite for Title screening.
 
     Args:
         paper (Paper): Paper whose title is inspected.
@@ -54,7 +58,8 @@ def title_ready(paper: Paper) -> bool:
 
 
 def abstract_available(value: str | None) -> bool:
-    """Distinguish an actual abstract from the confirmed HAL audience-only tag.
+    """
+    Distinguish an actual abstract from the confirmed HAL audience-only tag.
 
     Args:
         value: Candidate abstract string or None.
@@ -71,7 +76,8 @@ def abstract_available(value: str | None) -> bool:
 
 
 def has_reference_list(paper: Paper) -> bool:
-    """Recognize provider identifiers or a manually supplied bibliography.
+    """
+    Recognize provider identifiers or a manually supplied bibliography.
 
     Args:
         paper (Paper): Paper exposing references and reference_text.
@@ -87,7 +93,8 @@ def has_reference_list(paper: Paper) -> bool:
 
 
 def _reference_filter() -> Q:
-    """Build the decision-query predicate for completed references.
+    """
+    Build the decision-query predicate for completed references.
 
     Args:
         None
@@ -104,7 +111,8 @@ def _reference_filter() -> Q:
 
 
 def final_decisions(project: Project) -> QuerySet[ScreeningDecision]:
-    """Select Abstract accepts with completed references and project discovery.
+    """
+    Select Abstract accepts with completed references and project discovery.
 
     Args:
         project (Project): Project bounding decisions and discovery membership.
@@ -121,7 +129,8 @@ def final_decisions(project: Project) -> QuerySet[ScreeningDecision]:
 
 
 def pending_references(project: Project) -> QuerySet[ScreeningDecision]:
-    """Select discovered Abstract accepts still awaiting reference completion.
+    """
+    Select discovered Abstract accepts still awaiting reference completion.
 
     Args:
         project (Project): Project bounding decisions and discovery membership.
@@ -137,7 +146,8 @@ def pending_references(project: Project) -> QuerySet[ScreeningDecision]:
 
 
 def _validate_status(paper: Paper, stage: Stage, decision: str) -> None:
-    """Enforce project membership and prerequisites for decision changes.
+    """
+    Enforce project membership and prerequisites for decision changes.
 
     Args:
         paper (Paper): Paper that must have project discovery and a title.
@@ -182,7 +192,8 @@ def decide(
     notes: str = "",
     reason: str = "",
 ) -> ScreeningDecision:
-    """Apply Yes/No decision and create next-stage PENDING row if accepted.
+    """
+    Apply Yes/No decision and create next-stage PENDING row if accepted.
 
     Rules (MVP, Yes/No only):
     - Current row must be PENDING, else raise InvalidTransition.
@@ -267,7 +278,8 @@ def decide(
 def correct_decision(
     *, paper: Paper, stage: Stage, decision: str, reason: str,
 ) -> ScreeningDecision:
-    """Explicitly correct a status while retaining an audit trail.
+    """
+    Explicitly correct a status while retaining an audit trail.
 
     The normal screening action remains immutable. Correcting Title away
     from ACCEPT invalidates any Abstract decision, which is itself logged.

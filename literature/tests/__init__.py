@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group.
-"""Define the literature.tests package.
+"""
+Define the literature.tests package.
 
 @File:   __init__.py
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Create, validate and copy versioned single-project SQLite stores.
+"""
+Create, validate and copy versioned single-project SQLite stores.
 
 Load refuses format/schema drift instead of upgrading research data. Registry
 state lives outside portable stores; copies bind snapshots to locked inodes.
@@ -118,13 +119,16 @@ _WORKER_TIMEOUT = 300
 
 # --- Store failures are one explicit type; callers map to UI messages ---
 class ProjectStoreError(Exception):
-    """A project directory is missing, unrecognised, corrupt or refused."""
+    """
+    A project directory is missing, unrecognised, corrupt or refused.
+    """
 
 
 # --- Validated manifest; location is canonical, symlinks preserved ---
 @dataclass(frozen=True)
 class StoreManifest:
-    """Represent a validated manifest and its resolved directory location.
+    """
+    Represent a validated manifest and its resolved directory location.
 
     The UUID identifies the logical project, not its physical location.
     ``database`` is the fixed member name; ``created_at`` is stored text.
@@ -148,7 +152,8 @@ class StoreManifest:
 # --- Read-only schema report; drift must never auto-apply ---
 @dataclass(frozen=True)
 class SchemaStatus:
-    """Report sorted applied, missing and extra literature migration names.
+    """
+    Report sorted applied, missing and extra literature migration names.
 
     ``in_sync`` means both differences are empty; no migration is applied.
     """
@@ -166,7 +171,8 @@ class SchemaStatus:
 
 # --- XDG dirs with home fallbacks; no I/O, so safe at import ---
 def app_data_dir() -> Path:
-    """Locate private registry/settings state without creating directories.
+    """
+    Locate private registry/settings state without creating directories.
 
     Args:
         None
@@ -183,7 +189,8 @@ def app_data_dir() -> Path:
 
 # --- Companion cache dir for disposable assets (Plotly, thumbnails) ---
 def app_cache_dir() -> Path:
-    """Locate disposable app caches without creating directories.
+    """
+    Locate disposable app caches without creating directories.
 
     Args:
         None
@@ -200,7 +207,8 @@ def app_cache_dir() -> Path:
 
 # --- Concrete private-state members frozen for later phases ---
 def app_registry_path() -> Path:
-    """Locate the runtime registry outside research project folders.
+    """
+    Locate the runtime registry outside research project folders.
 
     Args:
         None
@@ -216,7 +224,8 @@ def app_registry_path() -> Path:
 
 # --- Settings live beside the registry, never inside project folders ---
 def app_settings_path() -> Path:
-    """Locate workspace preferences beside the private runtime registry.
+    """
+    Locate workspace preferences beside the private runtime registry.
 
     Args:
         None
@@ -232,7 +241,8 @@ def app_settings_path() -> Path:
 
 # --- Create registry tables only; research rows must never land here ---
 def init_app_registry(path: Path | str) -> Path:
-    """Create registry tables and add tab_token to older lease tables.
+    """
+    Create registry tables and add tab_token to older lease tables.
 
     Args:
         path (Path | str): Registry database file to initialize.
@@ -280,7 +290,8 @@ def init_app_registry(path: Path | str) -> Path:
 
 # --- Single URI builder; resolve().as_uri() keeps ?/#/% names intact ---
 def _connect_ro(database_path: Path | str) -> sqlite3.Connection:
-    """Open the resolved SQLite file through a quoting-safe read-only URI.
+    """
+    Open the resolved SQLite file through a quoting-safe read-only URI.
 
     Args:
         database_path (Path | str): Existing database file to open.
@@ -313,7 +324,8 @@ def _connect_ro(database_path: Path | str) -> sqlite3.Connection:
 
 # --- Parse + validate user-supplied JSON before touching any database ---
 def _parse_manifest(data: object, location: Path) -> StoreManifest:
-    """Validate manifest fields without reading or creating a database.
+    """
+    Validate manifest fields without reading or creating a database.
 
     Args:
         data (object): Decoded JSON with version, project UUID and database.
@@ -371,7 +383,8 @@ def _parse_manifest(data: object, location: Path) -> StoreManifest:
 
 # --- Read-only manifest load; Load path never creates anything ---
 def read_manifest(directory: Path | str) -> StoreManifest:
-    """Read and validate an existing manifest without creating store files.
+    """
+    Read and validate an existing manifest without creating store files.
 
     Args:
         directory (Path | str): Store folder; directory symlinks are allowed.
@@ -410,7 +423,8 @@ def read_manifest(directory: Path | str) -> StoreManifest:
 
 # --- Migrate runs in a child whose default DB is already the target ---
 def _run_migrate(database_path: Path) -> None:
-    """Migrate a deliberate target with dotenv and worker binding disabled.
+    """
+    Migrate a deliberate target with dotenv and worker binding disabled.
 
     Args:
         database_path (Path): Target DB path, made absolute for dispatch.
@@ -479,7 +493,8 @@ print(f"OK project={project.pk}", flush=True)
 
 # --- Child process owns the write; the parent never rebinds its own DB ---
 def _run_create_project(database_path: Path, name: str) -> None:
-    """Create one Project and its default stages in a fixed-target child.
+    """
+    Create one Project and its default stages in a fixed-target child.
 
     Args:
         database_path (Path): Database passed as the child's default target.
@@ -523,7 +538,8 @@ def _run_create_project(database_path: Path, name: str) -> None:
 
 # --- Identity row written with stdlib so Django migrations stay untouched ---
 def _write_identity(database_path: Path, project_uuid: uuid.UUID) -> None:
-    """Create the stdlib-owned identity table and insert the store identity.
+    """
+    Create the stdlib-owned identity table and insert the store identity.
 
     Args:
         database_path (Path): SQLite file receiving the identity row.
@@ -565,7 +581,8 @@ def _write_identity(database_path: Path, project_uuid: uuid.UUID) -> None:
 
 # --- Explain who holds a surviving claim and how to recover explicitly ---
 def _claim_holder_message(claim: Path, dest: Path) -> str:
-    """Describe a surviving claim without deleting it or signalling its PID.
+    """
+    Describe a surviving claim without deleting it or signalling its PID.
 
     Args:
         claim (Path): Claim JSON file whose pid is probed with signal zero.
@@ -601,7 +618,8 @@ def _claim_holder_message(claim: Path, dest: Path) -> str:
 
 # --- Atomic mkdir plus O_EXCL claim; losers refuse, never overwrite ---
 def _exclusive_claim(destination: Path) -> Path:
-    """Claim an absent or empty directory without overwriting existing files.
+    """
+    Claim an absent or empty directory without overwriting existing files.
 
     Args:
         destination (Path): Store directory whose parent must already exist.
@@ -673,7 +691,8 @@ def _exclusive_claim(destination: Path) -> Path:
 
 # --- Explicit creation; partial results are left for inspect(), never wiped ---
 def create_project_store(destination: Path | str, name: str) -> StoreManifest:
-    """Create a manifest, migrated database and one project's default stages.
+    """
+    Create a manifest, migrated database and one project's default stages.
 
     Args:
         destination (Path | str): Absent/empty store directory with an
@@ -759,7 +778,8 @@ def create_project_store(destination: Path | str, name: str) -> StoreManifest:
 
 # --- Read-only health report; complete means open() would succeed ---
 def inspect_project_store(directory: Path | str) -> dict[str, object]:
-    """Report store health without writing to the inspected directory.
+    """
+    Report store health without writing to the inspected directory.
 
     Args:
         directory (Path | str): Candidate project directory to inspect.
@@ -810,7 +830,8 @@ def inspect_project_store(directory: Path | str) -> dict[str, object]:
 
 # --- Stat the DB file for the (dev, ino) dedup key used by later phases ---
 def _attach_db_identity(manifest: StoreManifest) -> StoreManifest:
-    """Attach the database member's physical (device, inode) identity.
+    """
+    Attach the database member's physical (device, inode) identity.
 
     Args:
         manifest (StoreManifest): Validated manifest with a store location.
@@ -838,7 +859,8 @@ def _attach_db_identity(manifest: StoreManifest) -> StoreManifest:
 
 # --- Identity table must hold exactly one row agreeing on UUID + version ---
 def _check_identity(database_path: Path, expected: uuid.UUID) -> None:
-    """Require exactly one database identity matching UUID and format version.
+    """
+    Require exactly one database identity matching UUID and format version.
 
     Args:
         database_path (Path): Store database opened read-only for validation.
@@ -884,7 +906,8 @@ def _check_identity(database_path: Path, expected: uuid.UUID) -> None:
 
 # --- Exactly one logical project per store; read-only count ---
 def _project_count(database_path: Path) -> int:
-    """Count logical projects through a read-only database connection.
+    """
+    Count logical projects through a read-only database connection.
 
     Args:
         database_path (Path): Store database containing literature_project.
@@ -911,7 +934,8 @@ def _project_count(database_path: Path) -> int:
 
 # --- Read-only FK sweep plus whole-file integrity check ---
 def _check_integrity(database_path: Path) -> None:
-    """Require SQLite integrity and an empty foreign-key violation report.
+    """
+    Require SQLite integrity and an empty foreign-key violation report.
 
     Args:
         database_path (Path): Existing database to inspect read-only.
@@ -945,7 +969,8 @@ def _check_integrity(database_path: Path) -> None:
 
 # --- Load gate: validates everything, creates nothing, migrates nothing ---
 def open_project_store(directory: Path | str) -> StoreManifest:
-    """Validate a store for Load without upgrading or writing its database.
+    """
+    Validate a store for Load without upgrading or writing its database.
 
     Args:
         directory (Path | str): Existing portable store directory.
@@ -1007,7 +1032,8 @@ def open_project_store(directory: Path | str) -> StoreManifest:
 
 # --- Applied names must equal on-disk names exactly, both directions ---
 def schema_status(database_path: Path | str) -> SchemaStatus:
-    """Compare stored literature migration names with all on-disk migrations.
+    """
+    Compare stored literature migration names with all on-disk migrations.
 
     Args:
         database_path (Path | str): Existing database with migration history.
@@ -1071,7 +1097,8 @@ PACKAGE_MEMBERS = frozenset({MANIFEST_FILENAME, DATABASE_FILENAME})
 
 # --- Flush one file's bytes so a crash cannot leave a truncated member ---
 def _fsync_file(path: Path) -> None:
-    """Flush an existing file's bytes to durable storage.
+    """
+    Flush an existing file's bytes to durable storage.
 
     Args:
         path (Path): File opened read-only to fsync its descriptor.
@@ -1094,7 +1121,8 @@ def _fsync_file(path: Path) -> None:
 
 # --- Flush a directory entry so a rename cannot vanish on crash ---
 def _fsync_dir(directory: Path) -> None:
-    """Flush directory entries and close the descriptor after the attempt.
+    """
+    Flush directory entries and close the descriptor after the attempt.
 
     Args:
         directory (Path): Directory whose entries must survive a crash.
@@ -1124,7 +1152,8 @@ def _fsync_dir(directory: Path) -> None:
 
 # --- Per-table row counts for a store DB; used to prove nothing was lost ---
 def _table_counts(connection: sqlite3.Connection) -> dict[str, int]:
-    """Count rows in every SQLite table on the supplied connection.
+    """
+    Count rows in every SQLite table on the supplied connection.
 
     Args:
         connection (sqlite3.Connection): Open connection/snapshot to inspect.
@@ -1147,7 +1176,8 @@ def _table_counts(connection: sqlite3.Connection) -> dict[str, int]:
 def _backup_db_file(
     source_db: Path | sqlite3.Connection, dest_db: Path, *, manifest: StoreManifest | None = None
 ) -> None:
-    """Copy one committed SQLite snapshot and verify destination row counts.
+    """
+    Copy one committed SQLite snapshot and verify destination row counts.
 
     Args:
         source_db (Path | sqlite3.Connection): Read-only source path or
@@ -1188,7 +1218,8 @@ def _backup_db_file(
             deadline = time.monotonic() + 30
 
             def progress(status: int, remaining: int, total: int) -> None:
-                """Abort backup progress after the shared snapshot deadline.
+                """
+                Abort backup progress after the shared snapshot deadline.
 
                 Args:
                     status (int): SQLite backup status code, unused here.
@@ -1220,7 +1251,8 @@ def _backup_db_file(
 
 
 def _schema(connection: sqlite3.Connection) -> tuple:
-    """Read every SQLite schema object, including internal sequence/index rows.
+    """
+    Read every SQLite schema object, including internal sequence/index rows.
 
     Args:
         connection (sqlite3.Connection): Open database connection to inspect.
@@ -1248,7 +1280,8 @@ def _schema(connection: sqlite3.Connection) -> tuple:
 
 @lru_cache(maxsize=1)
 def _trusted_schema() -> tuple:
-    """Build and cache a reference from trusted source-tree migrations.
+    """
+    Build and cache a reference from trusted source-tree migrations.
 
     Args:
         None
@@ -1276,7 +1309,8 @@ def _trusted_schema() -> tuple:
 
 
 def validate_package(directory: Path | str, *, strict_members: bool = True) -> StoreManifest:
-    """Validate package membership, trusted structure and owned research rows.
+    """
+    Validate package membership, trusted structure and owned research rows.
 
     Args:
         directory (Path | str): Existing portable package or store directory.
@@ -1327,7 +1361,8 @@ def validate_package(directory: Path | str, *, strict_members: bool = True) -> S
 
 @contextmanager
 def store_file_lock(manifest: StoreManifest, *, closed: bool) -> Iterator[BinaryIO]:
-    """Positive inode ownership gate, shared by workers across XDG registries.
+    """
+    Positive inode ownership gate, shared by workers across XDG registries.
 
     Every bound worker holds SH for its lifetime. EX proves no participating
     worker has this file open; a missing registry row is never this proof.
@@ -1362,7 +1397,8 @@ def store_file_lock(manifest: StoreManifest, *, closed: bool) -> Iterator[Binary
 
 
 def _check_member(manifest: StoreManifest) -> None:
-    """Refuse a changed logical member even when the old inode remains locked.
+    """
+    Refuse a changed logical member even when the old inode remains locked.
 
     Args:
         manifest (StoreManifest): Expected location, inode, UUID and creation
@@ -1388,7 +1424,8 @@ def _check_member(manifest: StoreManifest) -> None:
 
 
 def _require_snapshot_identity(connection: sqlite3.Connection, expected: uuid.UUID) -> None:
-    """Require the snapshot's single identity row to match UUID and version.
+    """
+    Require the snapshot's single identity row to match UUID and version.
 
     Args:
         connection (sqlite3.Connection): Open snapshot transaction to inspect.
@@ -1414,7 +1451,8 @@ def _require_snapshot_identity(connection: sqlite3.Connection, expected: uuid.UU
 
 @contextmanager
 def _locked_snapshot(manifest: StoreManifest, handle: BinaryIO) -> Iterator[sqlite3.Connection]:
-    """Pin a read transaction to the locked inode, not its logical member.
+    """
+    Pin a read transaction to the locked inode, not its logical member.
 
     Linux's proc-FD path resolves the held file, including a required external
     symlink target. The retained SQLite connection owns the entire snapshot;
@@ -1457,7 +1495,8 @@ def _locked_snapshot(manifest: StoreManifest, handle: BinaryIO) -> Iterator[sqli
 
 
 def _rename(source: Path, target: Path, *, exchange: bool = False) -> None:
-    """Publish without clobbering, or atomically exchange two Linux paths.
+    """
+    Publish without clobbering, or atomically exchange two Linux paths.
 
     Args:
         source (Path): Staged file/directory to publish or exchange.
@@ -1496,7 +1535,8 @@ def _stage_package(
     manifest: StoreManifest, staging: Path, project_uuid: uuid.UUID, created_at: str,
     source_connection: sqlite3.Connection,
 ) -> None:
-    """Build a verified sanitized package, retaining failed partial staging.
+    """
+    Build a verified sanitized package, retaining failed partial staging.
 
     Args:
         manifest (StoreManifest): Original locked store identity/member gate.
@@ -1582,7 +1622,8 @@ def _stage_package(
 
 # --- Sibling staging path; never inside the source or destination ---
 def _staging_for(dest: Path) -> Path:
-    """Choose a random recovery sibling without creating it.
+    """
+    Choose a random recovery sibling without creating it.
 
     Args:
         dest (Path): Destination whose parent/name define the sibling path.
@@ -1598,7 +1639,8 @@ def _staging_for(dest: Path) -> Path:
 
 # --- Refuse anything but an absent (or empty real-dir) destination ---
 def _refuse_unless_creatable(dest: Path) -> None:
-    """Refuse symlink, non-directory and populated output destinations.
+    """
+    Refuse symlink, non-directory and populated output destinations.
 
     Args:
         dest (Path): Candidate absent path or empty real directory.
@@ -1633,7 +1675,8 @@ def _refuse_unless_creatable(dest: Path) -> None:
 
 # --- Save Copy: same research rows under a NEW project UUID ---
 def _copy_store(source: Path | str, dest: Path | str, *, new_identity: bool) -> StoreManifest:
-    """Copy a store to a new directory; only Save Copy mints a fresh UUID.
+    """
+    Copy a store to a new directory; only Save Copy mints a fresh UUID.
 
     The source is only read (WAL-safe backup API, read-only opens); its
     manifest, identity row and row IDs are never mutated. The destination
@@ -1693,7 +1736,8 @@ def _copy_store(source: Path | str, dest: Path | str, *, new_identity: bool) -> 
 
 
 def save_copy_store(source: Path | str, dest: Path | str) -> StoreManifest:
-    """Save a sanitized committed copy under a new UUID and creation timestamp.
+    """
+    Save a sanitized committed copy under a new UUID and creation timestamp.
 
     Args:
         source (Path | str): Source store; workers may remain open.
@@ -1716,7 +1760,8 @@ def save_copy_store(source: Path | str, dest: Path | str) -> StoreManifest:
 
 # --- Backup: same-UUID package at an explicitly chosen fresh destination ---
 def backup_project_store(source: Path | str, dest: Path | str) -> StoreManifest:
-    """Back up a closed store as a sanitized package preserving UUID and time.
+    """
+    Back up a closed store as a sanitized package preserving UUID and time.
 
     Args:
         source (Path | str): Source requiring an exclusive ownership lock.
@@ -1739,7 +1784,8 @@ def backup_project_store(source: Path | str, dest: Path | str) -> StoreManifest:
 
 # --- Restore: atomically swap a backup over its store, keeping recoverable prev ---
 def restore_project_store(backup_dir: Path | str, target: Path | str) -> StoreManifest:
-    """Replace a store with a same-UUID backup; the prior store is preserved.
+    """
+    Replace a store with a same-UUID backup; the prior store is preserved.
 
     The backup must open cleanly and carry the same project UUID as the
     target store; mismatched UUIDs refuse (never a merge). The target's
@@ -1811,7 +1857,8 @@ def restore_project_store(backup_dir: Path | str, target: Path | str) -> StoreMa
 
 
 def backup_store_db(database_path: Path | str, backups_dir: Path | str) -> Path:
-    """Write an integrity-checked WAL-safe snapshot, not a full package.
+    """
+    Write an integrity-checked WAL-safe snapshot, not a full package.
 
     Args:
         database_path (Path | str): Existing source database; never created.

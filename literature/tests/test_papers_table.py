@@ -1,4 +1,5 @@
-"""Fixed-width paper-table sorting and page navigation.
+"""
+Fixed-width paper-table sorting and page navigation.
 
 @File: test_papers_table.py
 @Brief: Global ordering, missing metadata, project-scoped statuses and stable pagination.

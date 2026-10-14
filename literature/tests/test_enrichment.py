@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Verify missing-field enrichment and isolated provider fallbacks.
+"""
+Verify missing-field enrichment and isolated provider fallbacks.
 
 @File:   test_enrichment.py
 
@@ -34,10 +35,13 @@ from literature.services.reference_service import (
 
 
 class FakeResp:
-    """Minimal httpx response double."""
+    """
+    Minimal httpx response double.
+    """
 
     def __init__(self, payload: dict, status: int = 200) -> None:
-        """Initialize a canned JSON response with empty headers and text.
+        """
+        Initialize a canned JSON response with empty headers and text.
 
         Args:
             payload: Provider JSON dictionary or malformed-response list,
@@ -55,7 +59,8 @@ class FakeResp:
         self.text = ""
 
     def json(self) -> dict:
-        """Return the canned provider JSON value without decoding it.
+        """
+        Return the canned provider JSON value without decoding it.
 
         Args:
             None
@@ -71,10 +76,13 @@ class FakeResp:
 
 
 class FakeClient:
-    """httpx.Client double serving one canned payload."""
+    """
+    httpx.Client double serving one canned payload.
+    """
 
     def __init__(self, payload: dict) -> None:
-        """Store one provider payload and initialize the request counter.
+        """
+        Store one provider payload and initialize the request counter.
 
         Args:
             payload: Provider JSON dictionary or malformed-response list
@@ -90,7 +98,8 @@ class FakeClient:
         self.calls = 0
 
     def get(self, *args, **kwargs) -> FakeResp:
-        """Count a lookup and return the same successful canned response.
+        """
+        Count a lookup and return the same successful canned response.
 
         Args:
             args (tuple): Collected HTTP GET arguments, including the URL;
@@ -107,7 +116,8 @@ class FakeClient:
         return FakeResp(self._payload)
 
     def close(self) -> None:
-        """Accept client cleanup without acquiring or releasing resources.
+        """
+        Accept client cleanup without acquiring or releasing resources.
 
         Args:
             None
@@ -122,10 +132,13 @@ class FakeClient:
 
 
 class FallbackClient:
-    """Route DOI lookups to independent provider responses."""
+    """
+    Route DOI lookups to independent provider responses.
+    """
 
     def __init__(self, crossref: dict, semantic: dict) -> None:
-        """Store independent Crossref and Semantic Scholar response payloads.
+        """
+        Store independent Crossref and Semantic Scholar response payloads.
 
         Args:
             crossref (dict): Work metadata wrapped in Crossref's message key.
@@ -142,7 +155,8 @@ class FallbackClient:
         self.headers: dict = {}
 
     def get(self, url: str, **kwargs) -> FakeResp:
-        """Route provider lookups and capture Semantic Scholar headers.
+        """
+        Route provider lookups and capture Semantic Scholar headers.
 
         Args:
             url (str): Lookup URL selecting an empty OpenAlex result, the
@@ -169,11 +183,14 @@ class FallbackClient:
 
 
 class EnrichmentTests(TestCase):
-    """Missing fields are filled from lookup; present fields untouched."""
+    """
+    Missing fields are filled from lookup; present fields untouched.
+    """
 
     # --- Fills blanks ---
     def test_enrich_fills_blanks_only(self) -> None:
-        """Fill missing abstract and references without replacing the title.
+        """
+        Fill missing abstract and references without replacing the title.
 
         Abstract + refs filled; existing values never overwritten.
 
@@ -213,7 +230,8 @@ class EnrichmentTests(TestCase):
 
     # --- No DOI skipped ---
     def test_no_doi_skipped(self) -> None:
-        """Skip DOI-less enrichment without making any provider requests.
+        """
+        Skip DOI-less enrichment without making any provider requests.
 
         Papers without DOI cannot be enriched.
 
@@ -233,7 +251,8 @@ class EnrichmentTests(TestCase):
 
     @override_settings(SEMANTIC_SCHOLAR_KEY="test-key")
     def test_crossref_and_s2_fill_missing_fields(self) -> None:
-        """Combine Crossref refs and an S2 abstract after an OpenAlex miss.
+        """
+        Combine Crossref refs and an S2 abstract after an OpenAlex miss.
 
         Crossref DOI references and S2 abstract complement an OpenAlex miss.
 
@@ -259,7 +278,8 @@ class EnrichmentTests(TestCase):
         self.assertEqual(client.headers.get("x-api-key"), "test-key")
 
     def test_s2_reference_ids_fill_when_crossref_has_none(self) -> None:
-        """Retain S2 DOI and paper-ID references when Crossref has none.
+        """
+        Retain S2 DOI and paper-ID references when Crossref has none.
 
         S2 DOI and paper IDs remain matchable citation identifiers.
 
@@ -289,7 +309,8 @@ class EnrichmentTests(TestCase):
     def test_enrichment_replaces_audience_placeholder_not_real_abstract(
         self,
     ) -> None:
-        """Replace the audience placeholder while preserving a real abstract.
+        """
+        Replace the audience placeholder while preserving a real abstract.
 
         Args:
             None
@@ -320,7 +341,8 @@ class EnrichmentTests(TestCase):
     def test_lookup_ignores_audience_tag_and_continues_provider_fallback(
         self,
     ) -> None:
-        """Skip Crossref's audience tag and retain the S2 abstract fallback.
+        """
+        Skip Crossref's audience tag and retain the S2 abstract fallback.
 
         Args:
             None
@@ -343,7 +365,8 @@ class EnrichmentTests(TestCase):
     def test_crossref_can_replace_audience_tag_when_only_abstract_is_missing(
         self,
     ) -> None:
-        """Fill the placeholder abstract from Crossref despite existing refs.
+        """
+        Fill the placeholder abstract from Crossref despite existing refs.
 
         Args:
             None
@@ -365,7 +388,8 @@ class EnrichmentTests(TestCase):
         self.assertEqual(paper.abstract, "Actual Crossref abstract")
 
     def test_s2_direct_paper_references_are_not_discarded(self) -> None:
-        """Retain DOI and S2 IDs from direct reference objects.
+        """
+        Retain DOI and S2 IDs from direct reference objects.
 
         The /paper endpoint returns direct referenced Paper objects, not
         citation edges.
@@ -395,7 +419,8 @@ class EnrichmentTests(TestCase):
     def test_lookup_retains_authors_year_venue_and_reference_links(
         self,
     ) -> None:
-        """Keep authors, year, venue, abstract, and refs in the lookup preview.
+        """
+        Keep authors, year, venue, abstract, and refs in the lookup preview.
 
         Complementary metadata reaches the read-only preview rather than
         being discarded.
@@ -428,7 +453,8 @@ class EnrichmentTests(TestCase):
         self.assertEqual(data["abstract"], "The abstract")
 
     def test_malformed_provider_payloads_do_not_crash_lookup(self) -> None:
-        """Treat non-object provider JSON as a miss with empty metadata.
+        """
+        Treat non-object provider JSON as a miss with empty metadata.
 
         A non-object JSON response is treated as a provider miss, not trusted
         metadata.
@@ -450,7 +476,8 @@ class EnrichmentTests(TestCase):
         self.assertEqual(data["title"], "")
 
     def test_s2_rate_limit_stops_further_s2_requests(self) -> None:
-        """Stop S2 lookups after one shared-limit response across two papers.
+        """
+        Stop S2 lookups after one shared-limit response across two papers.
 
         A shared-limit response should not trigger another DOI S2 call.
 
@@ -464,10 +491,13 @@ class EnrichmentTests(TestCase):
             None
         """
         class LimitedClient(FallbackClient):
-            """Simulate a shared Semantic Scholar limit and count S2 calls."""
+            """
+            Simulate a shared Semantic Scholar limit and count S2 calls.
+            """
 
             def __init__(self) -> None:
-                """Initialize empty fallback payloads and the S2 call counter.
+                """
+                Initialize empty fallback payloads and the S2 call counter.
 
                 Args:
                     None
@@ -482,7 +512,8 @@ class EnrichmentTests(TestCase):
                 self.s2_calls = 0
 
             def get(self, url: str, **kwargs) -> FakeResp:
-                """Return HTTP 429 for S2 and route other provider lookups.
+                """
+                Return HTTP 429 for S2 and route other provider lookups.
 
                 Args:
                     url (str): Provider URL used to identify S2 requests.
@@ -509,7 +540,8 @@ class EnrichmentTests(TestCase):
 
     # --- Backfill view ---
     def test_backfill_button(self) -> None:
-        """Fill missing references and redirect after a backfill POST.
+        """
+        Fill missing references and redirect after a backfill POST.
 
         POST fills corpus gaps and redirects with counts.
 

@@ -1,4 +1,5 @@
-"""Graph-first survey editor: origins, project prefill, links, popup.
+"""
+Graph-first survey editor: origins, project prefill, links, popup.
 
 @File: test_survey_editor.py
 @Brief: Cited-entries multiselect, inclusion origins, scoped prefill, popup iframe.

@@ -1,4 +1,5 @@
-"""Create the OpenCitations cache keyed by DOI and lookup direction.
+"""
+Create the OpenCitations cache keyed by DOI and lookup direction.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -27,7 +28,9 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    """Store cached edge lists/check times with unique DOI-direction pairs."""
+    """
+    Store cached edge lists/check times with unique DOI-direction pairs.
+    """
 
     dependencies = [
         ("literature", "0006_searchrun_incomplete_count_and_more"),

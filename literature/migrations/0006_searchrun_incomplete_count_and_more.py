@@ -1,4 +1,5 @@
-"""Add incomplete-import audit counts and relabel the legacy abstract metric.
+"""
+Add incomplete-import audit counts and relabel the legacy abstract metric.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -27,7 +28,9 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    """Add incomplete_count and alter help text, not screening outcomes."""
+    """
+    Add incomplete_count and alter help text, not screening outcomes.
+    """
 
     dependencies = [
         ('literature', '0005_searchrun_no_abstract_count'),

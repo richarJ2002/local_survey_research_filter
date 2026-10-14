@@ -1,4 +1,5 @@
-"""Add bibliography text and admit titled papers without replacing decisions.
+"""
+Add bibliography text and admit titled papers without replacing decisions.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -28,7 +29,8 @@ from django.db import migrations, models
 
 
 def admit_titled_papers(apps, schema_editor):
-    """Create missing pending queue rows using historical migration models.
+    """
+    Create missing pending queue rows using historical migration models.
 
     Args:
         apps (Apps): Migration-state registry for Discovery, Stage and
@@ -84,7 +86,9 @@ def admit_titled_papers(apps, schema_editor):
 
 # --- Classes
 class Migration(migrations.Migration):
-    """Add reference_text, clarify counts and admit titled discoveries."""
+    """
+    Add reference_text, clarify counts and admit titled discoveries.
+    """
 
     dependencies: ClassVar = [("literature", "0009_paperkeywordassignment")]
     operations: ClassVar = [

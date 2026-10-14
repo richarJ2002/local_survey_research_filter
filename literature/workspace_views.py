@@ -46,7 +46,8 @@ from literature.project_store import ProjectStoreError, create_project_store
 
 # --- Shared landing context: remembered root, one-level discovery, preview ---
 def _landing_context(preview_dir: str = "") -> dict:
-    """Build the manifest-only landing context and optional path preview.
+    """
+    Build the manifest-only landing context and optional path preview.
 
     Args:
         None
@@ -82,7 +83,8 @@ def _landing_context(preview_dir: str = "") -> dict:
 # --- Manager landing: New/Load toggle, typed paths, recognised projects ---
 @ensure_csrf_cookie
 def workspace_home(request: HttpRequest) -> HttpResponse:
-    """Serve the landing with read-only operation preselection.
+    """
+    Serve the landing with read-only operation preselection.
 
     Args:
         request: Landing GET with optional source and operation hints.
@@ -126,7 +128,9 @@ def workspace_home(request: HttpRequest) -> HttpResponse:
 
 
 class StoreOperationForm(forms.Form):
-    """Validate native paths while preserving Backup and Restore semantics."""
+    """
+    Validate native paths while preserving Backup and Restore semantics.
+    """
     action = forms.ChoiceField(choices=(
         ("copy", "Save Copy (new project ID)"),
         ("backup", "Backup (same project ID)"),
@@ -150,7 +154,8 @@ class StoreOperationForm(forms.Form):
     )
 
     def clean(self) -> dict:
-        """Suggest a Save Copy child from the verified stored project name.
+        """
+        Suggest a Save Copy child from the verified stored project name.
 
         Args:
             None
@@ -186,7 +191,8 @@ class StoreOperationForm(forms.Form):
 def _confirmed_destination(
     request: HttpRequest, form: forms.Form, approved: dict,
 ) -> bool:
-    """Require confirmation of the exact paths in a recent signed preview.
+    """
+    Require confirmation of the exact paths in a recent signed preview.
 
     Args:
         request: Preview or confirmation POST.
@@ -221,7 +227,8 @@ def _confirmed_destination(
 
 @require_POST
 def workspace_operation(request: HttpRequest) -> HttpResponse:
-    """Preview or run manager-only copy and recovery tools.
+    """
+    Preview or run manager-only copy and recovery tools.
 
     Args:
         request: CSRF-protected operation POST with explicit confirmation.
@@ -304,7 +311,9 @@ def workspace_operation(request: HttpRequest) -> HttpResponse:
 # --- Remember the typed workspace root in private app state ---
 @require_POST
 def workspace_set_root(request: HttpRequest) -> HttpResponse:
-    """Remember a workspace root; validates readability, writes settings only."""
+    """
+    Remember a workspace root; validates readability, writes settings only.
+    """
     form = WorkspaceRootForm(request.POST)
     if not form.is_valid():
         context = _landing_context("")
@@ -324,7 +333,8 @@ def workspace_set_root(request: HttpRequest) -> HttpResponse:
 # --- Create at a typed location, then hand the browser to a real worker ---
 @require_POST
 def workspace_new(request: HttpRequest) -> HttpResponse:
-    """Preview and confirm a New destination without overwriting data.
+    """
+    Preview and confirm a New destination without overwriting data.
 
     Args:
         request: CSRF-protected New form POST with name and destination.
@@ -369,7 +379,9 @@ def workspace_new(request: HttpRequest) -> HttpResponse:
 # --- Load an existing store at a typed location, then hand off to its worker ---
 @require_POST
 def workspace_open(request: HttpRequest) -> HttpResponse:
-    """Open an existing store; Load never creates a missing store."""
+    """
+    Open an existing store; Load never creates a missing store.
+    """
     form = WorkspaceOpenForm(request.POST)
     if not form.is_valid():
         context = _landing_context(request.POST.get("directory", ""))
@@ -395,7 +407,9 @@ def workspace_open(request: HttpRequest) -> HttpResponse:
 
 # --- Manager base for the explicit Exit hop, carried once via sessionStorage ---
 def _manager_query(request: HttpRequest) -> str:
-    """`?manager=<base>` so the worker tab can hop back explicitly."""
+    """
+    `?manager=<base>` so the worker tab can hop back explicitly.
+    """
     from urllib.parse import quote
 
     try:
@@ -409,7 +423,8 @@ def _manager_query(request: HttpRequest) -> str:
 # --- Tab handle endpoints live under the worker prefix (UUID/epoch checked first) ---
 @ensure_csrf_cookie
 def project_lifecycle(request: HttpRequest, pk: int, action: str) -> HttpResponse:
-    """Attach/heartbeat/release/status one tab-scoped handle (worker only).
+    """
+    Attach/heartbeat/release/status one tab-scoped handle (worker only).
 
     The middleware already rejected wrong-UUID/stale-epoch prefixes before
     this runs; expired handles answer 410 and never follow a reused port to

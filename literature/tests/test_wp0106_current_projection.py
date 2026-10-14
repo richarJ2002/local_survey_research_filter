@@ -1,4 +1,5 @@
-"""WP01.06 current-state projection: distinct papers, audit separation, scope.
+"""
+WP01.06 current-state projection: distinct papers, audit separation, scope.
 
 @File: test_wp0106_current_projection.py
 @Brief: Current source bars vs historical audits, revision scope, no providers.
@@ -164,7 +165,8 @@ class CurrentProjectionTests(TestCase):
             "/project/999999/revision/").status_code, 404)
 
     def test_templates_separate_current_from_audit(self):
-        """Expose current counts without links to the removed history lens.
+        """
+        Expose current counts without links to the removed history lens.
 
         Args:
             None
@@ -189,7 +191,8 @@ class CurrentProjectionTests(TestCase):
             self.assertContains(response, "data-project-revision-url")
 
     def test_corrected_sources_exclude_audit_pies_from_every_default_surface(self):
-        """Keep corrected source projections and stored audit rows independent.
+        """
+        Keep corrected source projections and stored audit rows independent.
 
         Args:
             None
@@ -226,7 +229,8 @@ class CurrentProjectionTests(TestCase):
         )
 
     def test_explicit_history_page_and_export_preserve_audits_and_scope(self):
-        """Treat obsolete history URLs as current, project-scoped projections.
+        """
+        Treat obsolete history URLs as current, project-scoped projections.
 
         Args:
             None

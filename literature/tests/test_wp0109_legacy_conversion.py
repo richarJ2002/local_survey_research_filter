@@ -1,4 +1,5 @@
-"""Synthetic shared stores only; no default database or live conversion.
+"""
+Synthetic shared stores only; no default database or live conversion.
 
 @File: test_wp0109_legacy_conversion.py
 @Brief: Approved ownership, exact histories, WAL snapshots and recoverable refusals.

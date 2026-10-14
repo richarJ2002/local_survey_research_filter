@@ -1,4 +1,5 @@
-"""Register the literature Django app and its default primary-key field type.
+"""
+Register the literature Django app and its default primary-key field type.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -25,7 +26,9 @@ from django.apps import AppConfig
 
 
 class LiteratureConfig(AppConfig):
-    """Identify literature and default model primary keys to BigAutoField."""
+    """
+    Identify literature and default model primary keys to BigAutoField.
+    """
 
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'literature'

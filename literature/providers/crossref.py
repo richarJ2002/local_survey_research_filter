@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Fetch Crossref DOI metadata pages with optional mailto contact and backoff.
+"""
+Fetch Crossref DOI metadata pages with optional mailto contact and backoff.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -36,7 +37,8 @@ from .mapping import map_crossref_to_canonical
 
 @dataclass(frozen=True)
 class CrossrefConfig:
-    """Hold immutable Crossref query, bibliographic filters and page settings.
+    """
+    Hold immutable Crossref query, bibliographic filters and page settings.
 
     query is search text; year_min/year_max default to None, and keywords,
     venues and author_names to empty reusable tuples. keywords does not build
@@ -57,7 +59,8 @@ class CrossrefConfig:
 
 @dataclass(frozen=True)
 class ProviderResult:
-    """Pair canonical paper_data with its original raw_response work object.
+    """
+    Pair canonical paper_data with its original raw_response work object.
 
     raw_response and paper_data['raw'] reference the same Crossref payload;
     the persistence caller owns subsequent database writes.
@@ -68,11 +71,14 @@ class ProviderResult:
 
 
 class CrossrefError(RuntimeError):
-    """Report a rejected Crossref response or exhausted retry attempts."""
+    """
+    Report a rejected Crossref response or exhausted retry attempts.
+    """
 
 
 class CrossrefSource:
-    """Query Crossref works using the stripped optional email contact.
+    """
+    Query Crossref works using the stripped optional email contact.
 
     email is sent through User-Agent and mailto parameters. The source holds
     no persistent HTTP client and does not save returned papers.
@@ -82,7 +88,8 @@ class CrossrefSource:
     base_url = "https://api.crossref.org/works"
 
     def __init__(self, email: str | None = None) -> None:
-        """Set an explicit contact email or use the configured OpenAlex email.
+        """
+        Set an explicit contact email or use the configured OpenAlex email.
 
         Args:
             None
@@ -101,7 +108,8 @@ class CrossrefSource:
 
     # --- Headers ---
     def default_headers(self) -> dict:
-        """Build JSON request headers with optional mailto contact.
+        """
+        Build JSON request headers with optional mailto contact.
 
         Args:
             None
@@ -122,7 +130,8 @@ class CrossrefSource:
     def build_request_params(
         self, config: CrossrefConfig, offset: int
     ) -> dict:
-        """Build Crossref query, filter and field parameters for one page.
+        """
+        Build Crossref query, filter and field parameters for one page.
 
         Args:
             config (CrossrefConfig): Search text, year/venue/author filters and
@@ -166,7 +175,8 @@ class CrossrefSource:
     def _get_with_backoff(
         self, client: httpx.Client, params: dict, max_retries: int = 3
     ) -> httpx.Response:
-        """GET a works page with transport and retryable-status backoff.
+        """
+        GET a works page with transport and retryable-status backoff.
 
         Args:
             client (httpx.Client): Borrowed client; timeout is 30 seconds.
@@ -220,7 +230,8 @@ class CrossrefSource:
     def fetch(
         self, config: CrossrefConfig, client: httpx.Client | None = None
     ) -> tuple[list[ProviderResult], int]:
-        """Fetch Crossref offset pages and map each returned work.
+        """
+        Fetch Crossref offset pages and map each returned work.
 
         Args:
             config (CrossrefConfig): Query, filters and pagination settings.

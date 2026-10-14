@@ -31,7 +31,8 @@ from literature.models import Paper, Project
 
 
 def build_markdown(project: Project) -> str:
-    """Render stored project state without repairing stages or decisions.
+    """
+    Render stored project state without repairing stages or decisions.
 
     Args:
         project: Owning project whose discovered papers are exported.
@@ -122,7 +123,8 @@ def build_markdown(project: Project) -> str:
 def build_references_markdown(
     project: Project, papers: Iterable[Paper], *, heading: str,
 ) -> str:
-    """Format a selected paper group as a local Markdown bibliography.
+    """
+    Format a selected paper group as a local Markdown bibliography.
 
     Args:
         project: Owning project whose name labels the report.
@@ -155,7 +157,8 @@ def build_references_markdown(
 
 # --- Write markdown to disk ---
 def write_markdown(project: Project, output: Path) -> Path:
-    """Write a generated Markdown report without modifying research rows.
+    """
+    Write a generated Markdown report without modifying research rows.
 
     Args:
         project: Project whose stored research is exported.

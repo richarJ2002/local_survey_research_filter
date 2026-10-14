@@ -29,11 +29,15 @@ from literature.models import Project, Search
 
 
 class Phase1Tests(TestCase):
-    """Project context + source ticks remembered per search."""
+    """
+    Project context + source ticks remembered per search.
+    """
 
     # --- Project fields ---
     def test_project_context_fields(self) -> None:
-        """Topic/RQs/domain save and render."""
+        """
+        Topic/RQs/domain save and render.
+        """
         form = ProjectForm(
             data={
                 "name": "P",
@@ -50,7 +54,9 @@ class Phase1Tests(TestCase):
 
     # --- Sources remembered ---
     def test_sources_default_all_and_remembered(self) -> None:
-        """Blank ticks default to all four in canonical order."""
+        """
+        Blank ticks default to all four in canonical order.
+        """
         project = Project.objects.create(name="P")
         search = Search(project=project, name="S", keywords=["a"])
         search.save()
@@ -61,7 +67,9 @@ class Phase1Tests(TestCase):
 
     # --- Form ticks ---
     def test_search_form_ticks(self) -> None:
-        """Ticked sources survive validation."""
+        """
+        Ticked sources survive validation.
+        """
         form = SearchForm(
             data={
                 "name": "S",
@@ -77,7 +85,8 @@ class Phase1Tests(TestCase):
 
     # --- Edit reconfigures ---
     def test_search_update_reconfigures(self) -> None:
-        """Edit signed current settings without creating another search.
+        """
+        Edit signed current settings without creating another search.
 
         Args:
             None

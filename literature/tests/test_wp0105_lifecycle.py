@@ -49,10 +49,13 @@ from literature.project_store import (
 
 
 class _Client:
-    """Minimal cookie/CSRF client for real worker HTTP (synthetic stores)."""
+    """
+    Minimal cookie/CSRF client for real worker HTTP (synthetic stores).
+    """
 
     def __init__(self, handle: str | None = None) -> None:
-        """Initialize cookies and saved configuration previews for one tab.
+        """
+        Initialize cookies and saved configuration previews for one tab.
 
         Args:
             None
@@ -71,7 +74,8 @@ class _Client:
         self.configuration_actions: dict[str, str] = {}
 
     def get(self, url: str, timeout: float = 20.0):
-        """Read a worker page and retain its signed configuration preview.
+        """
+        Read a worker page and retain its signed configuration preview.
 
         Args:
             url: Absolute same-origin test URL.
@@ -104,7 +108,8 @@ class _Client:
             return "REFUSED", b"", {}
 
     def post(self, url: str, fields: dict, timeout: float = 30.0):
-        """Submit native form actions while preserving explicit test tokens.
+        """
+        Submit native form actions while preserving explicit test tokens.
 
         Args:
             url: Absolute same-origin test mutation URL.
@@ -177,7 +182,9 @@ class _Client:
 
 
 class LifecycleTests(SimpleTestCase):
-    """Tab handles share workers A/A, isolate A/B, exit singly, recover."""
+    """
+    Tab handles share workers A/A, isolate A/B, exit singly, recover.
+    """
 
     _canonicals: ClassVar[list[str]] = []
     _handles: ClassVar[list[str]] = []
@@ -619,7 +626,8 @@ class LifecycleTests(SimpleTestCase):
 
     # --- Released/foreign/missing handles cannot mutate; zero writes ---
     def test_mutations_require_live_handle(self) -> None:
-        """Require a live owning handle for creating or editing current rows.
+        """
+        Require a live owning handle for creating or editing current rows.
 
         Args:
             None

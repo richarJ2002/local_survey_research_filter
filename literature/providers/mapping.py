@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Map scholarly provider payloads to canonical paper/discovery dictionaries.
+"""
+Map scholarly provider payloads to canonical paper/discovery dictionaries.
 
 Keep mapping pure, without Django or provider requests.
 
@@ -34,7 +35,8 @@ from urllib.parse import urlsplit
 
 
 def reconstruct_abstract(inverted_index: dict | None) -> str:
-    """Rebuild abstract text from OpenAlex inverted index.
+    """
+    Rebuild abstract text from OpenAlex inverted index.
 
     Args:
         inverted_index: OpenAlex {word: [zero-based positions]} dictionary
@@ -67,7 +69,8 @@ def reconstruct_abstract(inverted_index: dict | None) -> str:
 
 
 def parse_date(date_str: str | None) -> date | None:
-    """Parse provider date text as a calendar date.
+    """
+    Parse provider date text as a calendar date.
 
     Args:
         date_str: Date string in strptime's %Y-%m-%d format, or None.
@@ -91,7 +94,8 @@ def parse_date(date_str: str | None) -> date | None:
 
 
 def extract_urls(item: dict) -> list[dict]:
-    """Collect OpenAlex PDF and landing URLs without duplicates.
+    """
+    Collect OpenAlex PDF and landing URLs without duplicates.
 
     Args:
         item (dict): Work payload with primary_location, best_oa_location and
@@ -109,7 +113,8 @@ def extract_urls(item: dict) -> list[dict]:
     seen: set[str] = set()
 
     def _add(url: str | None, label: str) -> None:
-        """Append a previously unseen, nonempty URL to the enclosing list.
+        """
+        Append a previously unseen, nonempty URL to the enclosing list.
 
         Args:
             url: URL string or None; falsey values are ignored.
@@ -140,7 +145,8 @@ def extract_urls(item: dict) -> list[dict]:
 
 
 def map_openalex_to_canonical(item: dict) -> tuple[dict, dict]:
-    """Map one OpenAlex work to canonical paper and discovery metadata.
+    """
+    Map one OpenAlex work to canonical paper and discovery metadata.
 
     Args:
         item (dict): OpenAlex work with provider-shaped nested metadata.
@@ -226,7 +232,8 @@ def map_openalex_to_canonical(item: dict) -> tuple[dict, dict]:
 
 # --- Map one Crossref work ---
 def map_crossref_to_canonical(item: dict) -> tuple[dict, dict]:
-    """Map one Crossref work to canonical paper and discovery metadata.
+    """
+    Map one Crossref work to canonical paper and discovery metadata.
 
     Args:
         item (dict): Crossref /works item with DOI, titles, authors and dates.
@@ -316,7 +323,8 @@ def map_crossref_to_canonical(item: dict) -> tuple[dict, dict]:
 
 # --- Map one arXiv entry ---
 def map_arxiv_to_canonical(item: dict) -> tuple[dict, dict]:
-    """Map one parsed arXiv Atom entry to canonical metadata.
+    """
+    Map one parsed arXiv Atom entry to canonical metadata.
 
     Args:
         item (dict): Parsed feed entry with id, title, summary, published,
@@ -390,7 +398,8 @@ def map_arxiv_to_canonical(item: dict) -> tuple[dict, dict]:
 
 # --- Map one S2 paper ---
 def map_semantic_scholar_to_canonical(item: dict) -> tuple[dict, dict]:
-    """Map one Semantic Scholar paper/search item to canonical metadata.
+    """
+    Map one Semantic Scholar paper/search item to canonical metadata.
 
     Args:
         item (dict): Graph API paper object with provider-shaped nested fields.
@@ -435,7 +444,8 @@ def map_semantic_scholar_to_canonical(item: dict) -> tuple[dict, dict]:
     seen: set[str] = set()
 
     def _add(url: str | None, label: str) -> None:
-        """Append a previously unseen, nonempty URL to the enclosing list.
+        """
+        Append a previously unseen, nonempty URL to the enclosing list.
 
         Args:
             url: URL string or None; falsey values are ignored.
@@ -484,7 +494,8 @@ def map_semantic_scholar_to_canonical(item: dict) -> tuple[dict, dict]:
 
 # --- Scopus STANDARD search metadata; no abstract/reference retrieval ---
 def normalize_scopus_id(identifier: str | None) -> str | None:
-    """Resolve Scopus EID, prefixed ID and bare ID to one numeric identity.
+    """
+    Resolve Scopus EID, prefixed ID and bare ID to one numeric identity.
 
     Args:
         identifier: EID, SCOPUS_ID-prefixed value, bare digits, or None.
@@ -506,7 +517,8 @@ def normalize_scopus_id(identifier: str | None) -> str | None:
 
 
 def map_scopus_to_canonical(item: dict) -> tuple[dict, dict]:
-    """Map a Scopus search entry without inventing abstracts or citation edges.
+    """
+    Map a Scopus search entry without inventing abstracts or citation edges.
 
     Args:
         item: JSON search entry containing Scopus EID/ID, title, DOI,
@@ -530,7 +542,8 @@ def map_scopus_to_canonical(item: dict) -> tuple[dict, dict]:
         raise TypeError("Invalid Scopus search entry.")
 
     def text(field: str) -> str:
-        """Read an optional text field without coercing structured data.
+        """
+        Read an optional text field without coercing structured data.
 
         Args:
             field: Scopus entry field name.
@@ -612,7 +625,8 @@ def map_scopus_to_canonical(item: dict) -> tuple[dict, dict]:
 
 
 def normalize_title(title: str) -> str:
-    """Normalize a title for exact duplicate comparison.
+    """
+    Normalize a title for exact duplicate comparison.
 
     Args:
         title (str): Title text; falsey values are treated as blank.
@@ -631,7 +645,8 @@ def normalize_title(title: str) -> str:
 
 
 def first_author_surname(authors: list) -> str:
-    """Extract a first author's last name token for comparison.
+    """
+    Extract a first author's last name token for comparison.
 
     Args:
         authors (list): Author dictionaries with name keys, or stringifiable

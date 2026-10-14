@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Test workspace discovery and New/Load flows using synthetic stores.
+"""
+Test workspace discovery and New/Load flows using synthetic stores.
 
 WP01.04: New/Load workspace UX over real HTTP (synthetic stores).
 
@@ -53,7 +54,9 @@ from literature.project_store import (
 
 
 class WorkspaceTests(SimpleTestCase):
-    """Manager landing + typed New/Load leading to real bound workers."""
+    """
+    Manager landing + typed New/Load leading to real bound workers.
+    """
 
     _workers: ClassVar[list[dict]] = []
     _old_role: str | None = None
@@ -61,7 +64,8 @@ class WorkspaceTests(SimpleTestCase):
     # --- Isolated XDG state plus a small synthetic workspace, once ---
     @classmethod
     def setUpClass(cls):
-        """Create two synthetic projects under isolated XDG workspace state.
+        """
+        Create two synthetic projects under isolated XDG workspace state.
 
         Args:
             None
@@ -94,7 +98,8 @@ class WorkspaceTests(SimpleTestCase):
     # --- Stop owned workers, restore env, prove the live DB untouched ---
     @classmethod
     def tearDownClass(cls):
-        """Stop tracked workers, restore the environment and check DB mtime.
+        """
+        Stop tracked workers, restore the environment and check DB mtime.
 
         Args:
             None
@@ -138,7 +143,8 @@ class WorkspaceTests(SimpleTestCase):
 
     # --- Run a block as the manager role (middleware reads env per request) ---
     def _as_manager(self):
-        """Set the manager role and arrange restoration after this test.
+        """
+        Set the manager role and arrange restoration after this test.
 
         Args:
             None
@@ -157,7 +163,8 @@ class WorkspaceTests(SimpleTestCase):
 
     # --- Track spawned workers for teardown ---
     def _track(self, worker: dict, canonical: str) -> dict:
-        """Record a worker and its canonical store path for class teardown.
+        """
+        Record a worker and its canonical store path for class teardown.
 
         Args:
             worker (dict): Worker record mutated to include the canonical path.
@@ -176,7 +183,8 @@ class WorkspaceTests(SimpleTestCase):
 
     # --- Only direct children (plus the root) are listed; never recursive ---
     def test_discovery_is_nonrecursive(self) -> None:
-        """List direct project children but not notes or deeper projects.
+        """
+        List direct project children but not notes or deeper projects.
 
         Args:
             None
@@ -200,7 +208,8 @@ class WorkspaceTests(SimpleTestCase):
 
     # --- Space/unicode names open exactly like plain ones ---
     def test_space_and_unicode_names(self) -> None:
-        """Create, reopen and discover project paths with spaces and Unicode.
+        """
+        Create, reopen and discover project paths with spaces and Unicode.
 
         Args:
             None
@@ -225,7 +234,8 @@ class WorkspaceTests(SimpleTestCase):
 
     # --- Outside-root symlink targets open; aliases collapse to one entry ---
     def test_external_symlink_and_alias_dedup(self) -> None:
-        """Resolve outside-root symlinks and collapse aliases by DB identity.
+        """
+        Resolve outside-root symlinks and collapse aliases by DB identity.
 
         Args:
             None
@@ -275,7 +285,8 @@ class WorkspaceTests(SimpleTestCase):
 
     # --- Same UUID at different files is an explicit collision, never a merge ---
     def test_same_uuid_different_file_is_collision(self) -> None:
-        """Flag both independent file copies sharing a project UUID.
+        """
+        Flag both independent file copies sharing a project UUID.
 
         Args:
             None
@@ -302,7 +313,8 @@ class WorkspaceTests(SimpleTestCase):
 
     # --- Refusals never mutate: populated New, missing Load, corrupt stores ---
     def test_refusals_never_mutate(self) -> None:
-        """Preserve populated, missing, malformed and corrupt refused targets.
+        """
+        Preserve populated, missing, malformed and corrupt refused targets.
 
         Args:
             None
@@ -350,7 +362,8 @@ class WorkspaceTests(SimpleTestCase):
     # --- Unwritable destinations refuse with an actionable message ---
     @skipIf(os.geteuid() == 0, "root bypasses permission bits")
     def test_unwritable_destination_refused(self) -> None:
-        """Refuse a child destination under a nonwritable directory.
+        """
+        Refuse a child destination under a nonwritable directory.
 
         Args:
             None
@@ -372,7 +385,8 @@ class WorkspaceTests(SimpleTestCase):
 
     # --- Broken and looping links become error entries, never crashes ---
     def test_broken_and_loop_links_are_errors(self) -> None:
-        """Report broken and looping symlinks while listing a valid project.
+        """
+        Report broken and looping symlinks while listing a valid project.
 
         Args:
             None
@@ -402,7 +416,8 @@ class WorkspaceTests(SimpleTestCase):
 
     # --- Manager landing renders the toggle; CSRF is really enforced ---
     def test_manager_landing_and_csrf(self) -> None:
-        """Render New/Load controls, enforce CSRF and reject research routes.
+        """
+        Render New/Load controls, enforce CSRF and reject research routes.
 
         Args:
             None
@@ -437,7 +452,8 @@ class WorkspaceTests(SimpleTestCase):
 
     # --- Typed New leads over real HTTP to the correctly bound worker ---
     def test_new_flow_reaches_prefixed_worker(self) -> None:
-        """Confirm a typed destination and reach its real bound worker.
+        """
+        Confirm a typed destination and reach its real bound worker.
 
         Args:
             None
@@ -496,7 +512,8 @@ class WorkspaceTests(SimpleTestCase):
 
     # --- Load through a symlink alias lands on the same canonical worker ---
     def test_load_via_alias_reuses_worker(self) -> None:
-        """Reuse the canonical worker when loading through a symlink alias.
+        """
+        Reuse the canonical worker when loading through a symlink alias.
 
         Args:
             None
@@ -529,7 +546,8 @@ class WorkspaceTests(SimpleTestCase):
 
     # --- Typed-path errors show the resolved target and change nothing ---
     def test_typed_errors_show_target_without_mutation(self) -> None:
-        """Show resolved typed-path errors without overwriting or creating data.
+        """
+        Show resolved typed-path errors without overwriting or creating data.
 
         Args:
             None
@@ -563,7 +581,8 @@ class WorkspaceTests(SimpleTestCase):
     # --- Manifest UUID for redirect assertions (read-only, stdlib only) ---
     @staticmethod
     def _uuid_of(directory: Path):
-        """Read a synthetic project's UUID from its manifest.
+        """
+        Read a synthetic project's UUID from its manifest.
 
         Args:
             directory (Path): Project directory containing project.json.
@@ -583,7 +602,8 @@ class WorkspaceTests(SimpleTestCase):
     # --- Row counter tolerant of pre-migration stores ---
     @staticmethod
     def _table_count(db: Path, table: str) -> int:
-        """Count synthetic table rows, treating an absent table as empty.
+        """
+        Count synthetic table rows, treating an absent table as empty.
 
         Args:
             db (Path): Synthetic SQLite store to inspect.

@@ -1,4 +1,5 @@
-"""Export one stored project's research to a human-readable Markdown file.
+"""
+Export one stored project's research to a human-readable Markdown file.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -32,12 +33,15 @@ from literature.services.export_service import write_markdown
 
 
 class Command(BaseCommand):
-    """Export a project's literature database to Markdown."""
+    """
+    Export a project's literature database to Markdown.
+    """
 
     help = "Export PROJECT_ID to a Markdown file generated from SQLite truth."
 
     def add_arguments(self, parser) -> None:
-        """Register project ID and optional output path with Django's parser.
+        """
+        Register project ID and optional output path with Django's parser.
 
         Args:
             parser (ArgumentParser): Django-owned parser to extend.
@@ -55,7 +59,8 @@ class Command(BaseCommand):
         parser.add_argument("--output", type=str, default="")
 
     def handle(self, *args, **options) -> str:
-        """Write the project's Markdown export and report its destination.
+        """
+        Write the project's Markdown export and report its destination.
 
         Args:
             *args: Django's unused positional command arguments.

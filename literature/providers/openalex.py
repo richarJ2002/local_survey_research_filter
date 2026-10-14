@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Fetch OpenAlex work pages with contact headers and retry backoff.
+"""
+Fetch OpenAlex work pages with contact headers and retry backoff.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -36,7 +37,8 @@ from .mapping import map_openalex_to_canonical
 
 @dataclass(frozen=True)
 class SearchConfig:
-    """Hold immutable OpenAlex query, filters and pagination settings.
+    """
+    Hold immutable OpenAlex query, filters and pagination settings.
 
     query supplies search text; optional year_min/year_max bound dates. venues
     and author_names are OR-matched locally; keywords retains reusable rows
@@ -58,7 +60,8 @@ class SearchConfig:
 
 @dataclass(frozen=True)
 class ProviderResult:
-    """Pair canonical paper_data with its original raw_response work object.
+    """
+    Pair canonical paper_data with its original raw_response work object.
 
     Both dictionaries are in-memory metadata for the persistence caller;
     raw_response and paper_data['raw'] reference the same provider payload.
@@ -69,11 +72,14 @@ class ProviderResult:
 
 
 class OpenAlexError(RuntimeError):
-    """Report a rejected OpenAlex response or exhausted retry attempts."""
+    """
+    Report a rejected OpenAlex response or exhausted retry attempts.
+    """
 
 
 class OpenAlexSource:
-    """Query OpenAlex works with an optional email in the User-Agent.
+    """
+    Query OpenAlex works with an optional email in the User-Agent.
 
     email stores the stripped explicit or configured contact; the source does
     not own a persistent HTTP client or write papers to the database.
@@ -83,7 +89,8 @@ class OpenAlexSource:
     base_url = "https://api.openalex.org/works"
 
     def __init__(self, email: str | None = None) -> None:
-        """Set the contact email, falling back to settings for falsey input.
+        """
+        Set the contact email, falling back to settings for falsey input.
 
         Args:
             None
@@ -99,7 +106,8 @@ class OpenAlexSource:
         self.email = configured.strip()
 
     def default_headers(self) -> dict:
-        """Build JSON request headers with the optional contact email.
+        """
+        Build JSON request headers with the optional contact email.
 
         Args:
             None
@@ -117,7 +125,8 @@ class OpenAlexSource:
         return {"User-Agent": agent, "Accept": "application/json"}
 
     def build_request_params(self, config: SearchConfig, cursor: str | None) -> dict:
-        """Build OpenAlex search, date filters and field selection for a page.
+        """
+        Build OpenAlex search, date filters and field selection for a page.
 
         Args:
             config (SearchConfig): Query/year bounds and requested page size.
@@ -156,7 +165,8 @@ class OpenAlexSource:
     def _get_with_backoff(
         self, client: httpx.Client, params: dict, max_retries: int = 3
     ) -> httpx.Response:
-        """GET a works page, retrying selected transport errors and 429/5xx.
+        """
+        GET a works page, retrying selected transport errors and 429/5xx.
 
         Args:
             client (httpx.Client): Borrowed client; timeout is 30 seconds.
@@ -212,7 +222,8 @@ class OpenAlexSource:
         config: SearchConfig,
         client: httpx.Client | None = None,
     ) -> tuple[list[ProviderResult], int]:
-        """Fetch cursor pages and apply local venue/author substring filters.
+        """
+        Fetch cursor pages and apply local venue/author substring filters.
 
         Args:
             config (SearchConfig): Search text, year bounds, OR-matched local

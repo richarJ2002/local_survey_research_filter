@@ -1,4 +1,5 @@
-"""Verify WP03 Search presentation and its existing safe action boundaries.
+"""
+Verify WP03 Search presentation and its existing safe action boundaries.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -42,10 +43,13 @@ from literature.views import project_detail
 
 @override_settings(OPENALEX_EMAIL="wp03@example.invalid")
 class WP03SearchTests(TestCase):
-    """Exercise only runner-owned fictional data and refuse provider traffic."""
+    """
+    Exercise only runner-owned fictional data and refuse provider traffic.
+    """
 
     def setUp(self) -> None:
-        """Create current criteria, retained audits and reference-gated papers.
+        """
+        Create current criteria, retained audits and reference-gated papers.
 
         Args:
             None
@@ -94,7 +98,8 @@ class WP03SearchTests(TestCase):
         self.url = reverse("project_detail", args=[self.project.pk])
 
     def _search_section(self, html: str) -> str:
-        """Isolate Search markup without inspecting charts or their scripts.
+        """
+        Isolate Search markup without inspecting charts or their scripts.
 
         Args:
             html (str): Rendered project dashboard containing the Search card.
@@ -108,7 +113,8 @@ class WP03SearchTests(TestCase):
         return html.split('id="search-section"', 1)[1].split("</section>", 1)[0]
 
     def test_stacked_actions_preview_results_and_audits(self) -> None:
-        """Order the four controls while preserving criteria, counts and data.
+        """
+        Order the four controls while preserving criteria, counts and data.
 
         Args:
             None
@@ -173,7 +179,8 @@ class WP03SearchTests(TestCase):
         )
 
     def test_no_current_criteria_and_empty_project(self) -> None:
-        """Disable only finding papers and retain local actions and empty hints.
+        """
+        Disable only finding papers and retain local actions and empty hints.
 
         Args:
             None
@@ -208,7 +215,8 @@ class WP03SearchTests(TestCase):
                          self.run.error_message)
 
     def test_visible_results_actions_keep_post_and_csrf(self) -> None:
-        """Expose four secondary actions without weakening online POST guards.
+        """
+        Expose four secondary actions without weakening online POST guards.
 
         Args:
             None
@@ -251,7 +259,8 @@ class WP03SearchTests(TestCase):
                 self.assertEqual(client.post(url).status_code, 403)
 
     def test_title_delete_uses_existing_post_confirmation(self) -> None:
-        """Require confirmation and CSRF before deleting a synthetic project.
+        """
+        Require confirmation and CSRF before deleting a synthetic project.
 
         Args:
             None
@@ -288,7 +297,8 @@ class WP03SearchTests(TestCase):
         self.assertTrue(Project.objects.filter(pk=other.pk).exists())
 
     def test_configure_preview_and_provider_errors_remain_visible(self) -> None:
-        """Keep signed criteria editing and escaped provider failure feedback.
+        """
+        Keep signed criteria editing and escaped provider failure feedback.
 
         Args:
             None
@@ -326,7 +336,8 @@ class WP03SearchTests(TestCase):
             self.assertContains(invalid, loading)
 
     def test_manager_settings_target_and_query_only_preview(self) -> None:
-        """Route API settings to the manager and show retained legacy syntax.
+        """
+        Route API settings to the manager and show retained legacy syntax.
 
         Args:
             None

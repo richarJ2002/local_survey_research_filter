@@ -36,11 +36,15 @@ from literature.services.search_service import run_search
 
 
 class SemanticScholarMappingTests(TestCase):
-    """S2 mapping, year handling, and header key behavior."""
+    """
+    S2 mapping, year handling, and header key behavior.
+    """
 
     # --- Mapping ---
     def test_map_s2_minimal(self) -> None:
-        """Minimal S2 item maps to canonical dict with S2 source."""
+        """
+        Minimal S2 item maps to canonical dict with S2 source.
+        """
         item = {
             "paperId": "abc123",
             "externalIds": {"DOI": "10.1234/XYZ"},
@@ -64,7 +68,9 @@ class SemanticScholarMappingTests(TestCase):
 
     # --- Year param ---
     def test_s2_year_param_max_range(self) -> None:
-        """Blank years mean no year filter (max range)."""
+        """
+        Blank years mean no year filter (max range).
+        """
         src = SemanticScholarSource(api_key="test-key")
         cfg = SemanticScholarConfig(query="battery")
         self.assertIsNone(src._year_param(cfg))
@@ -74,7 +80,9 @@ class SemanticScholarMappingTests(TestCase):
 
     # --- Headers carry key ---
     def test_s2_headers_carry_key(self) -> None:
-        """API key is sent as x-api-key, never in URL."""
+        """
+        API key is sent as x-api-key, never in URL.
+        """
         src = SemanticScholarSource(api_key="s2-test")
         self.assertEqual(src.default_headers()["x-api-key"], "s2-test")
         self.assertNotIn(
@@ -82,11 +90,14 @@ class SemanticScholarMappingTests(TestCase):
 
 
 class MultiProviderTests(TestCase):
-    """run_search queries both providers and dedupes across them."""
+    """
+    run_search queries both providers and dedupes across them.
+    """
 
     # --- Both providers stored ---
     def test_run_search_combines_providers(self) -> None:
-        """Merge provider duplicates through current settings with isolation.
+        """
+        Merge provider duplicates through current settings with isolation.
 
         Args:
             None

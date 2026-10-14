@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Verify search-row normalization, query derivation, and form validation.
+"""
+Verify search-row normalization, query derivation, and form validation.
 
 @File:   test_search_rows.py
 
@@ -31,11 +32,14 @@ from literature.models import Project, Search
 
 
 class SearchRowTests(TestCase):
-    """Rows sort A-Z, dedupe, and build the provider query."""
+    """
+    Rows sort A-Z, dedupe, and build the provider query.
+    """
 
     # --- Sorting ---
     def test_clean_rows_sorts_and_dedupes(self) -> None:
-        """Trim, drop blanks, dedupe case-insensitively, and sort search rows.
+        """
+        Trim, drop blanks, dedupe case-insensitively, and sort search rows.
 
         Unsorted/duped rows become sorted unique A-Z.
 
@@ -58,7 +62,8 @@ class SearchRowTests(TestCase):
 
     # --- Query derivation ---
     def test_save_rebuilds_query(self) -> None:
-        """Sort saved keywords and derive their space-joined provider query.
+        """
+        Sort saved keywords and derive their space-joined provider query.
 
         Saving sorts rows and joins keywords into query.
 
@@ -79,7 +84,8 @@ class SearchRowTests(TestCase):
 
     # --- Form requires keywords ---
     def test_form_requires_keyword_row(self) -> None:
-        """Reject a search form with an empty keyword-row list.
+        """
+        Reject a search form with an empty keyword-row list.
 
         Empty keyword rows are rejected.
 
@@ -100,7 +106,8 @@ class SearchRowTests(TestCase):
 
     # --- Form sorts rows ---
     def test_form_sorts_rows(self) -> None:
-        """Sort keyword rows during successful search-form validation.
+        """
+        Sort keyword rows during successful search-form validation.
 
         Form cleaned rows are sorted A-Z.
 

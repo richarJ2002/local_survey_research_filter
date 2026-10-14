@@ -32,7 +32,8 @@ from config import launcher
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:
-    """Build the launcher parser without consuming Django's own flags.
+    """
+    Build the launcher parser without consuming Django's own flags.
 
     Args:
         None
@@ -72,7 +73,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Parse plain CLI values and delegate to the owning runtime module.
+    """
+    Parse plain CLI values and delegate to the owning runtime module.
 
     Args:
         None

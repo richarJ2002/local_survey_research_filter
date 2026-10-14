@@ -1,4 +1,5 @@
-"""Private storage defaults and explicit export overrides.
+"""
+Private storage defaults and explicit export overrides.
 
 @File: test_storage.py
 @Brief: Keep default generated files under ignored projects/.
@@ -29,10 +30,13 @@ from literature.models import Project
 
 
 class StorageTests(TestCase):
-    """Check export paths without writing files or using real survey data."""
+    """
+    Check export paths without writing files or using real survey data.
+    """
 
     def test_export_defaults_and_explicit_override(self):
-        """Use the private default export path or the explicitly supplied path.
+        """
+        Use the private default export path or the explicitly supplied path.
 
         Args:
             None

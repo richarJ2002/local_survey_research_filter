@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Verify bounded OpenCitations requests, DOI caching, and graph integration.
+"""
+Verify bounded OpenCitations requests, DOI caching, and graph integration.
 
 @File:   test_opencitations.py
 
@@ -44,10 +45,13 @@ from literature.services.opencitations_service import (
 
 
 class OpenCitationsTests(TestCase):
-    """Only explicit POST lookups fetch; graph reads cached DOI links."""
+    """
+    Only explicit POST lookups fetch; graph reads cached DOI links.
+    """
 
     def _project(self) -> tuple[Project, Paper, Paper]:
-        """Discover two DOI-bearing papers without stored provider references.
+        """
+        Discover two DOI-bearing papers without stored provider references.
 
         Args:
             None
@@ -70,7 +74,8 @@ class OpenCitationsTests(TestCase):
         return project, citing, cited
 
     def test_parse_pid_fields_and_ignore_missing_dois(self) -> None:
-        """Extract normalized DOI pairs, dropping missing IDs and self-links.
+        """
+        Extract normalized DOI pairs, dropping missing IDs and self-links.
 
         Args:
             None
@@ -94,7 +99,8 @@ class OpenCitationsTests(TestCase):
     def test_incoming_links_are_cached_and_visible_without_paper_references(
         self,
     ) -> None:
-        """Reuse cached incoming edges without rewriting paper references.
+        """
+        Reuse cached incoming edges without rewriting paper references.
 
         Args:
             None
@@ -109,7 +115,8 @@ class OpenCitationsTests(TestCase):
         requested: list[str] = []
 
         def respond(request: httpx.Request) -> httpx.Response:
-            """Record lookups and serve the cited paper's incoming DOI edge.
+            """
+            Record lookups and serve the cited paper's incoming DOI edge.
 
             Args:
                 request (httpx.Request): Mock lookup whose URL determines
@@ -149,7 +156,8 @@ class OpenCitationsTests(TestCase):
         self.assertEqual(citing.references, [])
 
     def test_bounded_batches_and_expired_cache(self) -> None:
-        """Honor two-request batches and refresh only the expired cache entry.
+        """
+        Honor two-request batches and refresh only the expired cache entry.
 
         Args:
             None
@@ -164,7 +172,8 @@ class OpenCitationsTests(TestCase):
         requests = 0
 
         def respond(request: httpx.Request) -> httpx.Response:
-            """Count mock lookups and return a cacheable empty citation result.
+            """
+            Count mock lookups and return a cacheable empty citation result.
 
             Args:
                 request (httpx.Request): Lookup request accepted without
@@ -198,7 +207,8 @@ class OpenCitationsTests(TestCase):
         self.assertEqual(requests, 5)
 
     def test_rate_limit_stops_batch_without_caching_failure(self) -> None:
-        """Stop after the first rate limit and leave all DOI lookups uncached.
+        """
+        Stop after the first rate limit and leave all DOI lookups uncached.
 
         Args:
             None
@@ -213,7 +223,8 @@ class OpenCitationsTests(TestCase):
         requested = 0
 
         def respond(request: httpx.Request) -> httpx.Response:
-            """Count the attempted lookup and simulate an HTTP rate limit.
+            """
+            Count the attempted lookup and simulate an HTTP rate limit.
 
             Args:
                 request (httpx.Request): Mock lookup accepted without
@@ -238,7 +249,8 @@ class OpenCitationsTests(TestCase):
 
     @override_settings(OPENCITATIONS_TOKEN="test-token")
     def test_token_used_in_header_only(self) -> None:
-        """Send the configured token in authorization, never in the lookup URL.
+        """
+        Send the configured token in authorization, never in the lookup URL.
 
         Args:
             None
@@ -253,7 +265,8 @@ class OpenCitationsTests(TestCase):
         captured: dict[str, str] = {}
 
         def respond(request: httpx.Request) -> httpx.Response:
-            """Capture authorization and URL and serve an empty DOI result.
+            """
+            Capture authorization and URL and serve an empty DOI result.
 
             Args:
                 request (httpx.Request): Mock request whose authorization
@@ -273,7 +286,8 @@ class OpenCitationsTests(TestCase):
         real_client = httpx.Client
 
         def make_client(**kwargs) -> httpx.Client:
-            """Construct a real client with the token-capturing mock transport.
+            """
+            Construct a real client with the token-capturing mock transport.
 
             Args:
                 None
@@ -297,7 +311,8 @@ class OpenCitationsTests(TestCase):
         self.assertNotIn("test-token", captured["url"])
 
     def test_view_is_post_only(self) -> None:
-        """Reject GET enrichment and redirect after one explicit POST call.
+        """
+        Reject GET enrichment and redirect after one explicit POST call.
 
         Args:
             None
@@ -323,7 +338,8 @@ class OpenCitationsTests(TestCase):
         enrich.assert_called_once_with(project)
 
     def test_project_delete_only_discards_unused_citation_cache(self) -> None:
-        """Delete unused DOI cache but retain another project's cached lookup.
+        """
+        Delete unused DOI cache but retain another project's cached lookup.
 
         Args:
             None

@@ -1,4 +1,5 @@
-"""Add a current-search flag without selecting or rewriting legacy settings.
+"""
+Add a current-search flag without selecting or rewriting legacy settings.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -29,7 +30,9 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    """Enforce at most one explicitly adopted current search per project."""
+    """
+    Enforce at most one explicitly adopted current search per project.
+    """
 
     dependencies = (("literature", "0012_surveyentry_inclusion_origin"),)
 

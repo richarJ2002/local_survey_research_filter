@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Verify canonical OpenAlex fields and deterministic text normalization.
+"""
+Verify canonical OpenAlex fields and deterministic text normalization.
 
 @File:   test_mapping.py
 
@@ -35,11 +36,14 @@ from literature.providers.mapping import (
 
 
 class MappingTests(TestCase):
-    """Pure mapping helpers must be deterministic."""
+    """
+    Pure mapping helpers must be deterministic.
+    """
 
     # --- Abstract reconstruction ---
     def test_reconstruct_abstract_orders_words(self) -> None:
-        """Reconstruct abstract words in their inverted-index positions.
+        """
+        Reconstruct abstract words in their inverted-index positions.
 
         Inverted index positions must rebuild ordered text.
 
@@ -57,7 +61,8 @@ class MappingTests(TestCase):
 
     # --- Empty abstract ---
     def test_reconstruct_abstract_empty(self) -> None:
-        """Return empty abstract text for missing and empty inverted indexes.
+        """
+        Return empty abstract text for missing and empty inverted indexes.
 
         Missing index returns empty string.
 
@@ -75,7 +80,8 @@ class MappingTests(TestCase):
 
     # --- Title normalization ---
     def test_normalize_title_strips_punctuation(self) -> None:
-        """Normalize title case, punctuation, and repeated whitespace.
+        """
+        Normalize title case, punctuation, and repeated whitespace.
 
         Titles compare case/punctuation-insensitively.
 
@@ -92,7 +98,8 @@ class MappingTests(TestCase):
 
     # --- First author surname ---
     def test_first_author_surname_takes_last_token(self) -> None:
-        """Extract the lowercased final author token or an empty surname.
+        """
+        Extract the lowercased final author token or an empty surname.
 
         Surname is last whitespace token, lowercased.
 
@@ -111,7 +118,8 @@ class MappingTests(TestCase):
 
     # --- Full canonical mapping ---
     def test_map_openalex_to_canonical_minimal(self) -> None:
-        """Map OpenAlex identity, abstract, venue, and discovery source.
+        """
+        Map OpenAlex identity, abstract, venue, and discovery source.
 
         Minimal OpenAlex item maps to canonical dict.
 

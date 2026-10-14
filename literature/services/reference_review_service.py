@@ -1,4 +1,5 @@
-"""Complete missing screening metadata and retain bibliography text/provenance.
+"""
+Complete missing screening metadata and retain bibliography text/provenance.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -42,7 +43,8 @@ from literature.services.screening_service import (
 
 
 def _record_manual_source(paper: Paper, field: str) -> None:
-    """Record manual-field provenance without duplicating the pasted content.
+    """
+    Record manual-field provenance without duplicating the pasted content.
 
     Args:
         paper (Paper): Instance whose raw metadata is updated in memory.
@@ -68,7 +70,8 @@ def _record_manual_source(paper: Paper, field: str) -> None:
 
 
 def missing_metadata_fields(paper: Paper) -> set[str]:
-    """Identify unknown metadata without treating a reported zero as missing.
+    """
+    Identify unknown metadata without treating a reported zero as missing.
 
     Args:
         paper (Paper): Paper whose values and raw provenance are inspected.
@@ -119,7 +122,8 @@ def missing_metadata_fields(paper: Paper) -> set[str]:
 
 @transaction.atomic
 def save_missing_metadata(project: Project, paper: Paper, values: dict) -> None:
-    """Atomically fill only unknown fields on a pending Abstract record.
+    """
+    Atomically fill only unknown fields on a pending Abstract record.
 
     Args:
         project (Project): Project requiring discovery membership and Title
@@ -210,7 +214,8 @@ def save_missing_metadata(project: Project, paper: Paper, values: dict) -> None:
 
 @transaction.atomic
 def save_missing_abstract(project: Project, paper: Paper, abstract: str) -> None:
-    """Atomically replace a missing abstract on a pending Abstract paper.
+    """
+    Atomically replace a missing abstract on a pending Abstract paper.
 
     Args:
         project (Project): Project requiring discovery membership and Title
@@ -264,7 +269,8 @@ def save_missing_abstract(project: Project, paper: Paper, abstract: str) -> None
 
 
 def extract_reference_ids(text: str) -> list[str]:
-    """Extract resolvable identifier candidates from bibliography text.
+    """
+    Extract resolvable identifier candidates from bibliography text.
 
     Args:
         text (str): Original multiline bibliography or standalone identifiers.
@@ -310,7 +316,8 @@ def extract_reference_ids(text: str) -> list[str]:
 def complete_references(
     project: Project, paper: Paper, text: str = "", *, reject: bool = False
 ) -> None:
-    """Complete references or audit an Abstract rejection, never both.
+    """
+    Complete references or audit an Abstract rejection, never both.
 
     Args:
         project (Project): Project in which paper must be discovered and

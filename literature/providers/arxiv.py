@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Fetch and map arXiv Atom search pages without an API key.
+"""
+Fetch and map arXiv Atom search pages without an API key.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -36,7 +37,8 @@ from .mapping import map_arxiv_to_canonical
 
 @dataclass(frozen=True)
 class ArxivConfig:
-    """Hold immutable arXiv query rows, local filters and page settings.
+    """
+    Hold immutable arXiv query rows, local filters and page settings.
 
     Nonempty keywords override query when building OR-joined all: terms.
     year_min/year_max default to None and filter dated results locally;
@@ -58,7 +60,8 @@ class ArxivConfig:
 
 @dataclass(frozen=True)
 class ProviderResult:
-    """Pair canonical paper_data with the parsed raw_response Atom entry.
+    """
+    Pair canonical paper_data with the parsed raw_response Atom entry.
 
     raw_response and paper_data['raw'] reference the same entry dictionary;
     neither represents a database write or a full XML response.
@@ -69,11 +72,14 @@ class ProviderResult:
 
 
 class ArxivError(RuntimeError):
-    """Report failed arXiv requests or invalid/oversize XML."""
+    """
+    Report failed arXiv requests or invalid/oversize XML.
+    """
 
 
 class ArxivSource:
-    """Query the arXiv export Atom endpoint with retry and page pacing.
+    """
+    Query the arXiv export Atom endpoint with retry and page pacing.
 
     namespaces supplies Atom/arXiv XML names. No API key or persistent client
     is held; callers persist the returned canonical/raw entry pairs.
@@ -88,7 +94,8 @@ class ArxivSource:
 
     # --- Headers ---
     def default_headers(self) -> dict:
-        """Build key-free Atom request headers.
+        """
+        Build key-free Atom request headers.
 
         Args:
             None
@@ -104,7 +111,8 @@ class ArxivSource:
 
     # --- Query string ---
     def build_search_query(self, config: ArxivConfig) -> str:
-        """Build an OR-joined arXiv all-field query from reusable rows.
+        """
+        Build an OR-joined arXiv all-field query from reusable rows.
 
         Args:
             config (ArxivConfig): Keywords, falling back to query if no
@@ -128,7 +136,8 @@ class ArxivSource:
     def _get_with_backoff(
         self, client: httpx.Client, params: dict, max_retries: int = 3
     ) -> httpx.Response:
-        """GET an Atom page with arXiv-specific retry sleeps.
+        """
+        GET an Atom page with arXiv-specific retry sleeps.
 
         Args:
             client (httpx.Client): Borrowed client; timeout is 30 seconds.
@@ -175,7 +184,8 @@ class ArxivSource:
 
     # --- Parse Atom ---
     def parse_feed(self, text: str) -> list[dict]:
-        """Parse a bounded Atom text input into raw entry dictionaries.
+        """
+        Parse a bounded Atom text input into raw entry dictionaries.
 
         Args:
             text (str): Downloaded XML text, limited to 2,000,000 characters
@@ -251,7 +261,8 @@ class ArxivSource:
     def fetch(
         self, config: ArxivConfig, client: httpx.Client | None = None
     ) -> tuple[list[ProviderResult], int]:
-        """Fetch arXiv offset pages and apply local year/author filters.
+        """
+        Fetch arXiv offset pages and apply local year/author filters.
 
         Args:
             config (ArxivConfig): Query rows, year bounds, OR-matched author

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Project historical search audits and current screening/source metrics.
+"""
+Project historical search audits and current screening/source metrics.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -37,7 +38,8 @@ from literature.services.screening_service import final_decisions, pending_refer
 
 
 def display_sources(sources) -> list[str]:
-    """Hide the legacy manual entry method from displayed discovery origins.
+    """
+    Hide the legacy manual entry method from displayed discovery origins.
 
     Args:
         sources: Stored source iterable or None; falsey input is empty.
@@ -55,7 +57,8 @@ def display_sources(sources) -> list[str]:
 
 # --- Current-state source projection ---
 def current_source_counts(project) -> dict:
-    """Count current displayed origins on distinct discovered project papers.
+    """
+    Count current displayed origins on distinct discovered project papers.
 
     Multi-source papers count once per listed source (bars, not a pie), so
     per-source bars may sum past the distinct-paper total. Blank means the
@@ -96,7 +99,8 @@ def current_source_counts(project) -> dict:
 
 # --- Same-project revision stamp (no schema change) ---
 def project_revision(project) -> str:
-    """Fingerprint stored project content, including untimestamped edits.
+    """
+    Fingerprint stored project content, including untimestamped edits.
 
     Include project/search/run/discovery/stage/decision/revision/keyword and
     curated survey rows; papers linked through any of those relations; and
@@ -172,7 +176,8 @@ def project_revision(project) -> str:
 
 # --- Build metrics ---
 def build_metrics(project) -> dict:
-    """Combine historical search totals with the current screening funnel.
+    """
+    Combine historical search totals with the current screening funnel.
 
     SearchRun sums retain import-time no-abstract/incomplete history and are
     not automatic rejections. Current sources come from Paper.sources, not
@@ -296,7 +301,8 @@ def build_metrics(project) -> dict:
 
 # --- Paper haystack ---
 def _haystack(paper) -> str:
-    """Join a paper's title, abstract and keywords for substring attribution.
+    """
+    Join a paper's title, abstract and keywords for substring attribution.
 
     Args:
         paper (Paper): Paper exposing title, abstract and keywords.
@@ -316,7 +322,8 @@ def _haystack(paper) -> str:
 
 # --- Keyword hits ---
 def keyword_stage_counts(project) -> dict[str, dict[str, int]]:
-    """Count unique papers hitting each keyword row, per filter stage.
+    """
+    Count unique papers hitting each keyword row, per filter stage.
 
     Attribution is corpus-based (title/abstract/keywords contain the row),
     so no extra API calls are needed and all providers share the same
@@ -400,7 +407,8 @@ def keyword_stage_counts(project) -> dict[str, dict[str, int]]:
 
 # --- Stage yearly series ---
 def stage_year_cumulative(project) -> dict:
-    """Count yearly and cumulative discovered, Title and final selections.
+    """
+    Count yearly and cumulative discovered, Title and final selections.
 
     Undated papers are excluded from lines but counted in the footnote
     (total undated, and how many of those passed each check).

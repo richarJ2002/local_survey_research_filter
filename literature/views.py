@@ -100,19 +100,24 @@ from literature.services.search_service import (
 
 
 def _env_path() -> Path:
-    """Launcher uses private credentials; developer retains its source .env."""
+    """
+    Launcher uses private credentials; developer retains its source .env.
+    """
     return Path(getattr(settings, "LOCAL_SURVEY_CREDENTIALS_FILE", Path(settings.BASE_DIR) / ".env"))
 
 
 # --- Email configured check ---
 def _email_configured() -> bool:
-    """Check polite-pool email from settings (restart applies .env edits)."""
+    """
+    Check polite-pool email from settings (restart applies .env edits).
+    """
     return bool((getattr(settings, "OPENALEX_EMAIL", "") or "").strip())
 
 
 # --- Stage bootstrap on explicit writes only ---
 def _ensure_stages(request: HttpRequest, project) -> None:
-    """Bootstrap stages only for an explicit mutation request.
+    """
+    Bootstrap stages only for an explicit mutation request.
 
     Args:
         request: Owning request; safe methods never repair research state.
@@ -134,7 +139,9 @@ def _ensure_stages(request: HttpRequest, project) -> None:
 
 # --- Project list ---
 def project_list(request: HttpRequest) -> HttpResponse:
-    """List all survey projects (developer) or serve the workspace landing (manager)."""
+    """
+    List all survey projects (developer) or serve the workspace landing (manager).
+    """
     from literature.worker import role
 
     if role() == "manager":
@@ -153,7 +160,9 @@ def project_list(request: HttpRequest) -> HttpResponse:
 
 # --- Project create ---
 def project_create(request: HttpRequest) -> HttpResponse:
-    """Create a project and seed Title -> Abstract stages."""
+    """
+    Create a project and seed Title -> Abstract stages.
+    """
     if request.method == "POST":
         form = ProjectForm(request.POST)
         if form.is_valid():
@@ -169,7 +178,8 @@ def project_create(request: HttpRequest) -> HttpResponse:
 # --- Owning-worker display name edit ---
 @require_http_methods(["GET", "POST"])
 def project_name(request: HttpRequest, pk: int) -> HttpResponse:
-    """Save an explicit display name without renaming the project folder.
+    """
+    Save an explicit display name without renaming the project folder.
 
     Args:
         request: Local form GET or CSRF-protected POST.
@@ -197,7 +207,9 @@ def project_name(request: HttpRequest, pk: int) -> HttpResponse:
 
 # --- Project delete ---
 def project_delete(request: HttpRequest, pk: int) -> HttpResponse:
-    """Confirm then delete a project and its orphaned papers."""
+    """
+    Confirm then delete a project and its orphaned papers.
+    """
     project = get_object_or_404(Project, pk=pk)
     if request.method == "POST":
         name = project.name
@@ -217,7 +229,8 @@ def project_delete(request: HttpRequest, pk: int) -> HttpResponse:
 
 # --- Project detail / dashboard ---
 def project_detail(request: HttpRequest, pk: int) -> HttpResponse:
-    """Show project results, current search criteria and screening counts.
+    """
+    Show project results, current search criteria and screening counts.
 
     Args:
         request: Read-only dashboard GET with chart display options.
@@ -281,7 +294,8 @@ def project_detail(request: HttpRequest, pk: int) -> HttpResponse:
 
 @require_http_methods(["GET", "HEAD"])
 def papers_view(request: HttpRequest, pk: int) -> HttpResponse:
-    """Search and page through this project's stored papers and statuses.
+    """
+    Search and page through this project's stored papers and statuses.
 
     The normal list and bounded HUD share query, membership and status rules.
 
@@ -567,7 +581,8 @@ def papers_view(request: HttpRequest, pk: int) -> HttpResponse:
 
 @require_http_methods(["GET", "POST"])
 def paper_add(request: HttpRequest, pk: int) -> HttpResponse:
-    """Save entered metadata, provenance, audit and queue in one transaction.
+    """
+    Save entered metadata, provenance, audit and queue in one transaction.
 
     Args:
         request: Local entry GET or CSRF-protected manual/DOI-selection POST.
@@ -637,7 +652,8 @@ def paper_add(request: HttpRequest, pk: int) -> HttpResponse:
 
 @require_http_methods(["GET", "POST"])
 def paper_lookup(request: HttpRequest, pk: int) -> HttpResponse:
-    """Preview metadata and save explicit current assignments or saved links.
+    """
+    Preview metadata and save explicit current assignments or saved links.
 
     Args:
         request: Cache-only GET, online fetch POST or signed local save POST.
@@ -788,7 +804,9 @@ def paper_lookup(request: HttpRequest, pk: int) -> HttpResponse:
 
 
 def paper_manage(request: HttpRequest, pk: int, paper_id: int) -> HttpResponse:
-    """Edit a project paper or correct a screening status with a reason."""
+    """
+    Edit a project paper or correct a screening status with a reason.
+    """
     from literature.services.search_service import is_complete
 
     project = get_object_or_404(Project, pk=pk)
@@ -856,7 +874,8 @@ def paper_manage(request: HttpRequest, pk: int, paper_id: int) -> HttpResponse:
 # ------------------------------------------------------------------------ #
 
 def _search_lock_feedback(view: Callable) -> Callable:
-    """Return retryable SQLite lock feedback without retrying database work.
+    """
+    Return retryable SQLite lock feedback without retrying database work.
 
     Args:
         view: Owning search view, including its initial configuration reads.
@@ -869,7 +888,8 @@ def _search_lock_feedback(view: Callable) -> Callable:
     """
     @wraps(view)
     def guarded(request: HttpRequest, *args, **kwargs) -> HttpResponse:
-        """Render a GET-capable retry link without further DB reads on locks.
+        """
+        Render a GET-capable retry link without further DB reads on locks.
 
         Args:
             request: Search request.
@@ -903,7 +923,8 @@ def _search_lock_feedback(view: Callable) -> Callable:
 @require_http_methods(["GET", "POST"])
 @_search_lock_feedback
 def search_create(request: HttpRequest, pk: int) -> HttpResponse:
-    """Configure or explicitly adopt/combine future settings, keeping history.
+    """
+    Configure or explicitly adopt/combine future settings, keeping history.
 
     Args:
         request: Read-only proposal GET or signed confirmation POST.
@@ -970,7 +991,8 @@ def search_create(request: HttpRequest, pk: int) -> HttpResponse:
 def search_update(
     request: HttpRequest, pk: int, search_id: int,
 ) -> HttpResponse:
-    """Edit signed current settings or display historical settings read-only.
+    """
+    Edit signed current settings or display historical settings read-only.
 
     Args:
         request: Editor GET or signed settings POST.
@@ -1042,7 +1064,8 @@ def search_update(
 @require_POST
 @_search_lock_feedback
 def search_run(request: HttpRequest, pk: int, search_id: int) -> HttpResponse:
-    """Run current settings only, preserving isolated per-provider audits.
+    """
+    Run current settings only, preserving isolated per-provider audits.
 
     Args:
         request: CSRF-protected online action POST.
@@ -1097,7 +1120,9 @@ def search_run(request: HttpRequest, pk: int, search_id: int) -> HttpResponse:
 # --- Backfill missing fields ---
 @require_POST
 def refs_backfill(request: HttpRequest, pk: int) -> HttpResponse:
-    """Fill blank title/abstract/references for the project's DOI papers."""
+    """
+    Fill blank title/abstract/references for the project's DOI papers.
+    """
     from literature.services.reference_service import backfill_missing_references
 
     project = get_object_or_404(Project, pk=pk)
@@ -1122,7 +1147,9 @@ def refs_backfill(request: HttpRequest, pk: int) -> HttpResponse:
 # --- Enrich project citation edges explicitly ---
 @require_POST
 def citations_enrich(request: HttpRequest, pk: int) -> HttpResponse:
-    """Fetch a bounded batch of DOI citation links; GET never calls an API."""
+    """
+    Fetch a bounded batch of DOI citation links; GET never calls an API.
+    """
     from literature.services.opencitations_service import enrich_project
 
     project = get_object_or_404(Project, pk=pk)
@@ -1148,7 +1175,8 @@ def citations_enrich(request: HttpRequest, pk: int) -> HttpResponse:
 
 # --- Settings view ---
 def settings_view(request: HttpRequest) -> HttpResponse:
-    """Save explicit provider settings to the selected credential file.
+    """
+    Save explicit provider settings to the selected credential file.
 
     Args:
         request: Local Settings GET or CSRF-protected credential POST.
@@ -1237,7 +1265,8 @@ def settings_view(request: HttpRequest) -> HttpResponse:
 
 # --- Next pending helper ---
 def _next_pending(stage: Stage, exclude_id: int | None = None) -> Paper | None:
-    """Return a random PENDING paper (order shuffled to reduce bias).
+    """
+    Return a random PENDING paper (order shuffled to reduce bias).
 
     Progress stays saved per decision row, so the queue is resumable:
     decided papers leave the pool, pending count only shrinks.
@@ -1252,7 +1281,9 @@ def _next_pending(stage: Stage, exclude_id: int | None = None) -> Paper | None:
 
 # --- Screening counts helper ---
 def _progress(stage: Stage) -> dict[str, int]:
-    """Return done/total counts for progress display."""
+    """
+    Return done/total counts for progress display.
+    """
     total = ScreeningDecision.objects.filter(stage=stage).count()
     done = ScreeningDecision.objects.filter(
         stage=stage).exclude(decision="PENDING").count()
@@ -1264,7 +1295,8 @@ def _progress(stage: Stage) -> dict[str, int]:
 @ensure_csrf_cookie
 @require_http_methods(["GET", "POST"])
 def screening_view(request: HttpRequest, pk: int, stage_name: str) -> HttpResponse:
-    """Show queued content without repairing stages on GET.
+    """
+    Show queued content without repairing stages on GET.
 
     Args:
         request: Screening GET or unknown-field completion POST.
@@ -1354,7 +1386,9 @@ def screening_view(request: HttpRequest, pk: int, stage_name: str) -> HttpRespon
 # --- Screening decide (JSON) ---
 @require_POST
 def screening_decide(request: HttpRequest) -> JsonResponse:
-    """Apply Yes/No decision via fetch(). Returns next paper URL."""
+    """
+    Apply Yes/No decision via fetch(). Returns next paper URL.
+    """
     try:
         payload = json.loads(request.body.decode("utf-8"))
     except (ValueError, UnicodeDecodeError):
@@ -1409,7 +1443,8 @@ def screening_decide(request: HttpRequest) -> JsonResponse:
 
 # --- Screening complete ---
 def screening_complete(request: HttpRequest, pk: int, stage_name: str) -> HttpResponse:
-    """Distinguish an empty, unqueued or finished round without GET writes.
+    """
+    Distinguish an empty, unqueued or finished round without GET writes.
 
     Args:
         request: Local empty-round GET.
@@ -1452,7 +1487,9 @@ def screening_complete(request: HttpRequest, pk: int, stage_name: str) -> HttpRe
 
 @require_http_methods(["GET", "POST"])
 def reference_review(request: HttpRequest, pk: int) -> HttpResponse:
-    """Resolve missing bibliographies only after Abstract content screening has passed."""
+    """
+    Resolve missing bibliographies only after Abstract content screening has passed.
+    """
     from literature.services.reference_review_service import complete_references
 
     project = get_object_or_404(Project, pk=pk)
@@ -1528,7 +1565,9 @@ def reference_review(request: HttpRequest, pk: int) -> HttpResponse:
 
 # --- Duplicate list ---
 def duplicates_view(request: HttpRequest, pk: int) -> HttpResponse:
-    """Show same-title groups with authors for confirmation."""
+    """
+    Show same-title groups with authors for confirmation.
+    """
     project = get_object_or_404(Project, pk=pk)
     groups = duplicate_groups(project)
     return render(
@@ -1541,7 +1580,9 @@ def duplicates_view(request: HttpRequest, pk: int) -> HttpResponse:
 # --- Duplicate merge ---
 @require_POST
 def duplicates_merge(request: HttpRequest, pk: int) -> HttpResponse:
-    """Merge drop paper into keep paper, preserving audit trail."""
+    """
+    Merge drop paper into keep paper, preserving audit trail.
+    """
     project = get_object_or_404(Project, pk=pk)
     keep = get_object_or_404(
         Paper.objects.filter(discoveries__search__project=project).distinct(),
@@ -1563,7 +1604,9 @@ def duplicates_merge(request: HttpRequest, pk: int) -> HttpResponse:
 # --- Duplicate remove ---
 @require_POST
 def duplicates_remove(request: HttpRequest, pk: int) -> HttpResponse:
-    """Delete a duplicate paper (its audit rows go with it)."""
+    """
+    Delete a duplicate paper (its audit rows go with it).
+    """
     project = get_object_or_404(Project, pk=pk)
     paper = get_object_or_404(
         Paper.objects.filter(discoveries__search__project=project).distinct(),
@@ -1586,7 +1629,8 @@ def _plots_context(
     options: dict | None = None, include_app_script: bool = True,
     native_controls: bool = False,
 ) -> dict:
-    """Build figures with optional reuse of the dashboard metrics.
+    """
+    Build figures with optional reuse of the dashboard metrics.
 
     Args:
         project: Project whose papers and curated entries own the figures.
@@ -1743,7 +1787,8 @@ def _plots_context(
 
 # --- Plots view ---
 def _chart_options(request: HttpRequest | None = None) -> dict:
-    """Validate all chart display options at their owning GET boundary.
+    """
+    Validate all chart display options at their owning GET boundary.
 
     Args:
         None
@@ -1798,7 +1843,8 @@ def _chart_options(request: HttpRequest | None = None) -> dict:
 
 
 def _citation_options(request: HttpRequest) -> tuple[int, bool, str, int]:
-    """Parse the graph controls shared by the page and its HTML download.
+    """
+    Parse the graph controls shared by the page and its HTML download.
 
     Args:
         request: Local chart or citation-reference GET.
@@ -1815,7 +1861,8 @@ def _citation_options(request: HttpRequest) -> tuple[int, bool, str, int]:
 
 
 def _year_window(data: dict, options: dict) -> dict:
-    """Slice displayed years only after whole-corpus totals are computed.
+    """
+    Slice displayed years only after whole-corpus totals are computed.
 
     Args:
         data: Full IN/THROUGH arrays and undated counts.
@@ -1842,7 +1889,8 @@ def _year_window(data: dict, options: dict) -> dict:
 
 
 def plots_view(request: HttpRequest, pk: int) -> HttpResponse:
-    """Visual dashboard: every plot explains itself in plain English.
+    """
+    Visual dashboard: every plot explains itself in plain English.
 
     Charts use shared display options without a separate history lens.
 
@@ -1864,7 +1912,8 @@ def plots_view(request: HttpRequest, pk: int) -> HttpResponse:
 
 # --- Download all charts ---
 def plots_download(request: HttpRequest, pk: int) -> HttpResponse:
-    """Download the project's charts as standalone offline HTML.
+    """
+    Download the project's charts as standalone offline HTML.
 
     The installed Plotly.js bundle is inlined once; no CDN or app-server
     resource is required to pan/zoom/hover/download the charts. Node
@@ -1934,7 +1983,9 @@ def plots_download(request: HttpRequest, pk: int) -> HttpResponse:
 
 # --- Export markdown view ---
 def export_markdown_view(request: HttpRequest, pk: int) -> HttpResponse:
-    """Download generated Markdown database (DB is truth)."""
+    """
+    Download generated Markdown database (DB is truth).
+    """
     project = get_object_or_404(Project, pk=pk)
     content = build_markdown(project)
     response = HttpResponse(content, content_type="text/markdown")
@@ -1944,7 +1995,8 @@ def export_markdown_view(request: HttpRequest, pk: int) -> HttpResponse:
 
 # --- Download final or visible citation references ---
 def references_download(request: HttpRequest, pk: int, group: str) -> HttpResponse:
-    """Return separate lists of final selections and visible citation papers.
+    """
+    Return separate lists of final selections and visible citation papers.
 
     Citation membership uses the same normalized options as the figures.
 

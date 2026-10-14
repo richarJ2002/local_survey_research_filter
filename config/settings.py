@@ -33,7 +33,8 @@ try:
     from dotenv import load_dotenv
 except ImportError:  # pragma: no cover - dotenv optional in some contexts
     def load_dotenv(*args: object, **kwargs: object) -> bool:
-        """Leave environment variables unchanged when python-dotenv is absent.
+        """
+        Leave environment variables unchanged when python-dotenv is absent.
 
         Args:
             *args (object): Ignored positional dotenv arguments, such as a

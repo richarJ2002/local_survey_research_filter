@@ -1,4 +1,5 @@
-"""Focused tests for the curated survey graph (no draft mutation).
+"""
+Focused tests for the curated survey graph (no draft mutation).
 
 @File: test_survey_graph.py
 @Brief: DOI prefill snapshots, ownership, manual links, duplicates, stale saves.
@@ -74,7 +75,9 @@ def make_entry(project, number=1, doi="", title="T", year=None, text=""):
 
 # --- Classes
 class SurveyKeyTests(TestCase):
-    """Actual IDs only; OpenAlex slash trim; DOI suffix slash kept."""
+    """
+    Actual IDs only; OpenAlex slash trim; DOI suffix slash kept.
+    """
 
     def test_titles_rejected(self):
         self.assertEqual(citation_key("Some Interesting Title"), "")
@@ -95,7 +98,9 @@ class SurveyKeyTests(TestCase):
 
 
 class SurveyPrefillTests(TestCase):
-    """Editable snapshots never mutate the draft library."""
+    """
+    Editable snapshots never mutate the draft library.
+    """
 
     def test_string_authors_prefill(self):
         project = make_project()
@@ -197,7 +202,9 @@ class SurveyPrefillTests(TestCase):
 
 
 class SurveySaveTests(TestCase):
-    """Number/DOI duplicates, required fields, alias retain/drop, stale saves."""
+    """
+    Number/DOI duplicates, required fields, alias retain/drop, stale saves.
+    """
 
     def test_number_and_doi_duplicates(self):
         project = make_project()
@@ -406,7 +413,9 @@ class SurveySaveTests(TestCase):
 
 
 class SurveyGraphViewTests(TestCase):
-    """Ownership, manual links, rendering, malformed IDs, outages."""
+    """
+    Ownership, manual links, rendering, malformed IDs, outages.
+    """
 
     def test_cross_project_citation_rejected(self):
         a = make_project(name="A")

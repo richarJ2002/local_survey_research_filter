@@ -1,4 +1,5 @@
-"""Project-scoped editor for the separate survey-writing graph.
+"""
+Project-scoped editor for the separate survey-writing graph.
 
 @File: survey_views.py
 @Brief: Editable curated snapshots and manual citations.
@@ -39,7 +40,9 @@ from literature.services.survey_graph_service import build_survey_graph, prefill
 
 
 def search_project_papers(project: Project, query: str, limit: int = 25) -> list:
-    """Match project-discovered papers by title/authors/DOI/venue, deterministic order."""
+    """
+    Match project-discovered papers by title/authors/DOI/venue, deterministic order.
+    """
     q = (query or "").strip()
     if not q:
         return []
@@ -59,7 +62,8 @@ def search_project_papers(project: Project, query: str, limit: int = 25) -> list
 
 @require_http_methods(["GET", "POST"])
 def survey_graph(request: HttpRequest, pk: int) -> HttpResponse:
-    """Manage curated entries with the shared citation drawing and controls.
+    """
+    Manage curated entries with the shared citation drawing and controls.
 
     Args:
         request: Local GET or explicit curated-entry/manual-link POST.
@@ -175,7 +179,8 @@ def survey_graph(request: HttpRequest, pk: int) -> HttpResponse:
 def survey_entry(
     request: HttpRequest, pk: int, entry_id: int | None = None,
 ) -> HttpResponse:
-    """Preview cached or explicitly fetched details before a separate save.
+    """
+    Preview cached or explicitly fetched details before a separate save.
 
     Args:
         request: Local GET or CSRF-protected fetch/save POST.

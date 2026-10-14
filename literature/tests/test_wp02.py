@@ -1,4 +1,5 @@
-"""Verify the authorized WP02 UI phases using isolated synthetic data.
+"""
+Verify the authorized WP02 UI phases using isolated synthetic data.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -75,10 +76,13 @@ from literature.workspace_views import StoreOperationForm
 
 
 class FolderSuggestionTests(SimpleTestCase):
-    """Check safe, editable New and Save Copy suggestions."""
+    """
+    Check safe, editable New and Save Copy suggestions.
+    """
 
     def test_name_unicode_ampersand_and_unsafe_members(self) -> None:
-        """Retain Unicode and ampersands while rejecting unsafe members.
+        """
+        Retain Unicode and ampersands while rejecting unsafe members.
 
         Args:
             None
@@ -111,7 +115,8 @@ class FolderSuggestionTests(SimpleTestCase):
             self.assertEqual(form.cleaned_data["directory"], target)
 
     def test_new_preview_confirmation_and_collision(self) -> None:
-        """Create only after preview and refuse a repeated destination.
+        """
+        Create only after preview and refuse a repeated destination.
 
         Args:
             None
@@ -164,7 +169,8 @@ class FolderSuggestionTests(SimpleTestCase):
                 (Path(tmp) / "chosen-new" / "project.sqlite3").is_file())
 
     def test_confirmation_requires_unchanged_signed_preview(self) -> None:
-        """Reject missing, forged, expired and changed confirmations.
+        """
+        Reject missing, forged, expired and changed confirmations.
 
         Args:
             None
@@ -198,7 +204,8 @@ class FolderSuggestionTests(SimpleTestCase):
                                  for name in ("a", "b", "c")))
 
     def test_explicit_overlong_path_and_copy_symlink_refused(self) -> None:
-        """Keep malformed-path and final-component symlink defenses.
+        """
+        Keep malformed-path and final-component symlink defenses.
 
         Args:
             None
@@ -236,7 +243,8 @@ class FolderSuggestionTests(SimpleTestCase):
             self.assertEqual(list(empty.iterdir()), [])
 
     def test_copy_staging_name_limit_and_bad_parent(self) -> None:
-        """Check expanded parents and the copier's staging byte boundary.
+        """
+        Check expanded parents and the copier's staging byte boundary.
 
         Args:
             None
@@ -267,7 +275,8 @@ class FolderSuggestionTests(SimpleTestCase):
                 suggested_project_directory(tmp, "é" * 107, reserve_bytes=43)
 
     def test_copy_signed_preview_override_and_identity(self) -> None:
-        """Use the stored name, preserve the source and distinguish backup ID.
+        """
+        Use the stored name, preserve the source and distinguish backup ID.
 
         Args:
             None
@@ -332,10 +341,13 @@ class FolderSuggestionTests(SimpleTestCase):
 
 
 class ProjectNameTests(TestCase):
-    """Require an explicit owning-project POST for display-name changes."""
+    """
+    Require an explicit owning-project POST for display-name changes.
+    """
 
     def test_get_read_only_post_name_only_and_manager_refused(self) -> None:
-        """Preserve project context and reject manager writes and empty names.
+        """
+        Preserve project context and reject manager writes and empty names.
 
         Args:
             None
@@ -367,10 +379,13 @@ class ProjectNameTests(TestCase):
 
 # --- Dashboard result projections and retained audit data ---
 class DashboardTests(TestCase):
-    """Verify the results summary without exposing retained audit history."""
+    """
+    Verify the results summary without exposing retained audit history.
+    """
 
     def test_order_results_and_bounded_project_history(self) -> None:
-        """Keep all configurations and audits without rendering their history.
+        """
+        Keep all configurations and audits without rendering their history.
 
         Args:
             None
@@ -429,7 +444,8 @@ class DashboardTests(TestCase):
     def test_results_table_exact_historical_final_and_pending_counts(
         self,
     ) -> None:
-        """Map exactly four rows to historical hits and reference-gated counts.
+        """
+        Map exactly four rows to historical hits and reference-gated counts.
 
         Args:
             None
@@ -473,7 +489,8 @@ class DashboardTests(TestCase):
                                 f'{reverse(route, args=[project.pk])}"')
 
     def test_metrics_once_and_curated_renders_on_both_pages(self) -> None:
-        """Reuse metrics and show curated graph at the dashboard's end.
+        """
+        Reuse metrics and show curated graph at the dashboard's end.
 
         Args:
             None
@@ -514,10 +531,13 @@ class DashboardTests(TestCase):
 
 # --- Screening navigation is independent of decision chronology ---
 class ScreeningNavigationTests(TestCase):
-    """Check one card, five destinations and truthful screening states."""
+    """
+    Check one card, five destinations and truthful screening states.
+    """
 
     def test_one_card_and_five_navigation_destinations(self) -> None:
-        """Keep the exact link order and retain the curated charts feature.
+        """
+        Keep the exact link order and retain the curated charts feature.
 
         Args:
             None
@@ -565,7 +585,8 @@ class ScreeningNavigationTests(TestCase):
         self.assertContains(response, "No stored papers yet.")
 
     def test_statuses_content_passed_reference_pending_and_final(self) -> None:
-        """Separate content passes from final reference-gated selection.
+        """
+        Separate content passes from final reference-gated selection.
 
         Args:
             None
@@ -615,7 +636,8 @@ class ScreeningNavigationTests(TestCase):
             list(ScreeningDecision.objects.order_by("pk").values()), before)
 
     def test_title_pending_empty_abstract_hint(self) -> None:
-        """Explain Title-before-Abstract without requiring references at Title.
+        """
+        Explain Title-before-Abstract without requiring references at Title.
 
         Args:
             None
@@ -646,10 +668,13 @@ class ScreeningNavigationTests(TestCase):
 
 # --- Explicit current configuration and immutable historical provenance ---
 class CurrentSearchTests(TestCase):
-    """Qualify phase .3 settings and writer boundaries with fictional data."""
+    """
+    Qualify phase .3 settings and writer boundaries with fictional data.
+    """
 
     def _post_values(self, preview: dict) -> dict:
-        """Convert the displayed proposal to a normal signed form POST.
+        """
+        Convert the displayed proposal to a normal signed form POST.
 
         Args:
             preview: Captured proposal and configuration token.
@@ -667,7 +692,8 @@ class CurrentSearchTests(TestCase):
         }
 
     def test_constraint_and_zero_configuration_signed_create(self) -> None:
-        """Require signed POST and enforce one current row per project.
+        """
+        Require signed POST and enforce one current row per project.
 
         Args:
             None
@@ -709,7 +735,8 @@ class CurrentSearchTests(TestCase):
         self.assertTrue(Search.objects.filter(pk=historical.pk).exists())
 
     def test_single_query_only_adoption_changes_only_flag(self) -> None:
-        """Promote legacy syntax with a targeted update, not normalization.
+        """
+        Promote legacy syntax with a targeted update, not normalization.
 
         Args:
             None
@@ -742,7 +769,8 @@ class CurrentSearchTests(TestCase):
         self.assertEqual(after, before)
 
     def test_single_edited_settings_create_new_snapshot(self) -> None:
-        """Keep the single legacy row unchanged when saving edited settings.
+        """
+        Keep the single legacy row unchanged when saving edited settings.
 
         Args:
             None
@@ -770,7 +798,8 @@ class CurrentSearchTests(TestCase):
     def test_combination_preserves_all_business_rows_and_provenance(
         self,
     ) -> None:
-        """Combine future filters without rewriting history, FKs or decisions.
+        """
+        Combine future filters without rewriting history, FKs or decisions.
 
         Args:
             None
@@ -827,7 +856,8 @@ class CurrentSearchTests(TestCase):
                              before[model])
 
     def test_each_provider_default_and_widest_restricted_union(self) -> None:
-        """Normalize each constituent before union and keep unbounded sides.
+        """
+        Normalize each constituent before union and keep unbounded sides.
 
         Args:
             None
@@ -865,7 +895,8 @@ class CurrentSearchTests(TestCase):
             project, ["", ""])["proposal"]["year_max"])
 
     def test_query_translation_stale_preview_and_archived_urls(self) -> None:
-        """Refuse ambiguous/stale confirmations and all archived provider work.
+        """
+        Refuse ambiguous/stale confirmations and all archived provider work.
 
         Args:
             None
@@ -908,7 +939,8 @@ class CurrentSearchTests(TestCase):
         }).status_code, 302)
 
     def test_bad_expired_foreign_and_worker_bound_confirmation(self) -> None:
-        """Reject forged tokens and identities without creating settings.
+        """
+        Reject forged tokens and identities without creating settings.
 
         Args:
             None
@@ -941,7 +973,8 @@ class CurrentSearchTests(TestCase):
         self.assertFalse(project.searches.exists())
 
     def test_invalid_future_rows_and_years_do_not_save(self) -> None:
-        """Refuse malformed row JSON and reversed year windows at the form.
+        """
+        Refuse malformed row JSON and reversed year windows at the form.
 
         Args:
             None
@@ -967,7 +1000,8 @@ class CurrentSearchTests(TestCase):
     def test_manual_forgery_and_historical_assignment_preservation(
         self,
     ) -> None:
-        """Restrict reassignment to current while retaining saved links.
+        """
+        Restrict reassignment to current while retaining saved links.
 
         Args:
             None
@@ -1052,7 +1086,8 @@ class CurrentSearchTests(TestCase):
     def test_removed_current_keyword_can_keep_unchanged_saved_link(
         self,
     ) -> None:
-        """Retain old assignments without restoring removed search words.
+        """
+        Retain old assignments without restoring removed search words.
 
         Args:
             None
@@ -1092,7 +1127,8 @@ class CurrentSearchTests(TestCase):
         self.assertFalse(SearchRun.objects.exists())
 
     def test_stale_edit_retains_new_keyword_and_run_counters(self) -> None:
-        """Re-read signed settings atomically and never overwrite newer audits.
+        """
+        Re-read signed settings atomically and never overwrite newer audits.
 
         Args:
             None
@@ -1137,7 +1173,8 @@ class CurrentSearchTests(TestCase):
                          (123, 9))
 
     def test_edit_get_race_renders_its_signed_snapshot(self) -> None:
-        """Render the same business snapshot that confirmation fingerprints.
+        """
+        Render the same business snapshot that confirmation fingerprints.
 
         Args:
             None
@@ -1154,7 +1191,8 @@ class CurrentSearchTests(TestCase):
         url = reverse("search_update", args=[project.pk, search.pk])
 
         def add_before_preview(owner: Project, binding: list[str]) -> dict:
-            """Commit new settings after the editor's first configuration read.
+            """
+            Commit new settings after the editor's first configuration read.
 
             Args:
                 owner: Synthetic project whose preview is being rendered.
@@ -1185,7 +1223,8 @@ class CurrentSearchTests(TestCase):
         self.assertEqual(search.keywords, ["added", "old"])
 
     def test_repeat_run_adds_audits_and_failure_stays_isolated(self) -> None:
-        """Keep one editable row while recording each provider attempt.
+        """
+        Keep one editable row while recording each provider attempt.
 
         Args:
             None
@@ -1225,7 +1264,8 @@ class CurrentSearchTests(TestCase):
         provider.assert_not_called()
 
     def test_integrity_winner_is_reread_outside_failed_atomic(self) -> None:
-        """Recover a losing confirmation from the committed current row.
+        """
+        Recover a losing confirmation from the committed current row.
 
         Args:
             None
@@ -1240,7 +1280,8 @@ class CurrentSearchTests(TestCase):
         preview = configuration_preview(project, ["", ""])
 
         def competitor(*args, **kwargs) -> None:
-            """Simulate another committed writer and a rolled-back loser.
+            """
+            Simulate another committed writer and a rolled-back loser.
 
             Args:
                 *args: Confirmation service arguments unused by this fault.
@@ -1273,7 +1314,8 @@ class CurrentSearchTests(TestCase):
         self.assertEqual(project.searches.count(), 1)
 
     def test_write_lock_is_retryable_without_automatic_retry(self) -> None:
-        """Return a local GET retry link and leave configuration unmodified.
+        """
+        Return a local GET retry link and leave configuration unmodified.
 
         Args:
             None
@@ -1314,10 +1356,13 @@ class CurrentSearchTests(TestCase):
 
 
 class CurrentSearchConcurrencyTests(TransactionTestCase):
-    """Check competing SQLite writers without pretending row locks exist."""
+    """
+    Check competing SQLite writers without pretending row locks exist.
+    """
 
     def test_competing_create_and_adopt_leave_one_winner(self) -> None:
-        """Allow explicit retry after contention, with no partial settings.
+        """
+        Allow explicit retry after contention, with no partial settings.
 
         Args:
             None
@@ -1346,7 +1391,8 @@ class CurrentSearchConcurrencyTests(TransactionTestCase):
                 owner: Project, settings: dict, token: str, gate: Barrier,
                 adoption: bool,
             ) -> bool:
-                """Compete from a distinct connection using the same preview.
+                """
+                Compete from a distinct connection using the same preview.
 
                 Args:
                     owner: Project for this race iteration.
@@ -1395,12 +1441,15 @@ class CurrentSearchConcurrencyTests(TransactionTestCase):
 
 
 class CurrentSearchSchemaTests(SimpleTestCase):
-    """Prove schema-only upgrades and initial-read locks in scratch DBs."""
+    """
+    Prove schema-only upgrades and initial-read locks in scratch DBs.
+    """
 
     def test_worker_client_keeps_explicit_tokens_and_uses_native_action(
         self,
     ) -> None:
-        """Keep forged/stale tests exact while normal forms send saved tokens.
+        """
+        Keep forged/stale tests exact while normal forms send saved tokens.
 
         Args:
             None
@@ -1441,7 +1490,8 @@ class CurrentSearchSchemaTests(SimpleTestCase):
     def test_admin_cannot_bypass_search_confirmation_or_repoint_audits(
         self,
     ) -> None:
-        """Keep affected admin entries browse-only, including bulk deletion.
+        """
+        Keep affected admin entries browse-only, including bulk deletion.
 
         Args:
             None
@@ -1466,7 +1516,8 @@ class CurrentSearchSchemaTests(SimpleTestCase):
             self.assertFalse(registered.has_delete_permission(request))
 
     def test_synthetic_0012_upgrade_preserves_all_rows(self) -> None:
-        """Explicitly migrate synthetic old schema without changing its rows.
+        """
+        Explicitly migrate synthetic old schema without changing its rows.
 
         Args:
             None
@@ -1551,7 +1602,8 @@ print("schema-only 0012 to 0013 PASS")
             self.assertIn("schema-only 0012 to 0013 PASS", result.stdout)
 
     def test_initial_adoption_read_lock_has_no_partial_mutation(self) -> None:
-        """Return 503 under a real exclusive synthetic SQLite file lock.
+        """
+        Return 503 under a real exclusive synthetic SQLite file lock.
 
         Args:
             None

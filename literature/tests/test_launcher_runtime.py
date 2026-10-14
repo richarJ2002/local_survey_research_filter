@@ -1,4 +1,5 @@
-"""Check launcher ownership, DB guards and bootstrap hashes in synthetic state.
+"""
+Check launcher ownership, DB guards and bootstrap hashes in synthetic state.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -39,12 +40,15 @@ from config import launcher
 
 
 class LauncherRuntimeTests(SimpleTestCase):
-    """Keep startup selection independent of argparse and Django state."""
+    """
+    Keep startup selection independent of argparse and Django state.
+    """
 
     def test_idle_request_line_timeout_is_quiet_and_other_errors_propagate(
         self,
     ) -> None:
-        """Close idle sockets without hiding parsed-request or unrelated errors.
+        """
+        Close idle sockets without hiding parsed-request or unrelated errors.
 
         Args:
             None
@@ -114,7 +118,8 @@ class LauncherRuntimeTests(SimpleTestCase):
         process.assert_called_once_with(handler)
 
     def test_admin_and_legacy_role_guards_precede_django(self) -> None:
-        """Reject implicit writes and nondeveloper legacy opt-ins before setup.
+        """
+        Reject implicit writes and nondeveloper legacy opt-ins before setup.
 
         Args:
             None
@@ -152,7 +157,8 @@ class LauncherRuntimeTests(SimpleTestCase):
     def test_safe_dispatch_defaults_to_memory_without_private_state(
         self,
     ) -> None:
-        """Inspect fresh settings for every untargeted safe-command contract.
+        """
+        Inspect fresh settings for every untargeted safe-command contract.
 
         Args:
             None
@@ -203,7 +209,8 @@ assert not Path(os.environ['XDG_CACHE_HOME']).exists()
     def test_explicit_target_and_legacy_opt_in_preserve_arguments(
         self,
     ) -> None:
-        """Keep DB ownership and opaque Django flags without manager setup.
+        """
+        Keep DB ownership and opaque Django flags without manager setup.
 
         Args:
             None
@@ -244,7 +251,8 @@ assert not Path(os.environ['XDG_CACHE_HOME']).exists()
                 configure.assert_not_called()
 
     def test_bootstrap_hash_repeat_repair_and_exec_arguments(self) -> None:
-        """Keep successful repeats pip-free and require deliberate hash repair.
+        """
+        Keep successful repeats pip-free and require deliberate hash repair.
 
         Args:
             None
@@ -309,7 +317,8 @@ assert not Path(os.environ['XDG_CACHE_HOME']).exists()
     def test_worker_binding_skips_bootstrap_and_invalid_binding_refuses(
         self,
     ) -> None:
-        """Require owner/lock descriptors before serving an internal worker.
+        """
+        Require owner/lock descriptors before serving an internal worker.
 
         Args:
             None
@@ -336,7 +345,8 @@ assert not Path(os.environ['XDG_CACHE_HOME']).exists()
             configure.assert_not_called()
 
     def test_thin_cli_import_and_plain_value_delegation(self) -> None:
-        """Keep CLI import inert and pass plain values to both runtime paths.
+        """
+        Keep CLI import inert and pass plain values to both runtime paths.
 
         Args:
             None

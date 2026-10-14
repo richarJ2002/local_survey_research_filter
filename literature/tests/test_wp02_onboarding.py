@@ -1,4 +1,5 @@
-"""Qualify explicit online previews and atomic, provider-free local saves.
+"""
+Qualify explicit online previews and atomic, provider-free local saves.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -38,10 +39,13 @@ from literature.services.paper_lookup_service import save_entry
 
 
 class OnlineBoundaryTests(TestCase):
-    """Use synthetic metadata only; no test may contact a real provider."""
+    """
+    Use synthetic metadata only; no test may contact a real provider.
+    """
 
     def setUp(self) -> None:
-        """Create current settings without seeding research or screening rows.
+        """
+        Create current settings without seeding research or screening rows.
 
         Args:
             None
@@ -64,7 +68,8 @@ class OnlineBoundaryTests(TestCase):
         }
 
     def test_local_gets_fetch_nothing_and_do_not_repair_stages(self) -> None:
-        """Keep all local previews, figures and reports free of hidden writes.
+        """
+        Keep all local previews, figures and reports free of hidden writes.
 
         Args:
             None
@@ -103,7 +108,8 @@ class OnlineBoundaryTests(TestCase):
         ))
 
     def test_explicit_fetches_return_unsaved_previews(self) -> None:
-        """Fetch through POST only, preserving a separate save confirmation.
+        """
+        Fetch through POST only, preserving a separate save confirmation.
 
         Args:
             None
@@ -135,7 +141,8 @@ class OnlineBoundaryTests(TestCase):
                 self.assertFalse(Stage.objects.exists())
 
     def test_online_failures_preserve_retry_and_csrf(self) -> None:
-        """Refuse forged fetches and disclose provider failure without saving.
+        """
+        Refuse forged fetches and disclose provider failure without saving.
 
         Args:
             None
@@ -168,7 +175,8 @@ class OnlineBoundaryTests(TestCase):
                 self.assertFalse(SurveyEntry.objects.exists())
 
     def test_failed_manual_finish_rolls_back_every_record(self) -> None:
-        """Roll back creation and stage bootstrap if stale provenance is refused.
+        """
+        Roll back creation and stage bootstrap if stale provenance is refused.
 
         Args:
             None
@@ -199,7 +207,8 @@ class OnlineBoundaryTests(TestCase):
             self.assertFalse(model.objects.exists(), model.__name__)
 
     def test_new_keyword_cannot_replace_a_query_only_configuration(self) -> None:
-        """Leave adopted query syntax intact until explicit settings translation.
+        """
+        Leave adopted query syntax intact until explicit settings translation.
 
         Args:
             None
@@ -231,7 +240,8 @@ class OnlineBoundaryTests(TestCase):
             self.assertFalse(model.objects.exists(), model.__name__)
 
     def test_dashboard_displays_effective_legacy_provider_defaults(self) -> None:
-        """Show the four runnable providers even for an invalid stored selection.
+        """
+        Show the four runnable providers even for an invalid stored selection.
 
         Args:
             None
@@ -252,7 +262,8 @@ class OnlineBoundaryTests(TestCase):
             response, "sources: openalex, semantic_scholar, crossref, arxiv")
 
     def test_existing_survey_does_not_require_another_search(self) -> None:
-        """Preserve the writing-stage next action before or after adoption.
+        """
+        Preserve the writing-stage next action before or after adoption.
 
         Args:
             None
@@ -274,7 +285,8 @@ class OnlineBoundaryTests(TestCase):
         self.assertEqual(Paper.objects.count(), 1)
 
     def test_historical_link_remains_usable_without_current_settings(self) -> None:
-        """Separate new-keyword guidance from preserving an existing saved link.
+        """
+        Separate new-keyword guidance from preserving an existing saved link.
 
         Args:
             None

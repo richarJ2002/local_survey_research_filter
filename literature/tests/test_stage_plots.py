@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Verify cumulative stage counts, adaptive axes, and plot downloads.
+"""
+Verify cumulative stage counts, adaptive axes, and plot downloads.
 
 @File:   test_stage_plots.py
 
@@ -36,11 +37,14 @@ from literature.services.plots_service import build_stage_cumulative_figure
 
 
 class StagePlotTests(TestCase):
-    """Running totals split by step, undated counted aside."""
+    """
+    Running totals split by step, undated counted aside.
+    """
 
     # --- Setup helper ---
     def _setup(self) -> Project:
-        """Create discovered papers with dated and undated Title decisions.
+        """
+        Create discovered papers with dated and undated Title decisions.
 
         Two dated papers (one kept) plus one undated.
 
@@ -75,7 +79,8 @@ class StagePlotTests(TestCase):
 
     # --- Series ---
     def test_series_and_footnote(self) -> None:
-        """Count dated cumulative stages and show undated papers in a footnote.
+        """
+        Count dated cumulative stages and show undated papers in a footnote.
 
         Lines rise; undated counted in footnote only.
 
@@ -100,7 +105,8 @@ class StagePlotTests(TestCase):
 
     # --- Axis + footnote layout ---
     def test_adaptive_ticks_and_footnote_clearance(self) -> None:
-        """Check yearly ticks and footnote spacing for a short year range.
+        """
+        Check yearly ticks and footnote spacing for a short year range.
 
         A short span has yearly ticks and fixed footnote clearance below the
         axis.
@@ -123,7 +129,8 @@ class StagePlotTests(TestCase):
         self.assertIn('"yshift":-100', compact)
 
     def test_tick_intervals_adapt_without_resampling_data(self) -> None:
-        """Use 1/2/5/10-year ticks, capped at ten even for centuries of data.
+        """
+        Use 1/2/5/10-year ticks, capped at ten even for centuries of data.
 
         Args:
             None
@@ -155,7 +162,8 @@ class StagePlotTests(TestCase):
     def test_undated_only_chart_keeps_counts_in_a_separate_footnote(
         self,
     ) -> None:
-        """Display undated-only counts with the same footnote clearance.
+        """
+        Display undated-only counts with the same footnote clearance.
 
         Even without any dated observations, the omitted-paper counts remain
         visible.
@@ -186,7 +194,8 @@ class StagePlotTests(TestCase):
 
     # --- Dashboard + download ---
     def test_plots_and_download(self) -> None:
-        """Render the stage chart and return an attachment from plot download.
+        """
+        Render the stage chart and return an attachment from plot download.
 
         Dashboard shows stage chart; download returns one file.
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Verify Crossref and arXiv mapping, source metrics, and duplicate merging.
+"""
+Verify Crossref and arXiv mapping, source metrics, and duplicate merging.
 
 @File:   test_trustworthy_sources.py
 
@@ -38,11 +39,14 @@ from literature.services.metrics_service import build_metrics
 
 
 class TrustworthyMappingTests(TestCase):
-    """Crossref/arXiv map to canonical shape without keys."""
+    """
+    Crossref/arXiv map to canonical shape without keys.
+    """
 
     # --- Crossref ---
     def test_crossref_minimal(self) -> None:
-        """Normalize Crossref DOI and venue while retaining source provenance.
+        """
+        Normalize Crossref DOI and venue while retaining source provenance.
 
         Crossref DOI/title/venue map; abstract empty.
 
@@ -74,7 +78,8 @@ class TrustworthyMappingTests(TestCase):
 
     # --- arXiv ---
     def test_arxiv_minimal(self) -> None:
-        """Map an arXiv summary and retain canonical and discovery sources.
+        """
+        Map an arXiv summary and retain canonical and discovery sources.
 
         arXiv Atom entry maps abstract + arxiv id.
 
@@ -105,7 +110,8 @@ class TrustworthyMappingTests(TestCase):
 
     # --- arXiv query ---
     def test_arxiv_query_joins_keywords(self) -> None:
-        """Include a quoted all-field keyword in the arXiv search query.
+        """
+        Include a quoted all-field keyword in the arXiv search query.
 
         Keyword rows become OR-joined all: query.
 
@@ -127,7 +133,8 @@ class TrustworthyMappingTests(TestCase):
 
     # --- Crossref headers carry mailto ---
     def test_crossref_headers_polite(self) -> None:
-        """Include the configured email as mailto in Crossref's user agent.
+        """
+        Include the configured email as mailto in Crossref's user agent.
 
         Crossref UA includes mailto when configured.
 
@@ -145,11 +152,14 @@ class TrustworthyMappingTests(TestCase):
 
 
 class MetricsDuplicateTests(TestCase):
-    """Metrics funnel + same-title duplicate review."""
+    """
+    Metrics funnel + same-title duplicate review.
+    """
 
     # --- Metrics ---
     def test_metrics_groups_by_source(self) -> None:
-        """Check audited source totals independently of discovered papers.
+        """
+        Check audited source totals independently of discovered papers.
 
         Per-source totals, dups, unique, and stage counts.
 
@@ -181,7 +191,8 @@ class MetricsDuplicateTests(TestCase):
 
     # --- Duplicates ---
     def test_duplicate_groups_and_merge(self) -> None:
-        """Group normalized titles and merge while retaining discovery history.
+        """
+        Group normalized titles and merge while retaining discovery history.
 
         Same titles group; merge keeps history, drops duplicate.
 

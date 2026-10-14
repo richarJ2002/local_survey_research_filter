@@ -1,4 +1,5 @@
-"""Enforce unique non-null DOI and OpenAlex identifiers through constraints.
+"""
+Enforce unique non-null DOI and OpenAlex identifiers through constraints.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -27,7 +28,9 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    """Replace field uniqueness with conditional identifier constraints."""
+    """
+    Replace field uniqueness with conditional identifier constraints.
+    """
 
     dependencies = [
         ('literature', '0001_initial'),

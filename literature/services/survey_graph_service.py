@@ -1,4 +1,5 @@
-"""Curated survey snapshots and confirmed citations, independent of screening decisions.
+"""
+Curated survey snapshots and confirmed citations, independent of screening decisions.
 
 @File: survey_graph_service.py
 @Brief: Editable survey-writing graph without mutating draft library records.
@@ -35,7 +36,9 @@ from literature.services.reference_service import normalize_doi
 
 
 def citation_key(value: str) -> str:
-    """Normalize only supported identity formats, not citation titles or prose."""
+    """
+    Normalize only supported identity formats, not citation titles or prose.
+    """
     raw = str(value or "").strip()
     if not raw:
         return ""
@@ -53,7 +56,9 @@ def citation_key(value: str) -> str:
 
 
 def _authors_text(raw) -> str:
-    """Accept string or list of dict/str without raising on provider shapes."""
+    """
+    Accept string or list of dict/str without raising on provider shapes.
+    """
     if isinstance(raw, str):
         return raw
     if not isinstance(raw, list):
@@ -70,7 +75,8 @@ def _authors_text(raw) -> str:
 
 
 def project_origin(project: Project, paper: Paper | None) -> tuple[str, str]:
-    """Derive (inclusion_origin, origin_source) from this project's discoveries only.
+    """
+    Derive (inclusion_origin, origin_source) from this project's discoveries only.
 
     Original when any matching discovery raw_payload.entry_method != user_added
     (ordinary provider history counts as original); otherwise reading.
@@ -106,7 +112,8 @@ def prefill(
     project: Project, doi: str, metadata: dict, paper: Paper | None, *,
     binding: list[str] | None = None,
 ) -> dict:
-    """Sign the cached identities; all visible bibliographic fields remain editable.
+    """
+    Sign the cached identities; all visible bibliographic fields remain editable.
 
     Never mutates Paper/Discovery/keyword/decisions. Reference numbers stay
     blank so curators finalize them once manuscript IDs are known. The signed
@@ -190,7 +197,8 @@ def save_survey_entry(
     project: Project, values: dict, entry_id: int | None = None, *,
     binding: list[str] | None = None,
 ) -> SurveyEntry:
-    """Save a curated snapshot and manual links atomically without draft writes.
+    """
+    Save a curated snapshot and manual links atomically without draft writes.
 
     Args:
         project: Owning project for the entry and cited targets.
@@ -350,7 +358,9 @@ def save_survey_entry(
 
 
 def build_survey_graph(project: Project) -> dict:
-    """Render chosen entries only; union identifier-matched, cached and manually confirmed edges."""
+    """
+    Render chosen entries only; union identifier-matched, cached and manually confirmed edges.
+    """
     entries = list(project.survey_entries.select_related("paper"))
     by_key = {}
     for entry in entries:

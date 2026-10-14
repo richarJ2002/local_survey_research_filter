@@ -1,4 +1,5 @@
-"""Record curated inclusion context separately from discovery source.
+"""
+Record curated inclusion context separately from discovery source.
 
 Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
 (AERO-Sys) group.
@@ -27,7 +28,9 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    """Add inclusion origin, defaulting legacy entries to unspecified."""
+    """
+    Add inclusion origin, defaulting legacy entries to unspecified.
+    """
 
     dependencies = [
         ('literature', '0011_curated_survey_graph'),
