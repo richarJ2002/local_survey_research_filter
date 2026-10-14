@@ -10,12 +10,18 @@
 
 '''
 
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
+
 # Regular library imports
 from __future__ import annotations
 
 # Custom library Imports
 from django.core.exceptions import ValidationError
 from django.db import models
+
+from literature.providers import DEFAULT_SEARCH_PROVIDERS, SEARCH_PROVIDERS
 
 # ------------------------------------------------------------------------ #
 # Project / Search / SearchRun
@@ -34,10 +40,34 @@ class Project(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self) -> str:
+        """Return the stored project display name.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            str: The project name, without renaming its folder.
+        """
         return self.name
 
     def ensure_default_stages(self) -> None:
-        """Seed Title (order 1) + Abstract (order 2) stages if missing."""
+        """Create missing Title/Abstract stages during an explicit write.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+
+        Side Effects:
+            Create stages at orders 1 and 2; never rewrite existing stages.
+        """
         defaults = [("Title", 1, False), ("Abstract", 2, True)]
         for name, order, is_final in defaults:
             Stage.objects.get_or_create(
@@ -57,6 +87,7 @@ class Search(models.Model):
     project = models.ForeignKey(
         Project, on_delete=models.CASCADE, related_name="searches"
     )
+    is_current = models.BooleanField(default=False)
     name = models.CharField(max_length=255)
     query = models.TextField(
         blank=True, default="", help_text="Derived from keywords; kept for audit."
@@ -76,13 +107,44 @@ class Search(models.Model):
     new_papers_count = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        """Allow history and zero current settings, but never two current rows."""
+
+        constraints = (
+            models.UniqueConstraint(
+                fields=["project"], condition=models.Q(is_current=True),
+                name="unique_current_search_per_project",
+            ),
+        )
+
     def __str__(self) -> str:
+        """Identify a configuration within its owning project.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            str: Project name and configuration name separated by a slash.
+        """
         return f"{self.project.name} / {self.name}"
 
     # --- Normalise one row list ---
     @staticmethod
     def clean_rows(values: list) -> list[str]:
-        """Strip, drop empties, dedupe (case-insensitive), sort A-Z."""
+        """Normalize rows while retaining the first spelling of each value.
+
+        Args:
+            values: Values to stringify and strip; empty/None yields no rows.
+
+        Kwargs:
+            None
+
+        Returns:
+            list[str]: Nonblank, lower-case-key-deduplicated, A–Z sorted rows.
+        """
         seen: dict[str, str] = {}
         for raw in values or []:
             text = str(raw).strip()
@@ -95,17 +157,47 @@ class Search(models.Model):
 
     # --- Query derivation ---
     def build_query(self) -> str:
-        """Join sorted keywords with spaces for keyword-search APIs."""
+        """Derive a space-joined query from normalized keyword rows.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            str: Sorted keyword text, or blank if no keyword rows exist.
+        """
         return " ".join(self.clean_rows(self.keywords))
 
     def save(self, *args, **kwargs) -> None:
-        """Sort rows A-Z, default sources, and rebuild query before saving."""
+        """Normalize future settings before delegating persistence to Django.
+
+        Args:
+            *args: Positional Model.save arguments forwarded unchanged.
+
+        Kwargs:
+            **kwargs: Model.save options such as using, force_insert,
+                force_update and update_fields; Django defaults apply.
+
+        Returns:
+            None
+
+        Raises:
+            IntegrityError: If persistence violates a database constraint.
+
+        Side Effects:
+            Normalize row lists and effective provider choices on this object;
+            derive a nonblank keyword query, retaining query-only fallback.
+            Empty selections retain the original four defaults; Scopus is
+            opt-in. update_fields controls which fields are persisted.
+        """
         self.keywords = self.clean_rows(self.keywords)
         self.venues = self.clean_rows(self.venues)
         self.author_names = self.clean_rows(self.author_names)
-        canonical = ["openalex", "semantic_scholar", "crossref", "arxiv"]
-        selected = [s for s in canonical if s in (self.sources_selected or [])]
-        self.sources_selected = selected or canonical
+        selected = [source for source in SEARCH_PROVIDERS
+                    if source in (self.sources_selected or [])]
+        self.sources_selected = selected or list(DEFAULT_SEARCH_PROVIDERS)
         derived = self.build_query()
         if derived:
             self.query = derived
@@ -146,6 +238,17 @@ class SearchRun(models.Model):
         ordering = ["-executed_at"]
 
     def __str__(self) -> str:
+        """Identify a provider run and its current audit status.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            str: Run ID, provider identifier and status.
+        """
         return f"Run {self.pk} {self.source} {self.status}"
 
 
@@ -169,7 +272,8 @@ class Paper(models.Model):
     keywords = models.JSONField(default=list)
     citation_count = models.PositiveIntegerField(default=0)
     references = models.JSONField(default=list)
-    reference_text = models.TextField(blank=True, default="", help_text="Manually supplied bibliography, including references without resolvable IDs.")
+    reference_text = models.TextField(
+        blank=True, default="", help_text="Manually supplied bibliography, including references without resolvable IDs.")
     source_ids = models.JSONField(default=dict)
     sources = models.JSONField(default=list)
     raw = models.JSONField(default=dict)
@@ -194,10 +298,32 @@ class Paper(models.Model):
         ]
 
     def __str__(self) -> str:
+        """Provide a bounded paper title for administrative displays.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            str: The first 120 title characters.
+        """
         return self.title[:120]
 
     def author_display(self) -> str:
-        """Human-readable author list for Round 1 card."""
+        """Format author names without exposing raw provider author objects.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            str: Comma-joined names up to four authors; first three plus
+            et al. and total count for longer lists, or Unknown authors.
+        """
         names: list[str] = []
         for entry in self.authors or []:
             if isinstance(entry, dict):
@@ -259,6 +385,17 @@ class Discovery(models.Model):
         ]
 
     def __str__(self) -> str:
+        """Describe a recorded discovery without changing its provenance.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            str: Paper ID and discovery source.
+        """
         return f"{self.paper_id} via {self.source}"
 
 
@@ -281,6 +418,17 @@ class Stage(models.Model):
         ]
 
     def __str__(self) -> str:
+        """Identify the screening stage and its owning project.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            str: Project name and stage name separated by a slash.
+        """
         return f"{self.project.name} / {self.name}"
 
 
@@ -319,9 +467,34 @@ class ScreeningDecision(models.Model):
         ]
 
     def __str__(self) -> str:
+        """Describe the stored paper/stage decision for an audit display.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            str: Paper ID, stage name and decision value.
+        """
         return f"{self.paper_id} @ {self.stage.name}: {self.decision}"
 
     def clean(self) -> None:
+        """Validate the finite decision vocabulary without saving a choice.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+
+        Raises:
+            ValidationError: Unless the value is PENDING, ACCEPT or REJECT.
+        """
         if self.decision not in {
             self.Decision.PENDING,
             self.Decision.ACCEPT,
@@ -333,8 +506,10 @@ class ScreeningDecision(models.Model):
 class ScreeningRevision(models.Model):
     """Audit an explicit correction made from the project paper manager."""
 
-    paper = models.ForeignKey(Paper, on_delete=models.CASCADE, related_name="revisions")
-    stage = models.ForeignKey(Stage, on_delete=models.CASCADE, related_name="revisions")
+    paper = models.ForeignKey(
+        Paper, on_delete=models.CASCADE, related_name="revisions")
+    stage = models.ForeignKey(
+        Stage, on_delete=models.CASCADE, related_name="revisions")
     previous_decision = models.CharField(max_length=10)
     new_decision = models.CharField(max_length=10)
     reason = models.CharField(max_length=255)
@@ -352,14 +527,18 @@ class PaperKeywordAssignment(models.Model):
     assignment must neither rewrite provider provenance nor affect another project.
     """
 
-    paper = models.ForeignKey(Paper, on_delete=models.CASCADE, related_name="keyword_assignments")
-    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="keyword_assignments")
-    search = models.ForeignKey(Search, on_delete=models.CASCADE, related_name="keyword_assignments")
+    paper = models.ForeignKey(
+        Paper, on_delete=models.CASCADE, related_name="keyword_assignments")
+    project = models.ForeignKey(
+        Project, on_delete=models.CASCADE, related_name="keyword_assignments")
+    search = models.ForeignKey(
+        Search, on_delete=models.CASCADE, related_name="keyword_assignments")
     keyword = models.CharField(max_length=255)
 
     class Meta:
         constraints = (
-            models.UniqueConstraint(fields=["paper", "project"], name="unique_project_paper_keyword"),
+            models.UniqueConstraint(
+                fields=["paper", "project"], name="unique_project_paper_keyword"),
         )
 
 
@@ -371,8 +550,10 @@ class SurveyEntry(models.Model):
         READING = "reading", "Added while reading papers"
         UNSPECIFIED = "unspecified", "Unspecified (legacy)"
 
-    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="survey_entries")
-    paper = models.ForeignKey(Paper, on_delete=models.SET_NULL, null=True, blank=True)
+    project = models.ForeignKey(
+        Project, on_delete=models.CASCADE, related_name="survey_entries")
+    paper = models.ForeignKey(
+        Paper, on_delete=models.SET_NULL, null=True, blank=True)
     reference_number = models.PositiveIntegerField()
     title = models.TextField()
     doi = models.CharField(max_length=320, blank=True, default="")
@@ -395,23 +576,41 @@ class SurveyEntry(models.Model):
     class Meta:
         ordering = ("reference_number", "pk")
         constraints = (
-            models.UniqueConstraint(fields=["project", "reference_number"], name="unique_survey_reference_number"),
-            models.CheckConstraint(condition=models.Q(reference_number__gte=1), name="positive_survey_reference_number"),
-            models.UniqueConstraint(fields=["project", "doi"], condition=~models.Q(doi=""), name="unique_survey_doi_when_present"),
+            models.UniqueConstraint(
+                fields=["project", "reference_number"], name="unique_survey_reference_number"),
+            models.CheckConstraint(condition=models.Q(
+                reference_number__gte=1), name="positive_survey_reference_number"),
+            models.UniqueConstraint(fields=["project", "doi"], condition=~models.Q(
+                doi=""), name="unique_survey_doi_when_present"),
         )
 
     def __str__(self) -> str:
+        """Label the independent curated entry with its manuscript reference.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            str: Bracketed reference number and complete curated title.
+        """
         return f"[{self.reference_number}] {self.title}"
 
 
 class SurveyCitation(models.Model):
     """A curator-confirmed citing → cited link between entries in the same project."""
 
-    citing = models.ForeignKey(SurveyEntry, on_delete=models.CASCADE, related_name="manual_outgoing")
-    cited = models.ForeignKey(SurveyEntry, on_delete=models.CASCADE, related_name="manual_incoming")
+    citing = models.ForeignKey(
+        SurveyEntry, on_delete=models.CASCADE, related_name="manual_outgoing")
+    cited = models.ForeignKey(
+        SurveyEntry, on_delete=models.CASCADE, related_name="manual_incoming")
 
     class Meta:
         constraints = (
-            models.UniqueConstraint(fields=["citing", "cited"], name="unique_manual_survey_citation"),
-            models.CheckConstraint(condition=~models.Q(citing=models.F("cited")), name="no_survey_self_citation"),
+            models.UniqueConstraint(
+                fields=["citing", "cited"], name="unique_manual_survey_citation"),
+            models.CheckConstraint(condition=~models.Q(
+                citing=models.F("cited")), name="no_survey_self_citation"),
         )
