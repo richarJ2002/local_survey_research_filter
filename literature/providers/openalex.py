@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
 
-'''
+"""Fetch OpenAlex work pages with contact headers and retry backoff.
+
+Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
+(AERO-Sys) group.
+
 @File:   openalex.py
 
-@Brief:  OpenAlex provider with polite pool and backoff (no scraping).
+@Brief:  Fetch OpenAlex work pages with contact headers and retry backoff.
 
-@Date:   28/09/2026
-@Copyright: 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group.
+@Date:   14/10/2026
+"""
 
-'''
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
 
 # Regular library imports
 from __future__ import annotations
@@ -30,7 +36,15 @@ from .mapping import map_openalex_to_canonical
 
 @dataclass(frozen=True)
 class SearchConfig:
-    """Value object for one provider search page run."""
+    """Hold immutable OpenAlex query, filters and pagination settings.
+
+    query supplies search text; optional year_min/year_max bound dates. venues
+    and author_names are OR-matched locally; keywords retains reusable rows
+    but does not independently build this provider's query. Row tuples default
+    to empty, year bounds to None, page_size to 25 and max_pages to 4.
+    Values are not validated here; fetch caps page_size at 200 and attempts
+    at least one page even when max_pages is below one.
+    """
 
     query: str
     year_min: int | None = None
@@ -44,32 +58,79 @@ class SearchConfig:
 
 @dataclass(frozen=True)
 class ProviderResult:
+    """Pair canonical paper_data with its original raw_response work object.
+
+    Both dictionaries are in-memory metadata for the persistence caller;
+    raw_response and paper_data['raw'] reference the same provider payload.
+    """
+
     paper_data: dict
     raw_response: dict
 
 
 class OpenAlexError(RuntimeError):
-    """Raised when OpenAlex cannot be queried after retries."""
+    """Report a rejected OpenAlex response or exhausted retry attempts."""
 
 
 class OpenAlexSource:
-    """Concrete OpenAlex client for MVP (no abstract provider base yet)."""
+    """Query OpenAlex works with an optional email in the User-Agent.
+
+    email stores the stripped explicit or configured contact; the source does
+    not own a persistent HTTP client or write papers to the database.
+    """
 
     source_key = "openalex"
     base_url = "https://api.openalex.org/works"
 
     def __init__(self, email: str | None = None) -> None:
+        """Set the contact email, falling back to settings for falsey input.
+
+        Args:
+            None
+
+        Kwargs:
+            email: Optional explicit contact email string. Defaults to None;
+                None or an empty string uses OPENALEX_EMAIL from settings.
+
+        Returns:
+            None
+        """
         configured = email or getattr(settings, "OPENALEX_EMAIL", "") or ""
         self.email = configured.strip()
 
     def default_headers(self) -> dict:
+        """Build JSON request headers with the optional contact email.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            dict: User-Agent identifies the app with optional mailto contact;
+                Accept requests application/json. No API key is included.
+        """
         agent = "LocalSurveyResearchFilter/0.1"
         if self.email:
             agent += f" (mailto:{self.email})"
         return {"User-Agent": agent, "Accept": "application/json"}
 
     def build_request_params(self, config: SearchConfig, cursor: str | None) -> dict:
-        """Build OpenAlex filter/search/select params for one page."""
+        """Build OpenAlex search, date filters and field selection for a page.
+
+        Args:
+            config (SearchConfig): Query/year bounds and requested page size.
+            cursor: Provider cursor string or None; falsey values use "*".
+
+        Kwargs:
+            None
+
+        Returns:
+            dict: search, per-page (capped at 200), cursor and select,
+                plus filter for non-None inclusive year bounds. Venue/author
+                text is filtered locally, not sent as provider IDs.
+        """
         filters: list[str] = []
         if config.year_min is not None:
             filters.append(f"from_publication_date:{config.year_min}-01-01")
@@ -95,6 +156,31 @@ class OpenAlexSource:
     def _get_with_backoff(
         self, client: httpx.Client, params: dict, max_retries: int = 3
     ) -> httpx.Response:
+        """GET a works page, retrying selected transport errors and 429/5xx.
+
+        Args:
+            client (httpx.Client): Borrowed client; timeout is 30 seconds.
+            params (dict): Query parameters for the fixed works endpoint.
+
+        Kwargs:
+            max_retries (int): Total attempt count, not extra retries.
+                Defaults to 3; nonpositive values make no requests and fail.
+
+        Returns:
+            httpx.Response: First response other than 429/5xx, including
+                nonretryable error statuses for fetch to check.
+
+        Raises:
+            OpenAlexError: If all attempts fail with handled transport errors
+                or retryable statuses, or no attempt is allowed.
+            httpx.RequestError: If a transport error other than ConnectError,
+                ReadTimeout or RemoteProtocolError occurs.
+
+        Side Effects:
+            Issue GETs and sleep after handled failures. For HTTP retries use
+            numeric Retry-After or exponential seconds plus jitter, capped at
+            30 seconds; transport retries use exponential seconds plus jitter.
+        """
         last_exc: Exception | None = None
         last_status: int | None = None
         for attempt in range(max_retries):
@@ -115,7 +201,8 @@ class OpenAlexSource:
                 continue
             return resp
         if last_exc is not None:
-            raise OpenAlexError(f"OpenAlex unreachable after retries: {last_exc}")
+            raise OpenAlexError(
+                f"OpenAlex unreachable after retries: {last_exc}")
         raise OpenAlexError(
             f"OpenAlex retryable {last_status} after {max_retries} tries"
         )
@@ -125,7 +212,34 @@ class OpenAlexSource:
         config: SearchConfig,
         client: httpx.Client | None = None,
     ) -> tuple[list[ProviderResult], int]:
-        """Fetch up to max_pages. Returns (results, total_count)."""
+        """Fetch cursor pages and apply local venue/author substring filters.
+
+        Args:
+            config (SearchConfig): Search text, year bounds, OR-matched local
+                venue/author rows and pagination settings.
+
+        Kwargs:
+            client: Optional borrowed httpx.Client. Defaults
+                to None, which creates and closes a redirect-following client
+                with default_headers; borrowed clients keep their own headers.
+
+        Returns:
+            tuple: List of canonical/raw ProviderResult objects surviving
+                local filters and integer meta.count before those filters or
+                page truncation (zero if absent). Fetch at most
+                max(1, config.max_pages) pages, stopping without a next_cursor;
+                duplicate works are not removed here.
+
+        Raises:
+            OpenAlexError: If a request exhausts retries or returns non-200.
+            httpx.RequestError: If an unhandled transport failure occurs.
+            ValueError: If JSON, total count or canonical values cannot parse.
+            TypeError: If provider fields have incompatible mapping types.
+
+        Side Effects:
+            Perform requests and retry sleeps, without DB writes. Close only
+            a client created here; there is no fixed inter-page sleep.
+        """
         own_client = client is None
         http = client or httpx.Client(
             headers=self.default_headers(), follow_redirects=True
@@ -162,7 +276,8 @@ class OpenAlexSource:
                         if not any(n.lower() in hay for n in config.author_names if n):
                             continue
                     results.append(
-                        ProviderResult(paper_data=paper_data, raw_response=item)
+                        ProviderResult(paper_data=paper_data,
+                                       raw_response=item)
                     )
                 cursor = (payload.get("meta") or {}).get("next_cursor")
                 if not cursor:
