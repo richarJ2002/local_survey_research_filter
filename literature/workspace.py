@@ -10,6 +10,10 @@
 
 '''
 
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
+
 # Regular library imports
 from __future__ import annotations
 
@@ -28,10 +32,10 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
-from contextlib import ExitStack, contextmanager, nullcontext
+from contextlib import ExitStack, closing, contextmanager, nullcontext
 from pathlib import Path
 
-# Custom library imports
+# Custom library Imports
 from django.conf import settings
 
 from literature.project_store import (
@@ -60,6 +64,10 @@ from literature.project_store import (
 _MAX_RECENT = 10
 
 
+# ------------------------------------------------------------------------ #
+# Definitions
+# ------------------------------------------------------------------------ #
+
 # --- Load workspace preferences; a corrupt file falls back, never crashes ---
 def load_app_settings() -> dict:
     """Read private settings.json; missing/corrupt files yield defaults."""
@@ -71,9 +79,11 @@ def load_app_settings() -> dict:
         return data
     if isinstance(raw, dict):
         if isinstance(raw.get("workspace_roots"), list):
-            data["workspace_roots"] = [str(p) for p in raw["workspace_roots"][:8]]
+            data["workspace_roots"] = [str(p)
+                                       for p in raw["workspace_roots"][:8]]
         if isinstance(raw.get("recent_projects"), list):
-            data["recent_projects"] = [str(p) for p in raw["recent_projects"][:_MAX_RECENT]]
+            data["recent_projects"] = [
+                str(p) for p in raw["recent_projects"][:_MAX_RECENT]]
     return data
 
 
@@ -84,7 +94,8 @@ def save_app_settings(data: dict) -> Path:
     try:
         path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     except OSError as exc:
-        raise ProjectStoreError(f"{path}: cannot create settings dir ({exc})") from exc
+        raise ProjectStoreError(
+            f"{path}: cannot create settings dir ({exc})") from exc
     doc = {
         "format_version": 1,
         "workspace_roots": list(data.get("workspace_roots", []))[:8],
@@ -95,7 +106,8 @@ def save_app_settings(data: dict) -> Path:
         tmp.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
         os.replace(tmp, path)
     except OSError as exc:
-        raise ProjectStoreError(f"{path}: cannot write settings ({exc})") from exc
+        raise ProjectStoreError(
+            f"{path}: cannot write settings ({exc})") from exc
     return path
 
 
@@ -118,7 +130,8 @@ def set_workspace_root(directory: str) -> Path:
     try:
         resolved = candidate.resolve()
     except (OSError, RuntimeError) as exc:
-        raise ProjectStoreError(f"{candidate}: cannot resolve path ({exc})") from exc
+        raise ProjectStoreError(
+            f"{candidate}: cannot resolve path ({exc})") from exc
     if not resolved.is_dir():
         raise ProjectStoreError(f"{resolved}: not a directory")
     if not os.access(resolved, os.R_OK | os.X_OK):
@@ -148,22 +161,37 @@ def remember_recent(canonical: str) -> None:
 
 # --- Describe a typed directory without creating or migrating anything ---
 def describe_target(directory: str) -> dict:
-    """Resolve a typed path and report location, permissions and store state."""
+    """Describe a typed path without creating or migrating anything.
+
+    Args:
+        directory: Typed destination or existing project folder.
+
+    Kwargs:
+        None
+
+    Returns:
+        dict: Resolved path and state, or an actionable path-inspection error.
+    """
     raw = (directory or "").strip()
     if not raw:
         return {"input": directory, "error": "Enter a folder path."}
-    candidate = Path(raw).expanduser()
     try:
+        candidate = Path(raw).expanduser()
         resolved = candidate.resolve()
-    except (OSError, RuntimeError) as exc:
+        info: dict = {"input": raw, "resolved": str(resolved)}
+        info["exists"] = resolved.exists()
+        info["is_dir"] = resolved.is_dir()
+        info["readable"] = (
+            bool(os.access(resolved, os.R_OK | os.X_OK))
+            if info["exists"] else False)
+        parent = resolved if info["is_dir"] else resolved.parent
+        info["writable"] = (
+            bool(os.access(parent, os.W_OK | os.X_OK))
+            if parent.exists() else False)
+        has_manifest = (resolved / MANIFEST_FILENAME).is_file()
+    except (OSError, RuntimeError, ValueError) as exc:
         return {"input": raw, "error": f"Cannot resolve path ({exc})"}
-    info: dict = {"input": raw, "resolved": str(resolved)}
-    info["exists"] = resolved.exists()
-    info["is_dir"] = resolved.is_dir()
-    info["readable"] = bool(os.access(resolved, os.R_OK | os.X_OK)) if resolved.exists() else False
-    parent = resolved if resolved.is_dir() else resolved.parent
-    info["writable"] = bool(os.access(parent, os.W_OK | os.X_OK)) if parent.exists() else False
-    if (resolved / MANIFEST_FILENAME).is_file():
+    if has_manifest:
         try:
             manifest = open_project_store(resolved)
         except ProjectStoreError as exc:
@@ -171,12 +199,13 @@ def describe_target(directory: str) -> dict:
         else:
             info["store"] = f"Project {manifest.project_uuid} (openable)"
             info["project_uuid"] = str(manifest.project_uuid)
-    elif resolved.is_dir() and resolved.exists():
+    elif info["is_dir"] and info["exists"]:
         try:
             populated = any(resolved.iterdir())
         except OSError:
             populated = True
-        info["store"] = "No project here yet." if not populated else "Folder has files but no project manifest."
+        info["store"] = ("No project here yet." if not populated
+                         else "Folder has files but no project manifest.")
     else:
         info["store"] = "Location does not exist yet."
     return info
@@ -190,7 +219,8 @@ def check_new_target(directory: str) -> Path:
         raise ProjectStoreError("Enter a folder path for the new project.")
     dest = Path(raw).expanduser()
     if dest.exists() and not dest.is_dir():
-        raise ProjectStoreError(f"{dest.resolve()}: target exists and is not a directory")
+        raise ProjectStoreError(
+            f"{dest.resolve()}: target exists and is not a directory")
     if dest.is_dir():
         try:
             if any(dest.iterdir()):
@@ -198,7 +228,8 @@ def check_new_target(directory: str) -> Path:
                     f"{dest.resolve()}: refusing to overwrite a populated directory"
                 )
         except OSError as exc:
-            raise ProjectStoreError(f"{dest}: cannot list directory ({exc})") from exc
+            raise ProjectStoreError(
+                f"{dest}: cannot list directory ({exc})") from exc
     parent = dest if dest.is_dir() else dest.parent
     if not parent.exists():
         raise ProjectStoreError(f"{dest}: parent directory is missing")
@@ -207,7 +238,8 @@ def check_new_target(directory: str) -> Path:
     try:
         return dest.resolve()
     except (OSError, RuntimeError) as exc:
-        raise ProjectStoreError(f"{dest}: cannot resolve path ({exc})") from exc
+        raise ProjectStoreError(
+            f"{dest}: cannot resolve path ({exc})") from exc
 
 
 # --- Load must never create a missing store ---
@@ -215,7 +247,8 @@ def check_load_target(directory: str):
     """Validate an existing store for loading; missing stores are refused."""
     raw = (directory or "").strip()
     if not raw:
-        raise ProjectStoreError("Enter the folder path of the project to open.")
+        raise ProjectStoreError(
+            "Enter the folder path of the project to open.")
     manifest = validate_package(Path(raw).expanduser(), strict_members=False)
     allowed = {"project.json", "project.sqlite3", "exports", "backups",
                "project.sqlite3-wal", "project.sqlite3-shm", "project.sqlite3-journal"}
@@ -223,7 +256,8 @@ def check_load_target(directory: str):
         if {p.name for p in manifest.location.iterdir()} - allowed:
             raise ProjectStoreError("unknown project members; refusing Load")
     except OSError as exc:
-        raise ProjectStoreError(f"cannot inspect project members ({exc})") from exc
+        raise ProjectStoreError(
+            f"cannot inspect project members ({exc})") from exc
     return manifest
 
 
@@ -234,10 +268,27 @@ def check_load_target(directory: str):
 
 # --- Read-only project display name for a store database ---
 def _project_name(database_path: Path) -> str:
+    """Read the saved name without requiring the current application schema.
+
+    Args:
+        database_path: Existing database of a manifest-verified single project.
+
+    Kwargs:
+        None
+
+    Returns:
+        str: Stored project name, or blank when it cannot be read safely.
+
+    Side Effects:
+        Read only the name and close the connection; never migrate or create.
+    """
     try:
         uri = database_path.resolve().as_uri() + "?mode=ro"
-        with sqlite3.connect(uri, uri=True, timeout=30) as connection:
-            row = connection.execute("SELECT name FROM literature_project LIMIT 1").fetchone()
+        with closing(sqlite3.connect(uri, uri=True, timeout=30)) as connection:
+            connection.execute("PRAGMA query_only=ON")
+            connection.execute("PRAGMA trusted_schema=OFF")
+            row = connection.execute(
+                "SELECT name FROM literature_project LIMIT 1").fetchone()
     except (sqlite3.Error, OSError, ValueError):
         return ""
     return str(row[0]) if row else ""
@@ -249,8 +300,19 @@ def discover_workspace(root: Path | str | None) -> dict:
 
     Never recurses, never follows untrusted manifest paths, never copies data.
     Broken/looping links become error entries, never crashes.
+
+    Args:
+        root: Workspace directory, or None when no directory is selected.
+
+    Kwargs:
+        None
+
+    Returns:
+        dict: Resolved root, project entries and inspection errors. A readable
+        saved name does not imply the database is eligible for Load.
     """
-    result: dict = {"root": "" if root is None else str(root), "entries": [], "errors": []}
+    result: dict = {"root": "" if root is None else str(
+        root), "entries": [], "errors": []}
     if root is None:
         result["errors"].append("Choose a workspace folder first.")
         return result
@@ -258,7 +320,8 @@ def discover_workspace(root: Path | str | None) -> dict:
     try:
         resolved_base = base.resolve()
     except (OSError, RuntimeError) as exc:
-        result["errors"].append(f"{base}: cannot resolve workspace root ({exc})")
+        result["errors"].append(
+            f"{base}: cannot resolve workspace root ({exc})")
         return result
     result["root"] = str(resolved_base)
     if not resolved_base.is_dir():
@@ -266,20 +329,24 @@ def discover_workspace(root: Path | str | None) -> dict:
         return result
     # ponytail: the root itself plus direct children only; no os.walk anywhere.
     try:
-        candidates = [resolved_base] + sorted(resolved_base.iterdir(), key=lambda p: p.name)
+        candidates = [resolved_base] + \
+            sorted(resolved_base.iterdir(), key=lambda p: p.name)
     except OSError as exc:
-        result["errors"].append(f"{resolved_base}: cannot list directory ({exc})")
+        result["errors"].append(
+            f"{resolved_base}: cannot list directory ({exc})")
         return result
     seen: dict[str, dict] = {}
     uuid_places: dict[str, set[str]] = {}
     for candidate in candidates:
         if candidate.is_symlink() and not candidate.exists():
-            result["errors"].append(f"{candidate.name}: broken link (target missing)")
+            result["errors"].append(
+                f"{candidate.name}: broken link (target missing)")
             continue
         try:
             is_dir = candidate.is_dir()
         except OSError as exc:
-            result["errors"].append(f"{candidate.name}: cannot inspect ({exc})")
+            result["errors"].append(
+                f"{candidate.name}: cannot inspect ({exc})")
             continue
         if not is_dir:
             continue
@@ -287,12 +354,14 @@ def discover_workspace(root: Path | str | None) -> dict:
             report = inspect_project_store(candidate)
         except (ProjectStoreError, OSError, RuntimeError, ValueError, sqlite3.Error) as exc:
             # ponytail: broken/looping links land here; the landing never crashes.
-            result["errors"].append(f"{candidate.name}: cannot inspect ({exc})")
+            result["errors"].append(
+                f"{candidate.name}: cannot inspect ({exc})")
             continue
         if "project_uuid" not in report and "manifest_error" in report:
             if "no project.json" in str(report["manifest_error"]):
                 continue
-            result["errors"].append(f"{candidate.name}: {report['manifest_error']}")
+            result["errors"].append(
+                f"{candidate.name}: {report['manifest_error']}")
             continue
         location = str(report.get("location", candidate))
         if location in seen:
@@ -307,13 +376,16 @@ def discover_workspace(root: Path | str | None) -> dict:
             "aliases": 0,
             "collision": False,
         }
-        if entry["complete"]:
+        # A schema upgrade can block Load without erasing the saved identity.
+        if (entry["complete"] or (report.get("identity_match")
+                                  and report.get("project_count") == 1)):
             entry["name"] = _project_name(Path(location) / "project.sqlite3")
         seen[location] = entry
         if entry["project_uuid"]:
             uuid_places.setdefault(entry["project_uuid"], set()).add(location)
     clashes = {u for u, places in uuid_places.items() if len(places) > 1}
-    entries = sorted(seen.values(), key=lambda e: (e["name"] or e["directory"]).lower())
+    entries = sorted(seen.values(), key=lambda e: (
+        e["name"] or e["directory"]).lower())
     for entry in entries:
         if entry["project_uuid"] in clashes:
             # ponytail: same UUID at different files is an explicit collision,
@@ -330,6 +402,10 @@ def discover_workspace(root: Path | str | None) -> dict:
 #: How long the manager waits for a fresh worker to answer HTTP.
 _WORKER_READY_TIMEOUT = 90
 
+
+# ------------------------------------------------------------------------ #
+# Definitions
+# ------------------------------------------------------------------------ #
 
 # --- A free loopback port for the next worker; the worker binds it ---
 def _free_port() -> int:
@@ -382,7 +458,8 @@ def _record_worker(canonical: str, pid: int, port: int, epoch: str) -> None:
                 "INSERT OR REPLACE INTO workers "
                 "(store_canonical, pid, port, worker_epoch, lease_owner, updated_at) "
                 "VALUES (?, ?, ?, ?, ?, ?)",
-                (canonical, pid, port, epoch, "manager", datetime.now(UTC).isoformat()),
+                (canonical, pid, port, epoch, "manager",
+                 datetime.now(UTC).isoformat()),
             )
             connection.commit()
     except (sqlite3.Error, OSError) as exc:
@@ -395,9 +472,11 @@ def store_project_id(database_path: Path) -> int:
     try:
         uri = database_path.resolve().as_uri() + "?mode=ro"
         with sqlite3.connect(uri, uri=True, timeout=30) as connection:
-            row = connection.execute("SELECT id FROM literature_project LIMIT 1").fetchone()
+            row = connection.execute(
+                "SELECT id FROM literature_project LIMIT 1").fetchone()
     except (sqlite3.Error, OSError, ValueError) as exc:
-        raise ProjectStoreError(f"{database_path}: cannot read project id ({exc})") from exc
+        raise ProjectStoreError(
+            f"{database_path}: cannot read project id ({exc})") from exc
     if not row:
         raise ProjectStoreError(f"{database_path}: store holds no project")
     return int(row[0])
@@ -436,6 +515,10 @@ _WORKER_GRACE_DEFAULT = 120.0
 _FRESH_WINDOW = 90.0
 
 
+# ------------------------------------------------------------------------ #
+# Definitions
+# ------------------------------------------------------------------------ #
+
 # --- Tunable bound with a safe default; garbage env never breaks cleanup ---
 def _env_seconds(name: str, default: float) -> float:
     try:
@@ -463,7 +546,8 @@ def _hold_store_lock(canonical: str):
     try:
         path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     except OSError as exc:
-        raise ProjectStoreError(f"{path}: cannot create lock dir ({exc})") from exc
+        raise ProjectStoreError(
+            f"{path}: cannot create lock dir ({exc})") from exc
     try:
         fd = os.open(path, os.O_CREAT | os.O_RDWR, 0o600)
     except OSError as exc:
@@ -544,11 +628,13 @@ def register_handle(canonical: str, project_uuid: str, epoch: str, port: int,
                     "INSERT INTO leases (handle_id, store_canonical, project_uuid,"
                     " worker_epoch, port, created_at, last_seen, tab_token)"
                     " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    (handle_id, canonical, project_uuid, epoch, int(port), now, now, token),
+                    (handle_id, canonical, project_uuid,
+                     epoch, int(port), now, now, token),
                 )
                 connection.commit()
         except (sqlite3.Error, OSError, ValueError) as exc:
-            raise ProjectStoreError(f"cannot record project handle ({exc})") from exc
+            raise ProjectStoreError(
+                f"cannot record project handle ({exc})") from exc
         _touch_last_use(canonical)
     return handle_id
 
@@ -624,7 +710,8 @@ def attach_lease(canonical: str, project_uuid: str, epoch: str, port: int,
                 )
                 connection.commit()
         except (sqlite3.Error, OSError, ValueError) as exc:
-            raise ProjectStoreError(f"cannot record project handle ({exc})") from exc
+            raise ProjectStoreError(
+                f"cannot record project handle ({exc})") from exc
         _touch_last_use(canonical)
     return {"handle_id": fresh_id, "tab_token": fresh_token, "reused": False}
 
@@ -729,10 +816,12 @@ def release_handle(handle_id: str) -> bool:
                 "DELETE FROM leases WHERE handle_id = ?", (str(handle_id),))
             connection.commit()
     except (sqlite3.Error, OSError) as exc:
-        raise ProjectStoreError(f"cannot release project handle ({exc})") from exc
+        raise ProjectStoreError(
+            f"cannot release project handle ({exc})") from exc
     if cursor.rowcount > 0 and lease is not None:
         _touch_last_use(lease["store_canonical"])
-    return True  # A committed DELETE also proves an already-absent lease released.
+    # A committed DELETE also proves an already-absent lease released.
+    return True
 
 
 # --- Stop ONLY a positively tracked child; registry PIDs alone never signal ---
@@ -807,6 +896,10 @@ def stop_worker(canonical: str, timeout: float = 20.0, *, _locked: bool = False)
 _DRAIN_HTTP_TIMEOUT = 10.0
 
 
+# ------------------------------------------------------------------------ #
+# Definitions
+# ------------------------------------------------------------------------ #
+
 # --- Cookie jar primed with the worker's own path-scoped CSRF token ---
 def _drain_session(base: str, prefix: str, project_id: int):
     """Opener holding the worker CSRF cookie; genuine token, no bypass.
@@ -815,7 +908,8 @@ def _drain_session(base: str, prefix: str, project_id: int):
     error responses never eat the cookie before the first POST.
     """
     jar = http.cookiejar.CookieJar()
-    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+    opener = urllib.request.build_opener(
+        urllib.request.HTTPCookieProcessor(jar))
     request = urllib.request.Request(
         f"{base}{prefix}/project/{project_id}/lifecycle/drain/", method="GET")
     try:
@@ -850,7 +944,7 @@ def _drain_post(opener, token: str, url: str, fields: dict | None = None) -> dic
 
 # --- Reject new mutations, wait admitted ones out, then stop the owned child ---
 def drain_and_stop(canonical: str, in_flight_timeout: float = 30.0,
-                    stop_timeout: float = 20.0) -> dict:
+                   stop_timeout: float = 20.0) -> dict:
     """Drain a worker before signalling it; never strands an admitted write.
 
     Sets the worker drain flag (new unsafe requests get 409), polls the
@@ -917,7 +1011,8 @@ def _drain_and_stop_locked(canonical: str, in_flight_timeout: float,
             try:
                 _drain_post(opener, token, url, {"command": "cancel"})
             except ProjectStoreError:
-                pass  # Unreachable workers require an explicit reopen/recovery.
+                # Unreachable workers require an explicit reopen/recovery.
+                pass
 
 
 # --- Bounded idle sweep: expire leases, then drain only handle-free workers ---
@@ -1002,8 +1097,10 @@ def forget_worker(canonical: str) -> None:
     registry = init_app_registry(app_registry_path())
     try:
         with sqlite3.connect(registry) as connection:
-            connection.execute("DELETE FROM leases WHERE store_canonical = ?", (canonical,))
-            connection.execute("DELETE FROM workers WHERE store_canonical = ?", (canonical,))
+            connection.execute(
+                "DELETE FROM leases WHERE store_canonical = ?", (canonical,))
+            connection.execute(
+                "DELETE FROM workers WHERE store_canonical = ?", (canonical,))
             connection.commit()
     except (sqlite3.Error, OSError):
         pass
@@ -1033,7 +1130,8 @@ def start_worker(directory: Path | str) -> dict:
                 if os.getenv("WP_LAUNCHER") == "1":
                     child = _CHILDREN.get(canonical)
                     if child is None or child.poll() is not None or child.pid != reused["pid"]:
-                        raise ProjectStoreError("previous manager's worker is still draining; retry after it closes")
+                        raise ProjectStoreError(
+                            "previous manager's worker is still draining; retry after it closes")
                 return reused
             if os.getenv("WP_LAUNCHER") == "1":
                 # Never spawn a duplicate behind a wedged child or crash recovery.
@@ -1042,7 +1140,8 @@ def start_worker(directory: Path | str) -> dict:
 
                 previous = _CHILDREN.get(canonical)
                 if previous is not None and previous.poll() is None:
-                    raise ProjectStoreError("owned worker is busy/unreachable; retry, do not duplicate it")
+                    raise ProjectStoreError(
+                        "owned worker is busy/unreachable; retry, do not duplicate it")
                 with store_file_lock(manifest, closed=True):
                     pass
             return _spawn_worker(canonical, store_uuid, database_path, project_id)
@@ -1067,17 +1166,21 @@ def _register_location(manifest: StoreManifest) -> StoreManifest:
                 except ProjectStoreError:
                     # ponytail: missing old location needs explicit operator
                     # resolution, not silent adoption of an identity clone.
-                    raise ProjectStoreError(f"same-UUID collision with registered {place}; use Save Copy") from None
+                    raise ProjectStoreError(
+                        f"same-UUID collision with registered {place}; use Save Copy") from None
                 if other.db_identity != manifest.db_identity:
-                    raise ProjectStoreError(f"same-UUID collision with {place}; use Save Copy, never merge")
+                    raise ProjectStoreError(
+                        f"same-UUID collision with {place}; use Save Copy, never merge")
                 return other  # same physical DB alias: reuse its worker
             connection.execute(
                 "INSERT OR REPLACE INTO projects VALUES (?, ?, ?)",
-                (str(manifest.location), str(manifest.project_uuid), datetime.now(UTC).isoformat()),
+                (str(manifest.location), str(manifest.project_uuid),
+                 datetime.now(UTC).isoformat()),
             )
             connection.commit()
     except sqlite3.Error as exc:
-        raise ProjectStoreError(f"cannot register store identity ({exc})") from exc
+        raise ProjectStoreError(
+            f"cannot register store identity ({exc})") from exc
     return manifest
 
 
@@ -1089,13 +1192,15 @@ def operate_store(action: str, source: Path | str, destination: Path | str) -> S
     if action not in operations:
         raise ProjectStoreError("unknown store operation")
     try:
-        paths = sorted({str(Path(p).expanduser().resolve()) for p in (source, destination)})
+        paths = sorted({str(Path(p).expanduser().resolve())
+                       for p in (source, destination)})
     except (OSError, RuntimeError) as exc:
         raise ProjectStoreError(f"invalid operation path ({exc})") from exc
     with ExitStack() as locks:
         for path in paths:
             locks.enter_context(_hold_store_lock(path))
-        closed_paths = [paths[0], paths[1]] if action == "restore" and len(paths) == 2 else []
+        closed_paths = [paths[0], paths[1]
+                        ] if action == "restore" and len(paths) == 2 else []
         if action == "backup":
             closed_paths = [str(Path(source).expanduser().resolve())]
         for path in closed_paths:
@@ -1104,13 +1209,17 @@ def operate_store(action: str, source: Path | str, destination: Path | str) -> S
             registry = init_app_registry(app_registry_path())
             try:
                 with sqlite3.connect(registry) as connection:
-                    held = connection.execute("SELECT COUNT(*) FROM leases WHERE store_canonical=?", (path,)).fetchone()[0]
-                    row = connection.execute("SELECT pid FROM workers WHERE store_canonical=?", (path,)).fetchone()
+                    held = connection.execute(
+                        "SELECT COUNT(*) FROM leases WHERE store_canonical=?", (path,)).fetchone()[0]
+                    row = connection.execute(
+                        "SELECT pid FROM workers WHERE store_canonical=?", (path,)).fetchone()
             except (sqlite3.Error, OSError) as exc:
-                raise ProjectStoreError(f"cannot prove store closure ({exc})") from exc
+                raise ProjectStoreError(
+                    f"cannot prove store closure ({exc})") from exc
             child = _CHILDREN.get(path)
             if held or row or (child is not None and child.poll() is None):
-                raise ProjectStoreError("store must be CLOSED; Exit all tabs, then Close worker")
+                raise ProjectStoreError(
+                    "store must be CLOSED; Exit all tabs, then Close worker")
         return operations[action](Path(source).expanduser(), Path(destination).expanduser())
 
 
@@ -1125,7 +1234,8 @@ def close_store(directory: Path | str) -> dict:
         from literature.project_store import store_file_lock
 
         if _registry_row(canonical) is not None and os.getenv("WP_LAUNCHER") != "1":
-            raise ProjectStoreError("worker not owned by this manager; close it with its original manager")
+            raise ProjectStoreError(
+                "worker not owned by this manager; close it with its original manager")
         with _hold_store_lock(canonical), store_file_lock(manifest, closed=True):
             # Crash recovery only forgets runtime rows after positive physical
             # closure; no registry PID is adopted or signalled.
@@ -1136,7 +1246,8 @@ def close_store(directory: Path | str) -> dict:
         result = stop_worker(canonical)
         return {"stopped": result["reason"] == "already-exited", "reason": result["reason"]}
     if live_handle_count(canonical):
-        raise ProjectStoreError("Exit all project tabs before closing the worker")
+        raise ProjectStoreError(
+            "Exit all project tabs before closing the worker")
     return drain_and_stop(canonical)
 
 
@@ -1177,6 +1288,26 @@ def _port_occupied(port: int) -> bool:
 # --- Spawn one runserver child under the store lock, retrying port collisions ---
 def _spawn_worker(canonical: str, store_uuid: str, database_path: Path,
                   project_id: int) -> dict:
+    """Start an isolated worker and register only its verified binding.
+
+    Args:
+        canonical: Resolved project folder used as the registry key.
+        store_uuid: Package identity the child must report.
+        database_path: Explicit database file assigned before child startup.
+        project_id: Project row the readiness probe must verify.
+
+    Kwargs:
+        None
+
+    Returns:
+        dict: Ready worker's local base URL, prefix, epoch and project ID.
+
+    Raises:
+        ProjectStoreError: If ownership, startup or readiness is refused.
+
+    Side Effects:
+        Spawn and own a child process, retaining its store lock when supervised.
+    """
     epoch = f"e{uuid.uuid4().hex[:7]}"
     env = dict(os.environ)
     env["WP_ROLE"] = "worker"
@@ -1188,21 +1319,27 @@ def _spawn_worker(canonical: str, store_uuid: str, database_path: Path,
     for _ in range(3):
         port = _free_port()
         supervised = os.getenv("WP_LAUNCHER") == "1"
-        command = ([sys.executable, str(Path(settings.BASE_DIR) / "launch.py"), "--worker", "--port", str(port)]
-                   if supervised else
-                   [sys.executable, "manage.py", "runserver", f"127.0.0.1:{port}", "--noreload"])
+        entry = str(Path(settings.BASE_DIR) / "launch.py")
+        command = (
+            [sys.executable, entry, "--worker", "--port", str(port)]
+            if supervised else
+            [sys.executable, entry, "django", "runserver",
+             f"127.0.0.1:{port}", "--noreload"]
+        )
         ownership_fd = None
         if supervised:
             identity = database_path.stat()
             ownership_fd = os.open(
-                _store_lock_path(f"worker:{identity.st_dev}:{identity.st_ino}"),
+                _store_lock_path(
+                    f"worker:{identity.st_dev}:{identity.st_ino}"),
                 os.O_CREAT | os.O_RDWR, 0o600,
             )
             try:
                 fcntl.flock(ownership_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except OSError as exc:
                 os.close(ownership_fd)
-                raise ProjectStoreError("previous worker still owns this store; wait for its drain and retry") from exc
+                raise ProjectStoreError(
+                    "previous worker still owns this store; wait for its drain and retry") from exc
             env["WP_WORKER_LOCK_FD"] = str(ownership_fd)
         try:
             proc = subprocess.Popen(
@@ -1212,18 +1349,22 @@ def _spawn_worker(canonical: str, store_uuid: str, database_path: Path,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True,
-                pass_fds=(int(env["WP_OWNER_FD"]), ownership_fd) if supervised else (),
+                pass_fds=(int(env["WP_OWNER_FD"]),
+                          ownership_fd) if supervised else (),
             )
         except OSError as exc:
-            raise ProjectStoreError(f"cannot start project worker ({exc})") from exc
+            raise ProjectStoreError(
+                f"cannot start project worker ({exc})") from exc
         finally:
             if ownership_fd is not None:
                 # Child inherits the same locked open-file-description. Closing
                 # our copy (NOT flock UNLOCK) preserves its lifetime ownership.
                 os.close(ownership_fd)
         if supervised:
-            _CHILDREN[canonical] = proc  # Own it even if readiness/registry fails.
-            print(f"Started owned worker PID {proc.pid}: {canonical}", flush=True)
+            # Own it even if readiness/registry fails.
+            _CHILDREN[canonical] = proc
+            print(
+                f"Started owned worker PID {proc.pid}: {canonical}", flush=True)
         while time.time() < deadline:
             if proc.poll() is not None:
                 break

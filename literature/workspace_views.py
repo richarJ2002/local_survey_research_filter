@@ -10,21 +10,32 @@
 
 '''
 
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
+
 # Regular library imports
 from __future__ import annotations
 
-from django import forms
+from pathlib import Path
 
-# Custom library imports
+# Custom library Imports
+from django import forms
 from django.conf import settings
 from django.contrib import messages
+from django.core import signing
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 
 from literature import workspace as ws
-from literature.forms import WorkspaceNewForm, WorkspaceOpenForm, WorkspaceRootForm
+from literature.forms import (
+    WorkspaceNewForm,
+    WorkspaceOpenForm,
+    WorkspaceRootForm,
+    suggested_project_directory,
+)
 from literature.models import Project
 from literature.project_store import ProjectStoreError, create_project_store
 
@@ -35,6 +46,17 @@ from literature.project_store import ProjectStoreError, create_project_store
 
 # --- Shared landing context: remembered root, one-level discovery, preview ---
 def _landing_context(preview_dir: str = "") -> dict:
+    """Build the manifest-only landing context and optional path preview.
+
+    Args:
+        None
+
+    Kwargs:
+        preview_dir: Typed path to describe, defaulting to no preview.
+
+    Returns:
+        dict: Remembered root, discovery, preview and unbound forms.
+    """
     remembered = ws.get_workspace_root()
     discovery = ws.discover_workspace(remembered) if remembered is not None else {
         "root": "", "entries": [], "errors": [],
@@ -46,8 +68,12 @@ def _landing_context(preview_dir: str = "") -> dict:
         "discovery": discovery,
         "preview": preview,
         "email_ok": email_ok,
-        "root_form": WorkspaceRootForm(initial={"directory": str(remembered) if remembered else ""}),
-        "new_form": WorkspaceNewForm(),
+        "root_form": WorkspaceRootForm(initial={
+            "directory": str(remembered) if remembered else "",
+        }),
+        "new_form": WorkspaceNewForm(initial={
+            "parent_directory": str(remembered) if remembered else "",
+        }),
         "open_form": WorkspaceOpenForm(),
         "operation_form": StoreOperationForm(),
     }
@@ -56,7 +82,17 @@ def _landing_context(preview_dir: str = "") -> dict:
 # --- Manager landing: New/Load toggle, typed paths, recognised projects ---
 @ensure_csrf_cookie
 def workspace_home(request: HttpRequest) -> HttpResponse:
-    """Serve the manager landing; never reads research rows, only manifests."""
+    """Serve the landing with read-only operation preselection.
+
+    Args:
+        request: Landing GET with optional source and operation hints.
+
+    Kwargs:
+        None
+
+    Returns:
+        HttpResponse: Workspace forms without authorizing any operation.
+    """
     # ponytail: opportunistic bounded cleanup on the highest-traffic manager
     # surface; failures never break the landing, the launcher owns patience.
     try:
@@ -66,7 +102,9 @@ def workspace_home(request: HttpRequest) -> HttpResponse:
     context = _landing_context(request.GET.get("directory", ""))
     directory = request.GET.get("directory", "")
     operation = request.GET.get("operation", "")
-    if directory and operation in {choice[0] for choice in StoreOperationForm.base_fields["action"].choices}:
+    actions = {choice[0]
+               for choice in StoreOperationForm.base_fields["action"].choices}
+    if directory and operation in actions:
         try:
             # A prefill is a read-only hint, not approval to write/copy. Never
             # inherit destination or confirmation from a navigation query.
@@ -74,6 +112,8 @@ def workspace_home(request: HttpRequest) -> HttpResponse:
             context["operation_form"] = StoreOperationForm(initial={
                 "action": operation,
                 "source": str(manifest.location),
+                "parent_directory": str(
+                    ws.get_workspace_root() or manifest.location.parent),
             })
         except ProjectStoreError as exc:
             messages.error(request, f"Cannot preselect this project: {exc}")
@@ -86,19 +126,112 @@ def workspace_home(request: HttpRequest) -> HttpResponse:
 
 
 class StoreOperationForm(forms.Form):
-    """Native path inputs; destination means backup package for Backup/Restore."""
+    """Validate native paths while preserving Backup and Restore semantics."""
     action = forms.ChoiceField(choices=(
-        ("copy", "Save Copy (new project ID)"), ("backup", "Backup (same project ID)"),
-        ("restore", "Restore (same project ID)"), ("close", "Close worker after exiting all tabs"),
+        ("copy", "Save Copy (new project ID)"),
+        ("backup", "Backup (same project ID)"),
+        ("restore", "Restore (same project ID)"),
+        ("close", "Close worker after exiting all tabs"),
     ))
-    source = forms.CharField(label="Project folder (backup folder for Restore)", max_length=4096)
-    destination = forms.CharField(label="Destination folder (existing project for Restore)", max_length=4096, required=False)
-    confirm = forms.BooleanField(label="I confirm the resolved paths; Restore replaces the project and retains a recovery sibling")
+    source = forms.CharField(
+        label="Project folder (backup folder for Restore)", max_length=4096)
+    destination = forms.CharField(
+        label="Destination folder (existing project for Restore)",
+        max_length=4096, required=False,
+    )
+    preview_token = forms.CharField(required=False, widget=forms.HiddenInput)
+    parent_directory = forms.CharField(
+        required=False, max_length=4096,
+        label="Save Copy parent folder (optional)",
+    )
+    confirm = forms.BooleanField(
+        required=False, label="I confirm the resolved paths; "
+        "Restore replaces the project and retains a recovery sibling",
+    )
+
+    def clean(self) -> dict:
+        """Suggest a Save Copy child from the verified stored project name.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            dict: Paths, leaving Backup and Restore destinations unchanged.
+
+        Raises:
+            forms.ValidationError: If a copy suggestion cannot be derived.
+        """
+        cleaned = super().clean()
+        if cleaned.get("action") == "copy" and not cleaned.get("destination"):
+            try:
+                manifest = ws.check_load_target(cleaned.get("source", ""))
+                cleaned["destination"] = suggested_project_directory(
+                    cleaned.get("parent_directory")
+                    or str(ws.get_workspace_root()
+                           or manifest.location.parent),
+                    ws._project_name(manifest.location / "project.sqlite3"),
+                    reserve_bytes=43,
+                )
+            except (
+                ProjectStoreError, OSError, RuntimeError, ValueError,
+            ) as exc:
+                raise forms.ValidationError(str(exc)) from exc
+        return cleaned
+
+
+# --- Functions
+def _confirmed_destination(
+    request: HttpRequest, form: forms.Form, approved: dict,
+) -> bool:
+    """Require confirmation of the exact paths in a recent signed preview.
+
+    Args:
+        request: Preview or confirmation POST.
+        form: Validated form carrying confirmation and a preview token.
+        approved: Server-resolved action, name and paths for this request.
+
+    Kwargs:
+        None
+
+    Returns:
+        bool: Whether an unchanged authenticated preview was confirmed.
+    """
+    if not request.POST.get("preview") and form.cleaned_data.get("confirm"):
+        try:
+            if signing.loads(
+                form.cleaned_data.get("preview_token", ""),
+                salt="workspace-destination", max_age=1800,
+            ) == approved:
+                return True
+        except signing.BadSignature:
+            pass
+        form.add_error(
+            "confirm", "Paths changed or the preview expired. "
+            "Inspect the resolved destination and confirm again.")
+    # A fresh preview clears approval; navigation never confirms a path.
+    form.data = form.data.copy()
+    form.data["preview_token"] = signing.dumps(
+        approved, salt="workspace-destination", compress=True)
+    form.data["confirm"] = ""
+    return False
 
 
 @require_POST
 def workspace_operation(request: HttpRequest) -> HttpResponse:
-    """Manager-only CSRF-protected copy/recovery tools, with explicit closure."""
+    """Preview or run manager-only copy and recovery tools.
+
+    Args:
+        request: CSRF-protected operation POST with explicit confirmation.
+
+    Kwargs:
+        None
+
+    Returns:
+        HttpResponse: Preview/errors, success redirect or non-manager 404.
+    """
     from literature.worker import role
 
     if role() != "manager":
@@ -109,24 +242,62 @@ def workspace_operation(request: HttpRequest) -> HttpResponse:
         source = form.cleaned_data["source"]
         destination = form.cleaned_data["destination"]
         try:
+            if action == "copy":
+                # Resolve only after preserving the copier's symlink refusal.
+                if Path(destination).expanduser().is_symlink():
+                    raise ProjectStoreError(
+                        "Destination is a symlink; "
+                        "refusing to write through it.")
+                manifest = ws.check_load_target(source)
+                source = str(manifest.location)
+                destination = str(ws.check_new_target(destination))
+                approved = {
+                    "action": action, "source": source,
+                    "uuid": str(manifest.project_uuid),
+                    "destination": destination,
+                }
+                confirmed = _confirmed_destination(request, form, approved)
+            else:
+                confirmed = (bool(form.cleaned_data["confirm"])
+                             and not request.POST.get("preview"))
+        except (ProjectStoreError, OSError, RuntimeError, ValueError) as exc:
+            form.add_error(None, str(exc))
+            confirmed = False
+        if not confirmed:
+            context = _landing_context(source)
+            context["operation_form"] = form
+            context["destination_preview"] = (
+                ws.describe_target(destination) if destination else None)
+            return render(request, "literature/workspace_home.html", context)
+        try:
             if action == "close":
                 result = ws.close_store(source)
                 if not result["stopped"]:
-                    raise ProjectStoreError(f"Close refused: {result['reason']}")
-                messages.success(request, "Project worker closed. Committed edits remain on disk.")
+                    raise ProjectStoreError(
+                        f"Close refused: {result['reason']}")
+                messages.success(
+                    request, "Project worker closed. "
+                    "Committed edits remain on disk.")
             else:
                 if not destination.strip():
                     raise ProjectStoreError("Enter the destination folder.")
                 result = ws.operate_store(action, source, destination)
-                messages.success(request, f"{action.title()} complete at {result.location}; project ID {result.project_uuid}.")
+                messages.success(
+                    request,
+                    f"{action.title()} complete at {result.location}; "
+                    f"project ID {result.project_uuid}.")
                 if action == "restore":
-                    messages.info(request, f"Previous project retained at {result.recovery_location}; inspect it before deleting anything.")
+                    messages.info(
+                        request, "Previous project retained at "
+                        f"{result.recovery_location}; "
+                        "inspect it before deleting anything.")
             return redirect("project_list")
         except ProjectStoreError as exc:
             form.add_error(None, str(exc))
     context = _landing_context(request.POST.get("source", ""))
     context["operation_form"] = form
-    context["destination_preview"] = ws.describe_target(request.POST.get("destination", ""))
+    context["destination_preview"] = ws.describe_target(
+        request.POST.get("destination", ""))
     return render(request, "literature/workspace_home.html", context)
 
 
@@ -153,7 +324,17 @@ def workspace_set_root(request: HttpRequest) -> HttpResponse:
 # --- Create at a typed location, then hand the browser to a real worker ---
 @require_POST
 def workspace_new(request: HttpRequest) -> HttpResponse:
-    """Create one store at the typed location; New never overwrites populated data."""
+    """Preview and confirm a New destination without overwriting data.
+
+    Args:
+        request: CSRF-protected New form POST with name and destination.
+
+    Kwargs:
+        None
+
+    Returns:
+        HttpResponse: Preview/errors or a redirect to the new owning worker.
+    """
     form = WorkspaceNewForm(request.POST)
     if not form.is_valid():
         context = _landing_context(request.POST.get("directory", ""))
@@ -161,17 +342,28 @@ def workspace_new(request: HttpRequest) -> HttpResponse:
         return render(request, "literature/workspace_home.html", context)
     directory = form.cleaned_data["directory"]
     try:
-        ws.check_new_target(directory)
+        directory = str(ws.check_new_target(directory))
+        approved = {
+            "action": "new", "destination": directory,
+            "name": form.cleaned_data["name"],
+        }
+        if not _confirmed_destination(request, form, approved):
+            context = _landing_context(directory)
+            context["new_form"] = form
+            context["new_destination_preview"] = ws.describe_target(directory)
+            return render(request, "literature/workspace_home.html", context)
         manifest = create_project_store(directory, form.cleaned_data["name"])
         ws.remember_recent(str(manifest.location))
         worker = ws.start_worker(manifest.location)
-    except ProjectStoreError as exc:
+    except (ProjectStoreError, OSError, RuntimeError, ValueError) as exc:
         messages.error(request, str(exc))
         context = _landing_context(directory)
         context["new_form"] = form
         return render(request, "literature/workspace_home.html", context)
     messages.success(request, f"Created project at {manifest.location}.")
-    return redirect(f"{worker['base']}{worker['prefix']}/project/{worker['project_id']}/{_manager_query(request)}")
+    return redirect(
+        f"{worker['base']}{worker['prefix']}/project/{worker['project_id']}/"
+        f"{_manager_query(request)}")
 
 
 # --- Load an existing store at a typed location, then hand off to its worker ---
@@ -212,7 +404,6 @@ def _manager_query(request: HttpRequest) -> str:
         return ""
     # ponytail: one query param, no cookies or global active-project state.
     return f"?manager={quote(base.rstrip('/'), safe='')}"
-
 
 
 # --- Tab handle endpoints live under the worker prefix (UUID/epoch checked first) ---

@@ -1,14 +1,23 @@
 #!/usr/bin/env python3
 
-'''
+"""Enforce fixed worker bindings, UUID/epoch routes and tab mutation admission.
+
+Manager and research roles never switch database aliases per request. Cookie
+helpers scope names/paths; middleware preserves thread-local URL prefix state.
+
+Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
+(AERO-Sys) group.
+
 @File:   worker.py
 
-@Brief:  Fixed manager/worker roles, UUID+epoch routes, isolated cookies (WP01.03).
+@Brief:  Enforce fixed worker bindings, UUID/epoch routes and tab mutation admission.
 
-@Date:   03/10/2026
-@Copyright: 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group.
+@Date:   14/10/2026
+"""
 
-'''
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
 
 # Regular library imports
 from __future__ import annotations
@@ -22,6 +31,7 @@ import uuid
 from pathlib import Path
 from urllib.parse import urlencode, urlsplit
 
+# Custom library Imports
 from django.http import HttpResponse, HttpResponseNotFound
 from django.urls import get_script_prefix, set_script_prefix
 
@@ -36,7 +46,8 @@ RESEARCH_PREFIXES = ("project", "screening", "p/")
 
 #: Manager may serve these top-level paths; all research paths fail closed.
 #: The workspace landing (WP01.04) lists manifests only, never research rows.
-MANAGER_ALLOWED = ("", "settings", "settings/", "admin", "admin/", "workspace", "workspace/")
+MANAGER_ALLOWED = ("", "settings", "settings/", "admin",
+                   "admin/", "workspace", "workspace/")
 
 #: HTTP methods that never mutate research rows.
 _SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
@@ -47,27 +58,74 @@ _PREFIX_RE = re.compile(
 )
 
 
+# ------------------------------------------------------------------------ #
+# Definitions
+# ------------------------------------------------------------------------ #
+
 # --- Immutable process role; developer preserves legacy single-DB behaviour ---
 def role() -> str:
-    """Process role fixed at startup: developer, manager or worker."""
+    """Read the process role expected to be fixed before Django startup.
+
+    Args:
+        None
+
+    Kwargs:
+        None
+
+    Returns:
+        str: WP_ROLE value, defaulting to developer; not validated here.
+    """
     return os.getenv("WP_ROLE", "developer")
 
 
 # --- Worker manifest UUID this process is bound to (empty when unbound) ---
 def expected_uuid() -> str:
-    """Store UUID this worker serves; empty means misconfigured."""
+    """Read the worker's configured logical project UUID.
+
+    Args:
+        None
+
+    Kwargs:
+        None
+
+    Returns:
+        str: WP_PROJECT_UUID, or empty text when the binding is unspecified.
+    """
     return os.getenv("WP_PROJECT_UUID", "")
 
 
 # --- Worker epoch/instance this process serves (stale handles fail closed) ---
 def expected_epoch() -> str:
-    """Worker epoch this process serves; empty means misconfigured."""
+    """Read the worker instance epoch used to reject stale routes and leases.
+
+    Args:
+        None
+
+    Kwargs:
+        None
+
+    Returns:
+        str: WP_WORKER_EPOCH, or empty text when the epoch is unspecified.
+    """
     return os.getenv("WP_WORKER_EPOCH", "")
 
 
 # --- Short cookie suffix so names never collide across workers/manager ---
 def cookie_suffix(store_uuid: str) -> str:
-    """First 8 hex chars of the store UUID for non-colliding cookie names."""
+    """Derive a short cookie label from a valid project UUID.
+
+    Args:
+        store_uuid (str): UUID accepted by uuid.UUID.
+
+    Kwargs:
+        None
+
+    Returns:
+        str: First eight lowercase UUID hex characters, not a security token.
+
+    Raises:
+        ValueError: If the UUID text is malformed.
+    """
     # ponytail: 8 hex chars is a browser label, not a security boundary;
     # isolation comes from distinct names+paths, UUID validation stays server-side.
     return uuid.UUID(store_uuid).hex[:8]
@@ -75,7 +133,21 @@ def cookie_suffix(store_uuid: str) -> str:
 
 # --- Non-colliding session/CSRF names per worker; manager has its own pair ---
 def cookie_names(store_uuid: str = "") -> tuple[str, str]:
-    """(session, csrf) cookie names for a worker, or the manager pair."""
+    """Choose the worker or manager session and CSRF cookie names.
+
+    Args:
+        None
+
+    Kwargs:
+        store_uuid (str): Worker UUID. Defaults to empty text for the manager.
+
+    Returns:
+        tuple[str, str]: (session name, CSRF name), using a UUID suffix for
+            workers or (mgrsessionid, mgrcsrftoken) for the manager.
+
+    Raises:
+        ValueError: If nonempty UUID text is malformed.
+    """
     if store_uuid:
         short = cookie_suffix(store_uuid)
         return f"wpsess_{short}", f"wpcsrft_{short}"
@@ -84,18 +156,51 @@ def cookie_names(store_uuid: str = "") -> tuple[str, str]:
 
 # --- Path scope for worker cookies so browsers never send A cookies to B ---
 def cookie_path(store_uuid: str, epoch: str) -> str:
-    """Cookie path locking a worker's cookies to its own URL prefix."""
+    """Build a worker cookie path with a trailing slash.
+
+    Args:
+        store_uuid (str): Project UUID text, already validated by the caller.
+        epoch (str): Worker epoch text, already selected by the caller.
+
+    Kwargs:
+        None
+
+    Returns:
+        str: /p/<uuid>/<epoch>/; this helper does not validate either value.
+    """
     return f"/p/{store_uuid}/{epoch}/"
 
 
 # --- Public prefix helper for the launcher (phase04 contract) ---
 def url_prefix(store_uuid: str, epoch: str) -> str:
-    """URL prefix scoping every worker request to one store epoch."""
+    """Build the public worker route prefix without a trailing slash.
+
+    Args:
+        store_uuid (str): Project UUID text, already validated by the caller.
+        epoch (str): Worker epoch text, already selected by the caller.
+
+    Kwargs:
+        None
+
+    Returns:
+        str: /p/<uuid>/<epoch>; this helper does not validate either value.
+    """
     return f"/p/{store_uuid}/{epoch}"
 
 
 def manager_control_base() -> str:
-    """Only the server-configured loopback manager may receive project-folder links."""
+    """Accept only a configured HTTP loopback manager origin with a port.
+
+    Args:
+        None
+
+    Kwargs:
+        None
+
+    Returns:
+        str: http://<netloc> from WP_MANAGER_BASE, or empty text for invalid
+            scheme/host/port, credentials, path, query or fragment.
+    """
     try:
         parts = urlsplit(os.getenv("WP_MANAGER_BASE", ""))
         if (parts.scheme != "http" or parts.hostname not in ("127.0.0.1", "localhost")
@@ -109,7 +214,18 @@ def manager_control_base() -> str:
 
 # --- Research URL test used by the middleware fail-closed rules ---
 def is_research_path(path: str) -> bool:
-    """True when a (prefix-stripped) path touches research rows."""
+    """Test whether a path begins with one of the research route prefixes.
+
+    Args:
+        path (str): Usually prefix-stripped request path; leading / is ignored.
+
+    Kwargs:
+        None
+
+    Returns:
+        bool: True for a project, screening or p/ string prefix, not a full
+            URL-resolution or database-access test.
+    """
     stripped = path.lstrip("/")
     return stripped.startswith(RESEARCH_PREFIXES)
 
@@ -124,6 +240,10 @@ _bound_store_cache: dict | None = None
 _BIND_LOCK = threading.Lock()
 
 
+# ------------------------------------------------------------------------ #
+# Definitions
+# ------------------------------------------------------------------------ #
+
 # --- Prove env UUID against manifest + identity row + canonical dev/ino ---
 def bound_store() -> dict:
     """Validate the worker's fixed database once and cache the binding.
@@ -132,6 +252,20 @@ def bound_store() -> dict:
     the canonical ``(st_dev, st_ino)`` of the file named by the startup
     ``DATABASES`` setting. Env-string agreement alone never authorises a
     request; a wrong file behind a right-looking UUID fails closed here.
+
+    Args:
+        None
+
+    Kwargs:
+        None
+
+    Returns:
+        dict: Cached binding with ok=False/error, or ok=True plus uuid, db,
+            configured_db, dev, ino, store and ownership lock context.
+
+    Side Effects:
+        Serialize first validation under _BIND_LOCK, cache even a refusal,
+        and retain a successful shared inode lock for the worker lifetime.
     """
     global _bound_store_cache
     with _BIND_LOCK:
@@ -142,6 +276,24 @@ def bound_store() -> dict:
 
 # --- One read-only validation; every failure mode refuses to serve ---
 def _validate_fixed_store() -> dict:
+    """Prove the fixed database, manifest and environment identify one store.
+
+    Args:
+        None
+
+    Kwargs:
+        None
+
+    Returns:
+        dict: On refusal, ok=False and an error string. On success, ok=True,
+            normalized uuid, resolved db Path, absolute configured_db Path,
+            dev/ino integers, canonical store text and ownership context.
+
+    Side Effects:
+        Read manifest/identity and run read-only Load checks, which may build
+        a temporary trusted schema. Enter a shared database inode lock on
+        success; the returned context must be retained to keep ownership.
+    """
     from django.conf import settings as dj_settings
 
     from literature.project_store import (
@@ -218,7 +370,18 @@ def _validate_fixed_store() -> dict:
 
 # --- Mutation-time guard: the file behind the binding must be the same one ---
 def _store_file_intact(bound: dict) -> bool:
-    """Re-check canonical dev/ino before any mutating request is served."""
+    """Recheck the configured database member against the bound device/inode.
+
+    Args:
+        bound (dict): Successful binding with configured_db, dev and ino keys.
+
+    Kwargs:
+        None
+
+    Returns:
+        bool: True if stat matches; False if the path/key is unavailable or
+            the physical database member changed.
+    """
     # ponytail: one stat call per unsafe request; a swapped file fails closed
     # without ever trusting a path taken from a record URL.
     try:
@@ -238,9 +401,23 @@ _DRAIN_LOCK = threading.Lock()
 _DRAIN_STATE = {"in_flight": 0, "draining": False}
 
 
+# ------------------------------------------------------------------------ #
+# Definitions
+# ------------------------------------------------------------------------ #
+
 # --- Snapshot of admitted mutations (manager drain polls this, never the DB) ---
 def drain_snapshot() -> dict:
-    """Current {draining, in_flight} for the bounded manager control channel."""
+    """Read drain admission state under its process-local thread lock.
+
+    Args:
+        None
+
+    Kwargs:
+        None
+
+    Returns:
+        dict: draining boolean and in_flight admitted mutation count.
+    """
     with _DRAIN_LOCK:
         return {"draining": bool(_DRAIN_STATE["draining"]),
                 "in_flight": int(_DRAIN_STATE["in_flight"])}
@@ -248,7 +425,20 @@ def drain_snapshot() -> dict:
 
 # --- Drain flag flip; admitted requests finish, new unsafe work is refused ---
 def set_draining(value: bool) -> dict:
-    """Set or clear the drain flag; returns the fresh snapshot."""
+    """Set drain admission state without cancelling already admitted mutations.
+
+    Args:
+        value (bool): Truth value used for the new draining flag.
+
+    Kwargs:
+        None
+
+    Returns:
+        dict: Fresh draining boolean and unchanged in_flight mutation count.
+
+    Side Effects:
+        Update process-local _DRAIN_STATE while holding _DRAIN_LOCK.
+    """
     with _DRAIN_LOCK:
         _DRAIN_STATE["draining"] = bool(value)
         return {"draining": bool(_DRAIN_STATE["draining"]),
@@ -257,7 +447,20 @@ def set_draining(value: bool) -> dict:
 
 # --- Deny a mutation in the caller's content type (forms vs JSON fetch) ---
 def _mutation_denied(request, status: int, message: str):
-    """410/409 for unsafe requests; JSON callers get JSON, forms get text."""
+    """Build a mutation refusal in the caller's JSON or text content type.
+
+    Args:
+        request (HttpRequest): Request whose Content-Type/Accept selects JSON.
+        status (int): HTTP status to return, usually 410 or 409.
+        message (str): Error text for the response body.
+
+    Kwargs:
+        None
+
+    Returns:
+        HttpResponse: JsonResponse with ok=False/error for JSON callers,
+            otherwise a text response, both using the supplied status.
+    """
     # ponytail: the screening decision fetch reads data.error, so a JSON
     # denial keeps the re-open message instead of a parse failure.
     content_type = request.content_type or ""
@@ -271,13 +474,37 @@ def _mutation_denied(request, status: int, message: str):
 
 # --- Lifecycle paths mint or describe handles, so they carry no handle yet ---
 def _is_lifecycle_path(rest: str) -> bool:
-    """True for project/<id>/lifecycle/... (self-validating, drain included)."""
+    """Detect the lifecycle substring used to exempt self-validating endpoints.
+
+    Args:
+        rest (str): Prefix-stripped path; a false value is treated as empty.
+
+    Kwargs:
+        None
+
+    Returns:
+        bool: True when /lifecycle/ occurs, not a full route validity check.
+    """
     return "/lifecycle/" in (rest or "")
 
 
 # --- A tab handle authorises one tab: header first, then the hidden form field ---
 def _presented_handle(request) -> str:
-    """Handle supplied as X-Project-Handle or the wp_handle form field."""
+    """Read the tab handle from its header before falling back to form data.
+
+    Args:
+        request (HttpRequest): Request with META and lazily parsed POST data.
+
+    Kwargs:
+        None
+
+    Returns:
+        str: X-Project-Handle, then wp_handle, or empty text if absent or the
+            form lookup raises AttributeError, ValueError or OSError.
+
+    Side Effects:
+        Accessing POST can trigger Django request-body parsing.
+    """
     handle_id = request.META.get("HTTP_X_PROJECT_HANDLE", "") or ""
     if handle_id:
         return str(handle_id)
@@ -289,7 +516,28 @@ def _presented_handle(request) -> str:
 
 # --- Lease must exist for this exact UUID+epoch; anything else fails closed ---
 def _valid_tab_handle(request, bound: dict) -> bool:
-    """True only when the presented handle names a live lease on this worker."""
+    """Require a presented tab lease matching this UUID and worker epoch.
+
+    Args:
+        request (HttpRequest): Request presenting a header or form tab handle.
+        bound (dict): Successful fixed-store binding containing uuid.
+
+    Kwargs:
+        None
+
+    Returns:
+        bool: True for an existing matching lease; False for missing handles,
+            imports, lease reads or mismatched UUID/epoch. No heartbeat-age
+            expiry calculation is performed here.
+
+    Raises:
+        ProjectStoreError: If private registry initialization fails before
+            the lease lookup; this failure is not caught here.
+
+    Side Effects:
+        The lease helper initializes/upgrades private registry tables if needed
+        before reading; research rows are not modified.
+    """
     # ponytail: leases govern shutdown AND mutation rights; UUID/epoch alone
     # only prove the store, the handle proves the tab still owns it.
     handle_id = _presented_handle(request)
@@ -319,18 +567,52 @@ class WorkerBindingMiddleware:
 
     Developer (default) keeps legacy int-pk URLs untouched. A worker serves
     research only under its own /p/<uuid>/<epoch>/ prefix with a
-    startup-validated store binding; anything else is 404 without touching
-    the database, and settings/admin/app-credential routes are never served
+    startup-validated store binding; other routes are refused, and
+    settings/admin/app-credential routes are never served
     by a worker. The worker script prefix is set per request (restored
     afterwards) so ``reverse()``, ``{% url %}``, redirects and JSON URLs all
     keep the UUID/epoch prefix with thread/request isolation. A manager serves
-    the manifest-only workspace landing plus settings/admin, never research rows.
+    the manifest-only workspace plus settings/admin, never research rows.
+
+    Unsafe worker requests additionally require an intact member and, outside
+    lifecycle endpoints, a matching tab lease and drain admission. This does
+    not replace or bypass Django's separate CSRF middleware checks.
     """
 
     def __init__(self, get_response):
+        """Retain Django's downstream middleware/view callable.
+
+        Args:
+            get_response (Callable): Downstream callable accepting a request
+                and returning an HTTP response.
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         self.get_response = get_response
 
     def __call__(self, request):
+        """Bind routes and count admitted mutations across downstream handling.
+
+        Args:
+            request (HttpRequest): Incoming request to annotate and route.
+
+        Kwargs:
+            None
+
+        Returns:
+            HttpResponse: Downstream response or binding/drain refusal.
+
+        Side Effects:
+            Annotate request context and possibly rewrite path_info. Set and
+            restore the thread-local script prefix, including on downstream
+            failure. Count unsafe admissions under _DRAIN_LOCK and decrement
+            in finally; a concurrent drain refuses new admission with 409.
+            Downstream exceptions propagate after state restoration.
+        """
         request.manager_base = manager_control_base() if role() == "worker" else ""
         request.legacy_project = role() == "developer" and is_research_path(request.path_info)
         request.project_copy_url = ""
@@ -370,6 +652,27 @@ class WorkerBindingMiddleware:
 
     # --- Attach or reject worker context; never rebind DATABASES ---
     def _bind(self, request):
+        """Attach fixed-store context or refuse routes without DB rebinding.
+
+        Args:
+            request (HttpRequest): Request with initialized manager_base;
+                path_info and method select role, identity and admission gates.
+
+        Kwargs:
+            None
+
+        Returns:
+            str | HttpResponse | None: Worker script prefix on success, 404
+                for wrong roles/UUID/epoch/member/routes, 409 during drain, or
+                410 for missing/foreign leases. None leaves script-prefix
+                handling unchanged for allowed manager/developer requests.
+
+        Side Effects:
+            Annotate UUID/epoch, worker flags and verified store/copy links;
+            strip valid prefixes from path_info. Worker validation can cache
+            a lifetime inode lock, and handle checks can initialize the private
+            registry. Mark non-lifecycle unsafe worker calls for tracking.
+        """
         path = request.path_info.lstrip("/")
         current_role = role()
         match = _PREFIX_RE.match(path)
