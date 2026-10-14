@@ -7,12 +7,18 @@
 Django application service, invoked through views rather than a standalone CLI.
 """
 
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
+
+# Regular library imports
 from __future__ import annotations
 
 import re
 from hashlib import sha256
 from urllib.parse import quote
 
+# Custom library Imports
 from django.db import transaction
 
 from literature.models import Discovery, Paper, PaperKeywordAssignment, Project, Search
@@ -24,23 +30,37 @@ from literature.services.manual_paper_service import (
 from literature.services.reference_service import normalize_doi
 from literature.services.screening_service import abstract_available, correct_decision, title_ready
 
+# ------------------------------------------------------------------------ #
+# Definitions
+# ------------------------------------------------------------------------ #
 
 # --- Preview data ---
+
+
 def build_metadata(data: dict, doi: str) -> dict:
-    """!
-    @brief Keep only typed, displayable provider metadata and supported citation identifiers.
-    @param data Provider lookup result or stored paper values.
-    @param doi Validated identity of the paper being previewed.
-    @return JSON-serializable metadata, with no credentials or raw API response.
+    """Project typed preview fields without retaining raw provider responses.
+
+    Args:
+        data: Provider result or stored paper values to validate.
+        doi: Already validated identity of the previewed paper.
+
+    Kwargs:
+        None
+
+    Returns:
+        dict: JSON-compatible typed bibliographic fields and supported
+        identifiers, excluding credentials and raw API payloads.
     """
     metadata = {"doi": doi}
     for field in ("title", "abstract", "venue"):
         value = data.get(field)
         metadata[field] = value.strip() if isinstance(value, str) else ""
     reference_text = data.get("reference_text")
-    metadata["reference_text"] = reference_text.strip() if isinstance(reference_text, str) else ""
+    metadata["reference_text"] = reference_text.strip(
+    ) if isinstance(reference_text, str) else ""
     year = data.get("publication_year")
-    metadata["publication_year"] = year if type(year) is int and 1500 <= year <= 9999 else None
+    metadata["publication_year"] = year if type(
+        year) is int and 1500 <= year <= 9999 else None
     metadata["authors"] = (
         [
             {
@@ -63,7 +83,8 @@ def build_metadata(data: dict, doi: str) -> dict:
         else []
     )
     # Never make clickable links from arbitrary provider URLs.
-    references = data.get("references") if isinstance(data.get("references"), list) else []
+    references = data.get("references") if isinstance(
+        data.get("references"), list) else []
     metadata["references"] = list(
         dict.fromkeys(
             reference
@@ -91,10 +112,16 @@ def build_metadata(data: dict, doi: str) -> dict:
 
 
 def reference_url(reference: str) -> str:
-    """!
-    @brief Resolve a supported citation identifier to an HTTPS provider link.
-    @param reference DOI, OpenAlex URL or S2 identifier.
-    @return Safe HTTPS link, or an empty string for an unsupported identifier.
+    """Resolve a supported identifier without accepting arbitrary URLs.
+
+    Args:
+        reference: DOI, canonical OpenAlex URL or S2 identifier.
+
+    Kwargs:
+        None
+
+    Returns:
+        str: Safe HTTPS provider link, or blank for an unsupported identifier.
     """
     if re.fullmatch(r"https://openalex\.org/W[0-9A-Za-z]+", reference):
         return reference
@@ -107,15 +134,22 @@ def reference_url(reference: str) -> str:
 
 
 def entry_initial(project: Project, paper: Paper | None) -> dict:
-    """!
-    @brief Prefill an existing assignment and statuses without assuming a new paper's choices.
-    @param project Project being updated.
-    @param paper Stored canonical paper, or None for a new DOI.
-    @return Initial form values.
+    """Prefill saved linkage/status without guessing new-entry decisions.
+
+    Args:
+        project: Project whose assignment and decisions are displayed.
+        paper: Stored canonical paper, or None for a new DOI.
+
+    Kwargs:
+        None
+
+    Returns:
+        dict: Saved keyword/Title/Abstract form values; empty for a new paper.
     """
     if paper is None:
         return {}
-    assignment = PaperKeywordAssignment.objects.filter(project=project, paper=paper).first()
+    assignment = PaperKeywordAssignment.objects.filter(
+        project=project, paper=paper).first()
     keyword_value = ""
     if assignment is not None:
         keyword_value = f"{assignment.search_id}|{assignment.keyword}"
@@ -128,26 +162,36 @@ def entry_initial(project: Project, paper: Paper | None) -> dict:
         if len(set(choices)) == 1:
             keyword_value = choices[0]
     decisions = dict(
-        paper.decisions.filter(stage__project=project).values_list("stage__name", "decision")
+        paper.decisions.filter(stage__project=project).values_list(
+            "stage__name", "decision")
     )
     return {
         "search_keyword": keyword_value,
         "title_decision": decisions.get("Title", "PENDING"),
         "abstract_decision": decisions.get(
-            "Abstract", "PENDING" if decisions.get("Title") == "ACCEPT" else "NOT_QUEUED"
+            "Abstract", "PENDING" if decisions.get(
+                "Title") == "ACCEPT" else "NOT_QUEUED"
         ),
     }
 
 
 def entry_version(project: Project, paper: Paper) -> str:
-    """!
-    @brief Fingerprint metadata, assignment and decisions to detect changes in another tab.
-    @param project Project whose entry state is being reviewed.
-    @param paper Current stored paper.
-    @return Stable state fingerprint without exposing raw database rows in the token.
+    """Fingerprint the stored entry to reject stale confirmation from a tab.
+
+    Args:
+        project: Project owning the relevant assignment and decisions.
+        paper: Current stored paper, including its last metadata timestamp.
+
+    Kwargs:
+        None
+
+    Returns:
+        str: SHA256 of metadata timestamp, assignment and ordered decisions;
+        the signed preview need not expose those raw rows.
     """
     assignment = list(
-        paper.keyword_assignments.filter(project=project).values_list("search_id", "keyword")
+        paper.keyword_assignments.filter(
+            project=project).values_list("search_id", "keyword")
     )
     decisions = list(
         paper.decisions.filter(stage__project=project)
@@ -168,23 +212,35 @@ def save_entry(
     expected_paper_id: int | None,
     expected_version: str | None = None,
 ) -> tuple[Paper, bool]:
-    """!
-    @brief Save keyword assignment, provenance and both statuses as one transaction.
-    @param project Owning project for screening and keyword assignment.
-    @param doi Validated DOI from the preview.
-    @param metadata Authenticated read-only provider preview for new records.
-    @param values Validated keyword and status form values.
-    @param expected_paper_id Identity previewed by the user, or None for a new DOI.
-    @param expected_version State fingerprint for an existing paper preview.
-    @return Saved paper and whether it was newly created.
-    @throws ValueError If the preview is stale or a requested assignment/status is invalid.
+    """Save explicit assignment and statuses atomically, retaining old links.
+
+    Args:
+        project: Owning project for screening and keyword assignment.
+        doi: Validated DOI from the signed preview.
+        metadata: Authenticated provider preview for new records only.
+        values: Validated keyword, origin and screening form values.
+        expected_paper_id: Previewed identity, or None for a new DOI.
+
+    Kwargs:
+        expected_version: Existing entry fingerprint. Defaults to None for
+            new entries; existing entries require their matching version.
+
+    Returns:
+        tuple[Paper, bool]: Saved paper and whether it was newly created.
+
+    Raises:
+        ValueError: If preview, keyword target or screening choice is invalid.
+        OperationalError: If SQLite contention requires an explicit retry.
     """
     paper = Paper.objects.select_for_update().filter(doi__iexact=doi).first()
     if (paper.pk if paper else None) != expected_paper_id:
-        raise ValueError("The database entry changed since this preview. Look up the DOI again.")
+        raise ValueError(
+            "The database entry changed since this preview. "
+            "Look up the DOI again.")
     if paper is not None and entry_version(project, paper) != expected_version:
         raise ValueError(
-            "This entry was updated after you opened it. Reload the entry before saving."
+            "This entry was updated after you opened it. "
+            "Reload the entry before saving."
         )
     existing_origin = (
         paper.discoveries.filter(search__project=project)
@@ -216,33 +272,65 @@ def save_entry(
     if created:
         candidate = build_metadata(metadata, doi)
         if not candidate["title"]:
-            raise ValueError("No paper title was found. Retry the DOI lookup or use manual entry.")
-        paper = Paper(**candidate)
-        if paper.openalex_id and Paper.objects.filter(openalex_id=paper.openalex_id).exists():
             raise ValueError(
-                "The provider identifies a paper already stored under another DOI. Review the existing record before adding it."
+                "No paper title was found. "
+                "Retry the DOI lookup or use manual entry.")
+        paper = Paper(**candidate)
+        if paper.openalex_id and Paper.objects.filter(
+                openalex_id=paper.openalex_id).exists():
+            raise ValueError(
+                "The provider identifies a paper already stored under another "
+                "DOI. Review the existing record before adding it."
             )
     if abstract == "ACCEPT" and not abstract_available(paper.abstract):
         raise ValueError(
-            "No abstract found. Enter it during Abstract screening before accepting the paper."
+            "No abstract found. Enter it during Abstract screening "
+            "before accepting the paper."
         )
 
-    # Resolve the selected existing keyword or create the explicit new choice.
+    historical_value = (entry_initial(project, paper).get("search_keyword", "")
+                        if not created else "")
+    linked_search = (Search.objects.filter(
+        project=project, pk=historical_value.split("|", 1)[0]).first()
+        if historical_value else None)
+    selectable = bool(
+        linked_search and linked_search.is_current
+        and historical_value.split("|", 1)[1] in linked_search.keywords)
+    preserve_historical = bool(
+        historical_value and values["search_keyword"] == historical_value
+        and not selectable)
+    if preserve_historical and existing_origin is None:
+        raise ValueError(
+            "Choose a current keyword before recording "
+            "a new discovery origin.")
+    # Only server-derived saved links bypass the current reassignment rule.
     if values["search_keyword"] == "NEW":
         search = (
             Search.objects.select_for_update()
             .filter(
                 project=project,
                 pk=values.get("new_keyword_search"),
+                is_current=True,
             )
             .first()
         )
         fresh = (values.get("new_keyword") or "").strip()
         if search is None or not fresh or len(fresh) > 255:
-            raise ValueError("Enter a keyword and choose a search in this project.")
+            raise ValueError(
+                "Enter a keyword and choose a search in this project.")
+        if search.query.strip() and not search.keywords:
+            raise ValueError(
+                "These settings use a historical query without keyword rows. "
+                "Translate or replace it explicitly in Edit search settings "
+                "before adding a keyword; nothing was saved."
+            )
         search.keywords = Search.clean_rows([*search.keywords, fresh])
-        search.save()
-        keyword = next(word for word in search.keywords if word.lower() == fresh.lower())
+        search.save(update_fields=["keywords", "query"])
+        keyword = next(
+            word for word in search.keywords if word.lower() == fresh.lower())
+    elif preserve_historical:
+        search = linked_search
+        keyword = historical_value.split("|", 1)[1]
     else:
         search, keyword = selected_keyword(project, values["search_keyword"])
 
@@ -250,12 +338,12 @@ def save_entry(
         paper.keywords = [keyword]
         paper.sources = [origin]
         paper.save()
-    old_assignment = PaperKeywordAssignment.objects.filter(paper=paper, project=project).first()
-    changed_link = old_assignment is None or (old_assignment.search_id, old_assignment.keyword) != (
-        search.pk,
-        keyword,
-    )
-    if changed_link or existing_origin is None:
+    old_assignment = PaperKeywordAssignment.objects.filter(
+        paper=paper, project=project).first()
+    changed_link = (old_assignment is None
+                    or (old_assignment.search_id, old_assignment.keyword)
+                    != (search.pk, keyword))
+    if not preserve_historical and (changed_link or existing_origin is None):
         PaperKeywordAssignment.objects.update_or_create(
             paper=paper,
             project=project,
@@ -265,34 +353,40 @@ def save_entry(
             paper=paper,
             search=search,
             source=origin,
-            defaults={"query": keyword, "raw_payload": {"entry_method": "user_added"}},
+            defaults={"query": keyword, "raw_payload": {
+                "entry_method": "user_added"}},
         )
-        # Discovery history is retained; each reassignment has a separate audited run.
+        # Retain discoveries; audit each explicit reassignment separately.
         project.ensure_default_stages()
-        finish_manual_addition(project, paper, discovery, created=created, keyword=keyword)
+        finish_manual_addition(project, paper, discovery,
+                               created=created, keyword=keyword)
 
-    # Update only the keyword index; metadata of an existing record is never saved here.
-    keywords = set(paper.keywords or [])
-    if old_assignment and old_assignment.keyword != keyword:
-        previous = old_assignment.keyword
-        used_elsewhere = paper.keyword_assignments.filter(keyword=previous).exists()
-        provider_attributed = any(
-            (discovery.raw_payload or {}).get("entry_method") != "user_added"
-            for discovery in paper.discoveries.exclude(source="manual").filter(query=previous)
-        )
-        if not used_elsewhere and not provider_attributed:
-            keywords.discard(previous)
-    keywords.add(keyword)
-    paper.keywords = Search.clean_rows(list(keywords))
-    if origin not in paper.sources:
-        paper.sources = [*paper.sources, origin]
-    paper.save(update_fields=["keywords", "sources", "updated_at"])
+    if not preserve_historical:
+        # Existing metadata and historical links are not normalization targets.
+        keywords = set(paper.keywords or [])
+        if old_assignment and old_assignment.keyword != keyword:
+            previous = old_assignment.keyword
+            used_elsewhere = paper.keyword_assignments.filter(
+                keyword=previous).exists()
+            provider_attributed = any(
+                (discovery.raw_payload or {}).get("entry_method")
+                != "user_added"
+                for discovery in paper.discoveries.exclude(source="manual")
+                .filter(query=previous)
+            )
+            if not used_elsewhere and not provider_attributed:
+                keywords.discard(previous)
+        keywords.add(keyword)
+        paper.keywords = Search.clean_rows(list(keywords))
+        if origin not in paper.sources:
+            paper.sources = [*paper.sources, origin]
+        paper.save(update_fields=["keywords", "sources", "updated_at"])
 
     project.ensure_default_stages()
     title_stage = project.stages.get(name="Title")
     abstract_stage = project.stages.get(name="Abstract")
     reason = "Updated through the DOI paper entry panel."
-    # Re-query after each correction: Title can create or invalidate an Abstract row.
+    # Re-query: Title correction can create or invalidate an Abstract row.
     for stage, status in ((title_stage, title), (abstract_stage, abstract)):
         current = paper.decisions.filter(stage=stage).first()
         if status == "NOT_QUEUED":
@@ -303,5 +397,6 @@ def save_entry(
             if title_ready(paper):
                 paper.decisions.create(stage=stage, decision=status)
             continue
-        correct_decision(paper=paper, stage=stage, decision=status, reason=reason)
+        correct_decision(paper=paper, stage=stage,
+                         decision=status, reason=reason)
     return paper, created

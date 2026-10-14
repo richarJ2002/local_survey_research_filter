@@ -1,15 +1,25 @@
-"""Manual metadata completion during Abstract screening and reference review.
+"""Complete missing screening metadata and retain bibliography text/provenance.
 
-@File: reference_review_service.py
-@Brief: Preserve bibliography text and audit the missing-field completion workflow.
-@Date: 01/10/2026
-@Copyright: 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group.
+Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
+(AERO-Sys) group.
+
+@File:   reference_review_service.py
+
+@Brief:  Complete missing screening metadata and retain bibliography text/provenance.
+
+@Date:   14/10/2026
 """
 
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
+
+# Regular library imports
 from __future__ import annotations
 
 import re
 
+# Custom library Imports
 from django.db import transaction
 from django.utils import timezone
 
@@ -24,21 +34,60 @@ from literature.services.screening_service import (
     title_ready,
 )
 
+# ------------------------------------------------------------------------ #
+# Definitions
+# ------------------------------------------------------------------------ #
+
+# --- Functions
+
 
 def _record_manual_source(paper: Paper, field: str) -> None:
-    """Record provenance without duplicating the pasted content or overwriting provider data."""
+    """Record manual-field provenance without duplicating the pasted content.
+
+    Args:
+        paper (Paper): Instance whose raw metadata is updated in memory.
+        field (str): Field name to mark as manually entered.
+
+    Kwargs:
+        None
+
+    Returns:
+        None
+
+    Side Effects:
+        Replace this field's manual_metadata provenance with source="manual"
+        and the current ISO timestamp, preserving other raw keys. Do not save.
+    """
     raw = dict(paper.raw or {})
     existing = raw.get("manual_metadata")
     manual = dict(existing) if isinstance(existing, dict) else {}
-    manual[field] = {"source": "manual", "entered_at": timezone.now().isoformat()}
+    manual[field] = {"source": "manual",
+                     "entered_at": timezone.now().isoformat()}
     raw["manual_metadata"] = manual
     paper.raw = raw
 
 
 def missing_metadata_fields(paper: Paper) -> set[str]:
-    """Identify unknown bibliographic fields without treating a reported zero as missing."""
+    """Identify unknown metadata without treating a reported zero as missing.
+
+    Args:
+        paper (Paper): Paper whose values and raw provenance are inspected.
+
+    Kwargs:
+        None
+
+    Returns:
+        set[str]: Missing field names among title, authors, publication_year,
+            publication_date, venue, publisher, doi, keywords, abstract,
+            reference_text and citation_count. reference_text is missing only
+            when neither reference IDs nor bibliography text exists; the exact
+            audience-only tag is not an abstract. Zero citations are missing
+            only when neither a provider integer count nor manual count
+            provenance confirms them. No database changes are made.
+    """
     raw = paper.raw if isinstance(paper.raw, dict) else {}
-    manual = raw.get("manual_metadata") if isinstance(raw.get("manual_metadata"), dict) else {}
+    manual = raw.get("manual_metadata") if isinstance(
+        raw.get("manual_metadata"), dict) else {}
     reported_count = any(
         isinstance(raw.get(key), int)
         for key in ("cited_by_count", "citationCount", "is-referenced-by-count")
@@ -47,7 +96,8 @@ def missing_metadata_fields(paper: Paper) -> set[str]:
         "title": not title_ready(paper),
         "authors": not any(
             (
-                str(author.get("name") or "") if isinstance(author, dict) else str(author or "")
+                str(author.get("name") or "") if isinstance(
+                    author, dict) else str(author or "")
             ).strip()
             for author in (paper.authors or [])
         ),
@@ -69,7 +119,36 @@ def missing_metadata_fields(paper: Paper) -> set[str]:
 
 @transaction.atomic
 def save_missing_metadata(project: Project, paper: Paper, values: dict) -> None:
-    """Fill only currently unknown fields on a pending Abstract record, atomically."""
+    """Atomically fill only unknown fields on a pending Abstract record.
+
+    Args:
+        project (Project): Project requiring discovery membership and Title
+            acceptance before updating its pending Abstract paper.
+        paper (Paper): Stored paper identity; reload the row before validating.
+        values (dict): Cleaned field values from the completion form. Ignore
+            paper_id, None, empty strings and empty lists. Authors and keywords
+            are newline-separated text; dates/years/counts are parsed values.
+            Every supplied field must still be unknown when the row is read.
+
+    Kwargs:
+        None
+
+    Returns:
+        None
+
+    Raises:
+        InvalidTransition: If project/stage prerequisites fail, no usable
+            update is supplied, a field is already known, abstract text is the
+            audience placeholder, year/date disagree, or DOI conflicts.
+        Paper.DoesNotExist: If paper has been deleted.
+        IntegrityError: If a concurrent write claims a unique DOI identifier.
+
+    Side Effects:
+        Save a reloaded instance, not the caller's instance, with manual
+        provenance. Derive an unknown year from a date, retain replaced
+        abstract placeholders in provenance, and extract IDs from bibliography
+        text without dropping the full text. All writes share one transaction.
+    """
     locked = Paper.objects.select_for_update().get(pk=paper.pk)
     if (
         not locked.discoveries.filter(search__project=project).exists()
@@ -77,7 +156,8 @@ def save_missing_metadata(project: Project, paper: Paper, values: dict) -> None:
             stage__project=project, stage__name="Abstract", decision="PENDING"
         ).exists()
     ):
-        raise InvalidTransition("This paper is not pending Abstract screening in this project.")
+        raise InvalidTransition(
+            "This paper is not pending Abstract screening in this project.")
     if not locked.decisions.filter(
         stage__project=project, stage__name="Title", decision="ACCEPT"
     ).exists():
@@ -89,17 +169,20 @@ def save_missing_metadata(project: Project, paper: Paper, values: dict) -> None:
         if field != "paper_id" and value is not None and value != "" and value != []
     }
     if not updates:
-        raise InvalidTransition("Enter at least one missing detail before saving.")
+        raise InvalidTransition(
+            "Enter at least one missing detail before saving.")
     if set(updates) - unknown:
         raise InvalidTransition(
             "Some fields were filled in another request. Reload the paper; existing values were not overwritten."
         )
     if "abstract" in updates and not abstract_available(updates["abstract"]):
-        raise InvalidTransition("Paste the actual abstract, not a provider metadata tag.")
+        raise InvalidTransition(
+            "Paste the actual abstract, not a provider metadata tag.")
     date = updates.get("publication_date") or locked.publication_date
     year = updates.get("publication_year") or locked.publication_year
     if date and year and date.year != year:
-        raise InvalidTransition("The publication date must match the publication year.")
+        raise InvalidTransition(
+            "The publication date must match the publication year.")
     if date and locked.publication_year is None and "publication_year" not in updates:
         updates["publication_year"] = date.year
     doi = updates.get("doi")
@@ -127,7 +210,31 @@ def save_missing_metadata(project: Project, paper: Paper, values: dict) -> None:
 
 @transaction.atomic
 def save_missing_abstract(project: Project, paper: Paper, abstract: str) -> None:
-    """Fill only a blank abstract on a pending, project-owned Abstract screening row."""
+    """Atomically replace a missing abstract on a pending Abstract paper.
+
+    Args:
+        project (Project): Project requiring discovery membership and Title
+            acceptance for the pending Abstract record.
+        paper (Paper): Stored identity to reload; the caller's instance is not
+            refreshed by this function.
+        abstract (str): Actual abstract to strip/store, not an audience tag.
+
+    Kwargs:
+        None
+
+    Returns:
+        None
+
+    Raises:
+        InvalidTransition: If text is blank/placeholder, the paper is not
+            pending Abstract in the project, Title is not accepted, or a usable
+            abstract was already stored.
+        Paper.DoesNotExist: If paper has been deleted.
+
+    Side Effects:
+        Save abstract, manual provenance and updated_at in one transaction;
+        retain a replaced nonblank placeholder in provenance.
+    """
     locked = Paper.objects.select_for_update().get(pk=paper.pk)
     value = abstract.strip()
     if not abstract_available(value):
@@ -138,7 +245,8 @@ def save_missing_abstract(project: Project, paper: Paper, abstract: str) -> None
             stage__project=project, stage__name="Abstract", decision="PENDING"
         ).exists()
     ):
-        raise InvalidTransition("This paper is not pending Abstract screening in this project.")
+        raise InvalidTransition(
+            "This paper is not pending Abstract screening in this project.")
     if not locked.decisions.filter(
         stage__project=project, stage__name="Title", decision="ACCEPT"
     ).exists():
@@ -156,7 +264,22 @@ def save_missing_abstract(project: Project, paper: Paper, abstract: str) -> None
 
 
 def extract_reference_ids(text: str) -> list[str]:
-    """Extract supported identifiers without dropping unresolvable bibliography entries."""
+    """Extract resolvable identifier candidates from bibliography text.
+
+    Args:
+        text (str): Original multiline bibliography or standalone identifiers.
+
+    Kwargs:
+        None
+
+    Returns:
+        list[str]: Unique encounter-order identifiers: whole-line OpenAlex
+            URLs or S2: IDs, DOI resolver URLs extracted from prose, and modern
+            arXiv IDs converted to versionless 10.48550/arxiv DOI URLs. Remove
+            trailing prose punctuation while preserving balanced DOI brackets.
+            Unrecognized prose contributes no IDs; callers retain the original
+            bibliography separately, and no stored-paper match is checked here.
+    """
     result = []
     for line in text.splitlines():
         value = line.strip()
@@ -187,7 +310,33 @@ def extract_reference_ids(text: str) -> list[str]:
 def complete_references(
     project: Project, paper: Paper, text: str = "", *, reject: bool = False
 ) -> None:
-    """Complete the bibliography or record an audited Abstract rejection, never both."""
+    """Complete references or audit an Abstract rejection, never both.
+
+    Args:
+        project (Project): Project in which paper must be discovered and
+            Abstract-accepted but still lack references.
+        paper (Paper): Stored identity to reload; leave the caller's instance
+            unchanged in memory.
+
+    Kwargs:
+        text (str): Bibliography text to strip, retain and extract IDs from.
+            Defaults to ""; must be nonblank unless rejecting.
+        reject (bool): Correct Abstract to REJECT with an audit reason.
+            Ignore text instead of saving references. Defaults to False.
+
+    Returns:
+        None
+
+    Raises:
+        InvalidTransition: If membership/acceptance fails, references already
+            exist, text is blank when saving, or correction validation fails.
+        Paper.DoesNotExist: If paper has been deleted.
+
+    Side Effects:
+        Save full reference_text, extracted IDs and manual provenance, or
+        delegate an audited rejection to correct_decision, in one transaction.
+        A bibliography with no recognized IDs still completes references.
+    """
     locked = Paper.objects.select_for_update().get(pk=paper.pk)
     if (
         not locked.discoveries.filter(search__project=project).exists()
@@ -195,9 +344,11 @@ def complete_references(
             stage__project=project, stage__name="Abstract", decision="ACCEPT"
         ).exists()
     ):
-        raise InvalidTransition("This paper has not passed Abstract screening in this project.")
+        raise InvalidTransition(
+            "This paper has not passed Abstract screening in this project.")
     if has_reference_list(locked):
-        raise InvalidTransition("References are already available. Reload the queue.")
+        raise InvalidTransition(
+            "References are already available. Reload the queue.")
     if reject:
         correct_decision(
             paper=locked,
@@ -208,8 +359,10 @@ def complete_references(
         return
     value = text.strip()
     if not value:
-        raise InvalidTransition("Paste a reference list before saving, or reject this paper.")
+        raise InvalidTransition(
+            "Paste a reference list before saving, or reject this paper.")
     locked.reference_text = value
     locked.references = extract_reference_ids(value)
     _record_manual_source(locked, "references")
-    locked.save(update_fields=["reference_text", "references", "raw", "updated_at"])
+    locked.save(update_fields=["reference_text",
+                "references", "raw", "updated_at"])

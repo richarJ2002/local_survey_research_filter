@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
 
-'''
+"""Build within-project citation graphs from stored identifiers and caches.
+
+Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
+(AERO-Sys) group.
+
 @File:   citation_service.py
 
-@Brief:  Within-library citation graph (no extra API calls).
+@Brief:  Build within-project citation graphs from stored identifiers and caches.
 
-@Date:   28/09/2026
-@Copyright: 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group.
+@Date:   14/10/2026
+"""
 
-'''
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
 
 # Regular library imports
 from __future__ import annotations
@@ -25,8 +31,20 @@ from literature.services.reference_service import normalize_doi
 # ------------------------------------------------------------------------ #
 
 # --- Short OpenAlex id ---
+
+
 def _short_id(raw: str) -> str:
-    """Strip OpenAlex URL prefix to short W-id."""
+    """Strip the OpenAlex resolver prefix and surrounding whitespace.
+
+    Args:
+        raw (str): OpenAlex URL or short ID; falsey values become blank.
+
+    Kwargs:
+        None
+
+    Returns:
+        str: Short identifier, or an empty string for a falsey input.
+    """
     return str(raw or "").replace("https://openalex.org/", "").strip()
 
 
@@ -36,6 +54,18 @@ def _connecting_papers(neighbours: dict[int, set[int]], seeds: set[int]) -> set[
 
     Build the block-cut forest: cyclic branches attached at only one point
     are not connections, while every route through a joining block is.
+
+    Args:
+        neighbours (dict): Symmetric integer-ID to neighbour-ID-set adjacency;
+            every neighbour must be a key. Citation direction is ignored here.
+        seeds (set[int]): Selected paper IDs anchoring connecting paths.
+
+    Kwargs:
+        None
+
+    Returns:
+        set[int]: Non-seed IDs on any simple undirected path joining two seeds;
+            excludes single-anchor components and singly attached cycles.
     """
     index: dict[int, int] = {}
     low: dict[int, int] = {}
@@ -69,7 +99,8 @@ def _connecting_papers(neighbours: dict[int, set[int]], seeds: set[int]) -> set[
             if other not in index:
                 edge_stack.append((current, other))
                 index[other] = low[other] = len(index)
-                frames.append((other, current, iter(sorted(neighbours[other]))))
+                frames.append(
+                    (other, current, iter(sorted(neighbours[other]))))
             elif index[other] < index[current]:
                 edge_stack.append((current, other))
                 low[current] = min(low[current], index[other])
@@ -99,7 +130,8 @@ def _connecting_papers(neighbours: dict[int, set[int]], seeds: set[int]) -> set[
     # is precisely the union of the routes joining selected anchors.
     remaining = set(tree)
     degree = {node: len(others) for node, others in tree.items()}
-    queue = deque(node for node in tree if degree[node] <= 1 and node not in anchor_counts)
+    queue = deque(
+        node for node in tree if degree[node] <= 1 and node not in anchor_counts)
     while queue:
         node = queue.popleft()
         if node not in remaining:
@@ -136,15 +168,29 @@ def _connecting_papers(neighbours: dict[int, set[int]], seeds: set[int]) -> set[
 def _shortest_backbone(
     neighbours: dict[int, set[int]], seeds: set[int],
 ) -> set[frozenset[int]]:
-    """Choose a deterministic small union of shortest paths spanning each group.
+    """Choose a deterministic union of shortest paths spanning each seed group.
 
     Distances between selected papers form a metric graph. A minimum
     spanning forest on that graph chooses which pairs to join; one
     shortest citation path per chosen pair supplies the displayed edges.
     This is a compact backbone, not an exact minimum Steiner tree.
+
+    Args:
+        neighbours (dict): Symmetric integer-ID to neighbour-ID-set adjacency;
+            every neighbour must be a key. Each edge has unit hop cost.
+        seeds (set[int]): Selected IDs; IDs absent from the graph are ignored.
+
+    Kwargs:
+        None
+
+    Returns:
+        set[frozenset[int]]: Unordered endpoint pairs in the chosen paths.
+            Sorted ID traversal resolves ties; disconnected seed groups get
+            independent backbones, and isolated seeds contribute no edges.
     """
     selected = sorted(seeds & neighbours.keys())
-    ordered_neighbours = {pk: sorted(others) for pk, others in neighbours.items()}
+    ordered_neighbours = {pk: sorted(others)
+                          for pk, others in neighbours.items()}
     parents: dict[int, dict[int, int | None]] = {}
     candidates: list[tuple[int, int, int]] = []
     for i, start in enumerate(selected):
@@ -168,6 +214,20 @@ def _shortest_backbone(
     leader = {pk: pk for pk in selected}
 
     def root(pk: int) -> int:
+        """Find a seed's union-find representative and compress its path.
+
+        Args:
+            pk (int): Seed ID in the enclosing leader mapping.
+
+        Kwargs:
+            None
+
+        Returns:
+            int: Representative ID for the seed's current connected group.
+
+        Side Effects:
+            Update the enclosing leader mapping during path compression.
+        """
         while leader[pk] != pk:
             leader[pk] = leader[leader[pk]]
             pk = leader[pk]
@@ -194,17 +254,47 @@ def build_graph(
     project, *, depth: int = 2, prune: bool = False,
     seed_stage: str = "final", min_chain: int = 1,
 ) -> dict:
-    """Build nodes/edges from kept papers at one filtration point plus links.
+    """Build a citation lens using only papers discovered in the project.
 
-    seed_stage picks the lens: "final" (Abstract Yes with references completed),
-    "title" (Title Yes), or "found" (every paper found, no filtering).
-    Anything else behaves like "found". Seeds draw in one colour, papers
-    pulled in purely through citation links in another. Depth follows
-    citing-to-cited links backward from selected papers, newest first.
-    Prune keeps a shortest-path backbone joining selected papers in each
-    component. min_chain hides whole groups smaller than the given size.
-    Isolated non-seeds are always left out; isolated seeds are kept
-    unless min_chain removes their group.
+    Match stored OpenAlex, DOI, S2 and cached arXiv DOI aliases, plus cached
+    OpenCitations edges; bibliography prose alone supplies no edges. Explore
+    all seeds newest first through citing-to-cited links only. Connectivity
+    and path selection ignore direction, but displayed edges retain it.
+    Without pruning, keep all edges/cycles among visible nodes and mark every
+    non-seed on a simple path between seeds as a joiner. With pruning, keep
+    only a deterministic shortest-path spanning backbone, not an exact
+    Steiner tree. Isolated seeds remain unless min_chain removes their group.
+
+    Args:
+        project (Project): Project whose discovery membership bounds the graph.
+
+    Kwargs:
+        depth (int): Outgoing citation hops, coerced and clamped to 0..10.
+            Defaults to 2; falsey values become zero.
+        prune (bool): Keep only seed-joining backbone edges. Defaults to False.
+        seed_stage (str): "final" uses reference-complete Abstract accepts,
+            "title" uses Title accepts, and "found" uses every discovered
+            paper. Defaults to "final"; unrecognized values mean "found".
+        min_chain (int): Minimum undirected component size after node pruning,
+            coerced to at least one. Defaults to 1.
+
+    Returns:
+        dict: nodes is a year/ID-sorted list with id, title, year, citations,
+            venue, is_seed and is_joiner; edges is a sorted list of directed
+            (citing ID, cited ID) tuples. skipped_isolated counts discarded
+            isolated non-seeds; missing_references counts all discovered papers
+            with no reference IDs, even if bibliography text exists. For a
+            nonempty discovery set, pruned counts nodes removed by backbone
+            pruning before min_chain, and pruned_edges counts pre-prune visible
+            edges minus returned edges when pruning (zero otherwise). These
+            last two keys are absent when the discovery set is empty.
+
+    Raises:
+        TypeError: If depth or min_chain cannot be converted to an integer.
+        ValueError: If depth or min_chain is an invalid integer string.
+
+    Side Effects:
+        Read stored project data; perform no writes or provider requests.
     """
     from literature.models import ScreeningDecision
 
@@ -267,7 +357,7 @@ def build_graph(
             if citing is not None and cited is not None and citing.pk != cited.pk:
                 adjacency[citing.pk].add(cited.pk)
 
-    # Seeds: kept papers at the chosen filtration point, then fallbacks.
+    # Seeds are exact lens membership; final selection has no fallback.
     title_ids = set(
         ScreeningDecision.objects.filter(
             stage__project=project, stage__name="Title", decision="ACCEPT"
@@ -275,7 +365,8 @@ def build_graph(
     ) & paper_ids
     from literature.services.screening_service import final_decisions
 
-    abstract_ids = set(final_decisions(project).values_list("paper_id", flat=True)) & paper_ids
+    abstract_ids = set(final_decisions(project).values_list(
+        "paper_id", flat=True)) & paper_ids
     if seed_stage == "title":
         seeds = set(title_ids)
     elif seed_stage == "final":
@@ -295,7 +386,18 @@ def build_graph(
     by_pk = {p.pk: p for p in papers}
 
     def newest_first(pk: int) -> tuple[bool, int, int]:
-        """Dated papers newest first; undated papers last, then stable PK."""
+        """Order dated papers newest first, then undated papers and stable IDs.
+
+        Args:
+            pk (int): ID in the enclosing paper mapping.
+
+        Kwargs:
+            None
+
+        Returns:
+            tuple: Boolean missing-year flag, negative integer year (zero when
+                missing), and paper ID, suitable for ascending sorting.
+        """
         year = by_pk[pk].publication_year
         return (year is None, -(year or 0), pk)
 
@@ -352,7 +454,7 @@ def build_graph(
                 stack.extend(sub_all.get(cur, ()) - seen_all)
             if len(group) < min_chain:
                 visible -= group
-    # Grey always means "would survive pruning".
+    # Grey marks connecting routes; pruning may choose only one such route.
     joiners = connectors & visible
     nodes = []
     for pk in visible:
@@ -388,11 +490,29 @@ def build_graph(
 
 # --- Per-track table ---
 def track_summaries(project, graph: dict) -> list[dict]:
-    """One plain-English row per connected track.
+    """Summarize each linked component of the displayed graph.
 
-    Keywords: most common fieldsOfStudy/tags on member papers.
-    Search rows: which of your keyword rows hit members most.
-    Years/venues: range and top venues (proxy for field/industry).
+    Use common fieldsOfStudy/tags and keyword-row text hits to describe member
+    papers; year ranges and top venues serve as field/industry proxies.
+
+    Args:
+        project (Project): Project supplying keyword rows for text matching.
+        graph (dict): Displayed nodes with id keys and directed endpoint-pair
+            edges, normally produced by build_graph.
+
+    Kwargs:
+        None
+
+    Returns:
+        list[dict]: Components larger than one node, largest first, named
+            "Track N". Each row has size (node count), citations (summed stored
+            counts), year_min/year_max (None if undated), top_keywords (five),
+            top_venues (three), and top_rows (three keyword-row substring hits
+            in member titles, abstracts or keywords). Missing stored papers
+            contribute no metadata; isolated nodes produce no rows.
+
+    Side Effects:
+        Read stored paper metadata and project searches without writing.
     """
     from collections import Counter
 
@@ -424,7 +544,8 @@ def track_summaries(project, graph: dict) -> list[dict]:
             stack.extend(neighbour.get(cur, ()) - seen)
         components.append(current)
 
-    papers = {p.pk: p for p in Paper.objects.filter(pk__in=[n["id"] for n in nodes])}
+    papers = {p.pk: p for p in Paper.objects.filter(
+        pk__in=[n["id"] for n in nodes])}
     search_rows: list[str] = []
     for search in project.searches.all().only("keywords"):
         for raw in search.keywords or []:

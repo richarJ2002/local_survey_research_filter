@@ -5,8 +5,14 @@
 @Date: 01/10/2026
 """
 
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
+
+# Regular library imports
 import re
 
+# Custom library Imports
 from django.core import signing
 from django.db import transaction
 
@@ -20,6 +26,12 @@ from literature.models import (
 )
 from literature.services.reference_review_service import extract_reference_ids
 from literature.services.reference_service import normalize_doi
+
+# ------------------------------------------------------------------------ #
+# Definitions
+# ------------------------------------------------------------------------ #
+
+# --- Functions
 
 
 def citation_key(value: str) -> str:
@@ -71,7 +83,8 @@ def project_origin(project: Project, paper: Paper | None) -> tuple[str, str]:
     if paper is None:
         return ("reading", "")
     discoveries = list(
-        Discovery.objects.filter(paper=paper, search__project=project).order_by("pk")
+        Discovery.objects.filter(
+            paper=paper, search__project=project).order_by("pk")
     )
     if not discoveries:
         return ("reading", "")
@@ -89,12 +102,27 @@ def project_origin(project: Project, paper: Paper | None) -> tuple[str, str]:
     return (origin, candidates[0].source if candidates else "")
 
 
-def prefill(project: Project, doi: str, metadata: dict, paper: Paper | None) -> dict:
+def prefill(
+    project: Project, doi: str, metadata: dict, paper: Paper | None, *,
+    binding: list[str] | None = None,
+) -> dict:
     """Sign the cached identities; all visible bibliographic fields remain editable.
 
     Never mutates Paper/Discovery/keyword/decisions. Reference numbers stay
     blank so curators finalize them once manuscript IDs are known. The signed
     preview retains the optional paper link even when the DOI is blank.
+
+    Args:
+        project: Owning project for provenance and preview identity.
+        doi: Validated DOI, or blank for a stored paper without one.
+        metadata: Fetched metadata used only when paper is absent.
+        paper: Cached canonical paper, or None for an uncached DOI.
+
+    Kwargs:
+        binding: Worker UUID/epoch. Defaults to empty developer identity.
+
+    Returns:
+        dict: Editable form initials with a signed, 30-minute identity token.
     """
     aliases = []
     if paper:
@@ -124,7 +152,8 @@ def prefill(project: Project, doi: str, metadata: dict, paper: Paper | None) -> 
         key = citation_key("S2:" + str(ids["semantic_scholar"]))
         if key:
             aliases.append(key)
-    arxiv = re.fullmatch(r"(\d{4}\.\d{4,5})(?:v\d+)?", str(ids.get("arxiv") or ""))
+    arxiv = re.fullmatch(r"(\d{4}\.\d{4,5})(?:v\d+)?",
+                         str(ids.get("arxiv") or ""))
     if arxiv:
         aliases.append("10.48550/arxiv." + arxiv.group(1))
     references = metadata.get("references") or []
@@ -145,6 +174,7 @@ def prefill(project: Project, doi: str, metadata: dict, paper: Paper | None) -> 
         "preview_token": signing.dumps(
             {
                 "project": project.pk,
+                "binding": binding or ["", ""],
                 "doi": doi,
                 "aliases": aliases,
                 "paper": paper.pk if paper else None,
@@ -156,8 +186,27 @@ def prefill(project: Project, doi: str, metadata: dict, paper: Paper | None) -> 
 
 
 @transaction.atomic
-def save_survey_entry(project: Project, values: dict, entry_id: int | None = None) -> SurveyEntry:
-    """Save an editable snapshot atomically, rejecting stale updates and duplicate ref numbers."""
+def save_survey_entry(
+    project: Project, values: dict, entry_id: int | None = None, *,
+    binding: list[str] | None = None,
+) -> SurveyEntry:
+    """Save a curated snapshot and manual links atomically without draft writes.
+
+    Args:
+        project: Owning project for the entry and cited targets.
+        values: Validated editable bibliographic fields and optional links.
+
+    Kwargs:
+        entry_id: Existing entry to edit. Defaults to None for creation.
+        binding: Worker UUID/epoch. Defaults to empty developer identity.
+
+    Returns:
+        SurveyEntry: Saved independent snapshot.
+
+    Raises:
+        ValueError: If fields, preview binding, version or links are invalid.
+        DatabaseError: If the transaction cannot commit; no partial saves.
+    """
     entry = (
         SurveyEntry.objects.select_for_update().get(project=project, pk=entry_id)
         if entry_id
@@ -166,7 +215,8 @@ def save_survey_entry(project: Project, values: dict, entry_id: int | None = Non
     try:
         reference_number = int(values.get("reference_number"))
     except (TypeError, ValueError) as exc:
-        raise ValueError("Enter a survey reference number of 1 or higher.") from exc
+        raise ValueError(
+            "Enter a survey reference number of 1 or higher.") from exc
     if reference_number < 1:
         raise ValueError("Enter a survey reference number of 1 or higher.")
     title = str(values.get("title") or "").strip()
@@ -177,17 +227,21 @@ def save_survey_entry(project: Project, values: dict, entry_id: int | None = Non
         raise ValueError("Enter a valid DOI or leave it blank.")
     if entry_id:
         try:
-            version = signing.loads(values.get("version", ""), salt="survey-version", max_age=86400)
+            version = signing.loads(values.get(
+                "version", ""), salt="survey-version", max_age=86400)
         except (signing.BadSignature, TypeError, ValueError) as exc:
-            raise ValueError("This edit expired. Reload the entry before saving.") from exc
+            raise ValueError(
+                "This edit expired. Reload the entry before saving.") from exc
         if version != [entry.pk, entry.updated_at.isoformat()]:
-            raise ValueError("This entry changed in another tab. Reload before saving.")
+            raise ValueError(
+                "This entry changed in another tab. Reload before saving.")
     if (
         project.survey_entries.filter(reference_number=reference_number)
         .exclude(pk=entry_id)
         .exists()
     ):
-        raise ValueError("That survey reference number is already used in this project.")
+        raise ValueError(
+            "That survey reference number is already used in this project.")
     old_doi = normalize_doi(entry.doi or "") or ""
     if doi and project.survey_entries.filter(doi__iexact=doi).exclude(pk=entry_id).exists():
         raise ValueError(
@@ -210,6 +264,8 @@ def save_survey_entry(project: Project, values: dict, entry_id: int | None = Non
             )
         if preview.get("project") != project.pk:
             raise ValueError("The preview belongs to another project.")
+        if preview.get("binding", ["", ""]) != (binding or ["", ""]):
+            raise ValueError("The preview belongs to another worker. Reload.")
         if (
             not isinstance(preview.get("doi"), str)
             or "aliases" not in preview
@@ -234,7 +290,8 @@ def save_survey_entry(project: Project, values: dict, entry_id: int | None = Non
                     "The DOI preview expired. Look it up again or use a blank manual form."
                 )
             entry.identity_aliases = list(aliases)
-            entry.paper = Paper.objects.filter(pk=paper_pk).first() if paper_pk else None
+            entry.paper = Paper.objects.filter(
+                pk=paper_pk).first() if paper_pk else None
     if "inclusion_origin" in values:
         raw_origin = values.get("inclusion_origin") or "reading"
         if raw_origin not in ("search", "reading", "unspecified"):
@@ -252,7 +309,8 @@ def save_survey_entry(project: Project, values: dict, entry_id: int | None = Non
         "reference_text",
         "origin_source",
     ):
-        setattr(entry, name, values.get(name) or (None if name == "publication_year" else ""))
+        setattr(entry, name, values.get(name) or (
+            None if name == "publication_year" else ""))
     entry.reference_ids = extract_reference_ids(entry.reference_text)
     entry.save()
     if "cited_entries" in values:
@@ -260,9 +318,11 @@ def save_survey_entry(project: Project, values: dict, entry_id: int | None = Non
         if isinstance(raw_targets, (str, bytes)):
             raise ValueError("Choose valid entries from this project.")
         try:
-            target_ids = {int(getattr(item, "pk", item)) for item in (raw_targets or [])}
+            target_ids = {int(getattr(item, "pk", item))
+                          for item in (raw_targets or [])}
         except (TypeError, ValueError) as exc:
-            raise ValueError("Choose valid entries from this project.") from exc
+            raise ValueError(
+                "Choose valid entries from this project.") from exc
         if entry.pk in target_ids:
             raise ValueError("An entry cannot reference itself.")
         if target_ids:
@@ -273,13 +333,16 @@ def save_survey_entry(project: Project, values: dict, entry_id: int | None = Non
             )
             if target_ids != found:
                 raise ValueError("Choose entries from this project.")
-        existing = set(entry.manual_outgoing.values_list("cited_id", flat=True))
+        existing = set(entry.manual_outgoing.values_list(
+            "cited_id", flat=True))
         to_remove = existing - target_ids
         to_add = target_ids - existing
         if to_remove:
-            SurveyCitation.objects.filter(citing=entry, cited_id__in=sorted(to_remove)).delete()
+            SurveyCitation.objects.filter(
+                citing=entry, cited_id__in=sorted(to_remove)).delete()
         for tid in sorted(to_add):
-            target = SurveyEntry.objects.filter(project=project, pk=tid).first()
+            target = SurveyEntry.objects.filter(
+                project=project, pk=tid).first()
             if not target or tid == entry.pk:
                 raise ValueError("Choose entries from this project.")
             SurveyCitation.objects.get_or_create(citing=entry, cited=target)
@@ -312,7 +375,8 @@ def build_survey_graph(project: Project) -> dict:
     for lookup in lookups:
         for pair in lookup.edges or []:
             if isinstance(pair, list) and len(pair) == 2:
-                source, target = (by_key.get(citation_key(value)) for value in pair)
+                source, target = (by_key.get(citation_key(value))
+                                  for value in pair)
                 if source and target and source != target:
                     automatic.add((source, target))
     manual = set(

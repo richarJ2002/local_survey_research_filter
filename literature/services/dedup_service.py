@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
 
-'''
+"""Find duplicates by DOI, OpenAlex/Scopus identity or normalized title.
+
+Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
+(AERO-Sys) group.
+
 @File:   dedup_service.py
 
-@Brief:  Deduplication by DOI -> openalex_id -> normalized title.
+@Brief:  Find duplicates by DOI, OpenAlex/Scopus identity or normalized title.
 
-@Date:   28/09/2026
-@Copyright: 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group.
+@Date:   14/10/2026
+"""
 
-'''
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
 
 # Regular library imports
 from __future__ import annotations
@@ -17,7 +23,7 @@ from __future__ import annotations
 from django.db import transaction
 
 from literature.models import Paper
-from literature.providers.mapping import normalize_title
+from literature.providers.mapping import normalize_scopus_id, normalize_title
 
 # ------------------------------------------------------------------------ #
 # Duplicate lookup / merge
@@ -25,12 +31,28 @@ from literature.providers.mapping import normalize_title
 
 
 def find_duplicate(paper_data: dict) -> tuple[Paper | None, str]:
-    """Return (existing Paper or None, match_type).
+    """Find the first match by DOI, OpenAlex/Scopus identity or normalized title.
 
     Stages in order: same DOI, then same provider ID, then same
     normalized title. Title alone merges (first author/year not
     required); review page exists for manual correction.
-    match_type in {"none", "doi", "openalex_id", "title"}.
+
+    Args:
+        paper_data (dict): Incoming metadata with optional doi, openalex_id,
+            source_ids and title keys. DOI matching strips resolver prefixes
+            and ignores case; OpenAlex matching is exact. Scopus source IDs
+            accept EID, SCOPUS_ID-prefixed and bare-digit aliases.
+
+    Kwargs:
+        None
+
+    Returns:
+        tuple: Matching stored Paper and string match type "doi",
+            "openalex_id", "scopus_id" or "title"; (None, "none") when unmatched.
+            Search is global to the database, not limited to one project.
+
+    Side Effects:
+        Read stored papers without modifying them.
     """
     raw_doi = paper_data.get("doi") or None
     doi: str | None = None
@@ -50,6 +72,16 @@ def find_duplicate(paper_data: dict) -> tuple[Paper | None, str]:
         if existing is not None:
             return existing, "openalex_id"
 
+    source_ids = paper_data.get("source_ids") or {}
+    scopus_id = normalize_scopus_id(
+        source_ids.get("scopus") if isinstance(source_ids, dict) else None)
+    if scopus_id:
+        existing = Paper.objects.filter(source_ids__scopus__in=(
+            scopus_id, f"2-s2.0-{scopus_id}", f"SCOPUS_ID:{scopus_id}",
+        )).first()
+        if existing is not None:
+            return existing, "scopus_id"
+
     norm = normalize_title(paper_data.get("title") or "")
     if norm:
         for cand in Paper.objects.exclude(title="").only("id", "title"):
@@ -64,9 +96,22 @@ def find_duplicate(paper_data: dict) -> tuple[Paper | None, str]:
 
 # --- Duplicate groups ---
 def duplicate_groups(project) -> list[list[Paper]]:
-    """Group project papers by normalized title (len>1), A-Z.
+    """Group discovered project papers sharing a nonblank normalized title.
 
     Start rule per user: same titles (+ authors shown for confirmation).
+
+    Args:
+        project (Project): Project whose discoveries determine membership.
+
+    Kwargs:
+        None
+
+    Returns:
+        list[list[Paper]]: Groups of at least two papers, sorted by normalized
+            title, with each group sorted by paper ID; empty if none match.
+
+    Side Effects:
+        Read stored discoveries and paper metadata without writing.
     """
     from literature.models import Discovery
 
@@ -85,7 +130,8 @@ def duplicate_groups(project) -> list[list[Paper]]:
         if not key:
             continue
         buckets.setdefault(key, []).append(paper)
-    groups = [sorted(v, key=lambda p: p.id) for v in buckets.values() if len(v) > 1]
+    groups = [sorted(v, key=lambda p: p.id)
+              for v in buckets.values() if len(v) > 1]
     groups.sort(key=lambda g: normalize_title(g[0].title))
     return groups
 
@@ -93,7 +139,27 @@ def duplicate_groups(project) -> list[list[Paper]]:
 # --- Merge papers ---
 @transaction.atomic
 def merge_papers(*, keep: Paper, drop: Paper) -> Paper:
-    """Merge drop into keep: sources, provenance, decisions; delete drop."""
+    """Atomically merge metadata and audit relations into a retained paper.
+
+    Fill eligible blanks and raise citation counts via merge_sources. Copy
+    discoveries, move decisions when absent, and replace retained pending
+    decisions only with decided ones. Retained keyword assignments win
+    conflicts. Delete drop and refresh keep after the merge.
+
+    Args:
+        None
+
+    Kwargs:
+        keep (Paper): Required keyword-only retained stored paper.
+        drop (Paper): Required keyword-only distinct paper to merge and delete.
+
+    Returns:
+        Paper: The refreshed keep instance.
+
+    Side Effects:
+        Write metadata, discoveries, decisions and keyword assignments in one
+        transaction; deletion also applies the model's cascading relations.
+    """
     from literature.models import Discovery, PaperKeywordAssignment, ScreeningDecision
 
     merge_sources(keep, {
@@ -138,7 +204,8 @@ def merge_papers(*, keep: Paper, drop: Paper) -> Paper:
     for assignment in drop.keyword_assignments.all():
         PaperKeywordAssignment.objects.get_or_create(
             paper=keep, project=assignment.project,
-            defaults={"search": assignment.search, "keyword": assignment.keyword},
+            defaults={"search": assignment.search,
+                      "keyword": assignment.keyword},
         )
     drop.delete()
     keep.refresh_from_db()
@@ -146,7 +213,24 @@ def merge_papers(*, keep: Paper, drop: Paper) -> Paper:
 
 
 def merge_sources(existing: Paper, paper_data: dict) -> bool:
-    """Merge source metadata into existing paper. Returns True if saved."""
+    """Add source metadata and fill blanks without replacing curated values.
+
+    Args:
+        existing (Paper): Stored paper to mutate and save if improved.
+        paper_data (dict): Optional sources and source_ids to add, abstract,
+            venue, references and reference_text to fill when falsey, and
+            citation_count to apply only when greater than the stored count.
+
+    Kwargs:
+        None
+
+    Returns:
+        bool: True if any eligible value changed and the paper was saved.
+
+    Side Effects:
+        Mutate existing and update its stored metadata and updated_at when
+        changed; source IDs already present are not replaced.
+    """
     changed = False
     existing_sources = list(existing.sources or [])
     for src in paper_data.get("sources") or []:
@@ -180,6 +264,7 @@ def merge_sources(existing: Paper, paper_data: dict) -> bool:
         changed = True
     if changed:
         existing.save(
-            update_fields=["sources", "source_ids", "abstract", "venue", "references", "reference_text", "citation_count", "updated_at"]
+            update_fields=["sources", "source_ids", "abstract", "venue",
+                           "references", "reference_text", "citation_count", "updated_at"]
         )
     return changed

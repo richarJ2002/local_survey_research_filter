@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
 
-'''
+"""Preview DOI metadata and fill missing paper fields through provider lookups.
+
+Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
+(AERO-Sys) group.
+
 @File:   reference_service.py
 
-@Brief:  Fill missing paper fields via DOI lookups across providers.
+@Brief:  Preview DOI metadata and fill missing paper fields through provider lookups.
 
-@Date:   29/09/2026
-@Copyright: 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group.
+@Date:   14/10/2026
+"""
 
-'''
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
 
 # Regular library imports
 from __future__ import annotations
@@ -32,13 +38,29 @@ BASE_URL = "https://api.openalex.org/works"
 BATCH_SIZE = 50
 
 
+# ------------------------------------------------------------------------ #
+# Definitions
+# ------------------------------------------------------------------------ #
+
+# --- Classes
 class RefbackfillError(RuntimeError):
-    """Raised when the lookup fails after retries."""
+    """Report an OpenAlex lookup failure or Semantic Scholar rate limit."""
 
 
 # --- Normalize DOI ---
 def normalize_doi(raw: str | None) -> str | None:
-    """Lowercase DOI without resolver prefix, or None."""
+    """Strip whitespace and DOI resolver prefixes and lowercase the result.
+
+    Args:
+        raw: DOI string or resolver URL; None is treated as blank.
+
+    Kwargs:
+        None
+
+    Returns:
+        str | None: Nonblank normalized text or None. This does not validate
+            DOI syntax; resolver strings are removed wherever they occur.
+    """
     cleaned = (
         (raw or "")
         .strip()
@@ -51,7 +73,18 @@ def normalize_doi(raw: str | None) -> str | None:
 
 # --- Headers ---
 def _headers() -> dict:
-    """Polite-pool headers (email only, never a secret)."""
+    """Build JSON lookup headers with the configured optional contact email.
+
+    Args:
+        None
+
+    Kwargs:
+        None
+
+    Returns:
+        dict: User-Agent identifies the app and optionally its mailto contact;
+            Accept requests application/json. No provider secret is included.
+    """
     email = (getattr(settings, "OPENALEX_EMAIL", "") or "").strip()
     agent = "LocalSurveyResearchFilter/0.1"
     if email:
@@ -61,15 +94,33 @@ def _headers() -> dict:
 
 # --- Fetch one batch ---
 def fetch_batch(dois: list[str], client: httpx.Client) -> dict[str, dict]:
-    """!
-    @brief Fetch canonical preview metadata for a bounded OpenAlex DOI batch.
-    @param dois Normalized DOI identifiers.
-    @param client HTTP client with polite-pool headers.
-    @return Metadata keyed by normalized DOI, including authors, year, venue and identifiers.
-    @throws RefbackfillError If OpenAlex rejects the request after retries.
-    @throws TypeError If the provider's response envelope is not a works list.
-    @throws ValueError If JSON or canonical metadata parsing fails.
-    @throws httpx.RequestError If the HTTP transport fails.
+    """Fetch canonical preview metadata for an OpenAlex DOI batch.
+
+    Args:
+        dois (list[str]): Normalized DOIs joined into one OR filter. Callers
+            choose the batch size; this function caps only per-page at 100.
+        client (httpx.Client): Borrowed client, normally with lookup headers.
+
+    Kwargs:
+        None
+
+    Returns:
+        dict: Returned normalized DOIs mapped to dictionaries with title,
+            abstract, references (OpenAlex IDs), authors, publication_year,
+            venue, openalex_id and source_ids. Unmatched DOIs are absent.
+            Skip non-dict items and items lacking DOI text.
+
+    Raises:
+        RefbackfillError: If a nonretryable HTTP status occurs or all three
+            attempts return 429/5xx.
+        TypeError: If the response envelope/results have invalid types, or
+            canonical metadata has incompatible types.
+        ValueError: If JSON decoding or canonical value parsing fails.
+        httpx.RequestError: If HTTP transport fails (not retried here).
+
+    Side Effects:
+        GET with a 30-second timeout, retrying 429/5xx up to three attempts
+        with exponential jittered sleeps capped at 30 seconds; no DB writes.
     """
     from literature.providers.mapping import map_openalex_to_canonical
 
@@ -89,7 +140,8 @@ def fetch_batch(dois: list[str], client: httpx.Client) -> dict[str, dict]:
             time.sleep(min((2**attempt) + random.uniform(0, 0.5), 30.0))
             continue
         if resp.status_code != 200:
-            raise RefbackfillError(f"OpenAlex {resp.status_code}: {resp.text[:300]}")
+            raise RefbackfillError(
+                f"OpenAlex {resp.status_code}: {resp.text[:300]}")
         payload = resp.json()
         if not isinstance(payload, dict) or not isinstance(payload.get("results", []), list):
             raise TypeError("OpenAlex returned an invalid works response.")
@@ -108,7 +160,24 @@ def fetch_batch(dois: list[str], client: httpx.Client) -> dict[str, dict]:
 
 # --- Fill blanks on paper objects ---
 def _apply_enrichment(paper: Paper, data: dict) -> bool:
-    """Fill blank title/abstract/references only. Returns True if changed."""
+    """Fill missing title, usable abstract or reference IDs and save changes.
+
+    Args:
+        paper (Paper): Stored paper to update, retaining usable values.
+        data (dict): Optional title, abstract and references. The exact
+            audience-only placeholder counts as a missing abstract; references
+            are filled only when paper.references is falsey.
+
+    Kwargs:
+        None
+
+    Returns:
+        bool: True if at least one field changed and the paper was saved.
+
+    Side Effects:
+        Mutate paper and persist title/abstract/references and updated_at when
+        changed. Leave reference_text and all other metadata untouched.
+    """
     changed = False
     if not (paper.title or "").strip() and data.get("title"):
         paper.title = data["title"]
@@ -120,20 +189,36 @@ def _apply_enrichment(paper: Paper, data: dict) -> bool:
         paper.references = list(data["references"])
         changed = True
     if changed:
-        paper.save(update_fields=["title", "abstract", "references", "updated_at"])
+        paper.save(update_fields=["title", "abstract",
+                   "references", "updated_at"])
     return changed
 
 
 # --- DOI fallback providers ---
 def _crossref_lookup(doi: str, client: httpx.Client) -> dict:
-    """!
-    @brief Fetch Crossref metadata and DOI-bearing references as an independent fallback.
-    @param doi Normalized DOI to request.
-    @param client HTTP client with polite-pool headers.
-    @return Canonical metadata, or an empty dictionary for a provider miss.
-    @throws TypeError If the provider response is not a work object.
-    @throws ValueError If JSON or canonical metadata parsing fails.
-    @throws httpx.RequestError If the HTTP transport fails.
+    """Fetch Crossref DOI metadata and DOI-bearing references as a fallback.
+
+    Args:
+        doi (str): Normalized DOI to URL-quote in the lookup endpoint.
+        client (httpx.Client): Borrowed HTTP client with lookup headers.
+
+    Kwargs:
+        None
+
+    Returns:
+        dict: title, authors, publication_year, venue and source_ids from
+            canonical mapping; abstract with HTML tags stripped; references
+            as DOI resolver URLs for DOI-bearing entries. Any non-200 status
+            yields {} (no status retry here).
+
+    Raises:
+        TypeError: If the response is not a work object or its fields have
+            incompatible types for mapping.
+        ValueError: If JSON decoding or canonical value parsing fails.
+        httpx.RequestError: If HTTP transport fails.
+
+    Side Effects:
+        Perform one GET with a 30-second timeout; no database writes.
     """
     from django.utils.html import strip_tags
 
@@ -165,19 +250,40 @@ def _crossref_lookup(doi: str, client: httpx.Client) -> dict:
 
 
 def _s2_lookup(doi: str, client: httpx.Client) -> dict:
-    """!
-    @brief Fetch Semantic Scholar metadata and parse the /paper endpoint's direct references.
-    @param doi Normalized DOI to request.
-    @param client HTTP client carrying polite-pool headers.
-    @return Canonical metadata and resolvable DOI/S2 reference identifiers.
-    @throws RefbackfillError If Semantic Scholar rate-limits the request.
+    """Fetch Semantic Scholar DOI metadata and direct paper references.
+
+    Args:
+        doi (str): Normalized DOI to URL-quote in the paper lookup endpoint.
+        client (httpx.Client): Borrowed client; per-request headers add the
+            configured optional S2 key via x-api-key only.
+
+    Kwargs:
+        None
+
+    Returns:
+        dict: title, abstract, authors, publication_year, venue and source_ids
+            from canonical mapping, plus deduplicated references in encounter
+            order. References prefer normalized DOI URLs, then S2:paperId;
+            direct paper objects and nested citedPaper entries are supported.
+            Non-200 statuses other than 429 yield {}.
+
+    Raises:
+        RefbackfillError: If Semantic Scholar returns HTTP 429.
+        TypeError: If the response is not a paper object or mapping fields
+            have incompatible types.
+        ValueError: If JSON decoding or canonical value parsing fails.
+        httpx.RequestError: If HTTP transport fails.
+
+    Side Effects:
+        Perform one GET with a 30-second timeout; no retries or DB writes.
     """
     from literature.providers.mapping import map_semantic_scholar_to_canonical
     from literature.providers.semantic_scholar import SemanticScholarSource
 
     response = client.get(
         f"https://api.semanticscholar.org/graph/v1/paper/DOI:{quote(doi, safe='')}",
-        params={"fields": "title,abstract,authors,year,venue,references.paperId,references.externalIds"},
+        params={
+            "fields": "title,abstract,authors,year,venue,references.paperId,references.externalIds"},
         headers=SemanticScholarSource().default_headers(),
         timeout=30.0,
     )
@@ -200,7 +306,8 @@ def _s2_lookup(doi: str, client: httpx.Client) -> dict:
         if not isinstance(external, dict):
             external = {}
         raw_doi = external.get("DOI")
-        cited_doi = normalize_doi(raw_doi) if isinstance(raw_doi, str) else None
+        cited_doi = normalize_doi(raw_doi) if isinstance(
+            raw_doi, str) else None
         if cited_doi:
             refs.append(f"https://doi.org/{cited_doi}")
         elif isinstance(cited.get("paperId"), str) and cited["paperId"]:
@@ -213,15 +320,33 @@ def _s2_lookup(doi: str, client: httpx.Client) -> dict:
 
 # --- Look up one DOI without writing ---
 def lookup_doi(doi: str, client: httpx.Client | None = None) -> dict:
-    """!
-    @brief Merge read-only DOI metadata from independent providers, first non-blank value wins.
-    @param doi DOI identity to look up.
-    @param client Optional injectable HTTP client; owned and closed here only when omitted.
-    @return Canonical title, abstract, references, authors, year, venue, provider IDs and found flag.
-    @throws ValueError If the DOI is empty.
+    """Merge read-only DOI metadata, retaining the first usable field value.
 
-    No database writes occur. A malformed, rate-limited or unreachable
-    provider is skipped; available data from other providers is retained.
+    No database writes occur. Caught provider transport, shape, parse and
+    rate-limit errors are skipped; data from other providers is retained.
+
+    Args:
+        doi (str): DOI or resolver URL; must not normalize to blank.
+
+    Kwargs:
+        client: Optional borrowed httpx.Client. Defaults to
+            None, which creates and closes a redirect-following lookup client.
+
+    Returns:
+        dict: Normalized doi and merged title, abstract, references, authors,
+            publication_year, venue, openalex_id and source_ids. Try OpenAlex
+            first, then Crossref and S2 only while any metadata field is empty;
+            source_ids are combined and openalex_id comes only from OpenAlex.
+            found is True when title, usable abstract or reference IDs exist,
+            not merely when author/year/venue data exists. Missing strings are
+            blank, lists empty, year/openalex_id None, and source_ids {}.
+
+    Raises:
+        ValueError: If doi normalizes to an empty value.
+
+    Side Effects:
+        Make provider requests with OpenAlex retry sleeps as needed, but do
+        not modify stored papers. Close only the client created here.
     """
     normalized = normalize_doi(doi)
     if not normalized:
@@ -232,7 +357,8 @@ def lookup_doi(doi: str, client: httpx.Client | None = None) -> dict:
         merged: dict = {"doi": normalized, "title": "", "abstract": "", "references": [],
                         "authors": [], "publication_year": None, "venue": "", "openalex_id": None,
                         "source_ids": {}}
-        fields = ("title", "abstract", "references", "authors", "publication_year", "venue")
+        fields = ("title", "abstract", "references",
+                  "authors", "publication_year", "venue")
         try:
             mapping = fetch_batch([normalized], http)
         except (RefbackfillError, httpx.RequestError, ValueError, TypeError):
@@ -278,7 +404,31 @@ def enrich_papers(
 
     Only touches papers with a DOI that lack title, abstract, or a reference
     list. A manually pasted bibliography already satisfies that last need.
-    Returns the number of papers improved. Never overwrites.
+    Preserve known titles, usable abstracts and existing reference IDs.
+
+    Args:
+        papers (list): Stored Paper instances to inspect for missing fields.
+
+    Kwargs:
+        batch_size (int): OpenAlex DOI chunk size. Defaults to BATCH_SIZE (50);
+            callers should supply a positive value no greater than 100 to
+            avoid requesting more DOIs than one response page can return.
+        client: Optional borrowed httpx.Client. Defaults to
+            None, which creates and closes a redirect-following lookup client.
+
+    Returns:
+        int: Number of target instances with at least one field saved, not the
+            number of fields or successful requests; zero if no targets exist.
+
+    Raises:
+        ValueError: If batch_size is zero while targets exist.
+        TypeError: If batch_size is not suitable for range().
+
+    Side Effects:
+        Request providers and save eligible title/abstract/reference changes.
+        Sleep one second between OpenAlex chunks and at least 1.2 seconds
+        between S2 request starts in this call. Skip caught provider errors;
+        on S2 rate limiting, stop only S2 lookups for the rest of the run.
     """
     targets = [
         p
@@ -300,7 +450,7 @@ def enrich_papers(
         last_s2_request = 0.0
         s2_limited = False
         for start in range(0, len(targets), batch_size):
-            chunk = targets[start : start + batch_size]
+            chunk = targets[start: start + batch_size]
             if batches:
                 time.sleep(1.0)
             try:
@@ -313,7 +463,8 @@ def enrich_papers(
             batches += 1
             for paper in chunk:
                 doi = normalize_doi(paper.doi) or ""
-                changed = bool(mapping.get(doi) and _apply_enrichment(paper, mapping[doi]))
+                changed = bool(mapping.get(
+                    doi) and _apply_enrichment(paper, mapping[doi]))
                 if not has_reference_list(paper) or not (paper.title or "").strip() or not abstract_available(paper.abstract):
                     try:
                         data = _crossref_lookup(doi, http)
@@ -347,10 +498,30 @@ def enrich_papers(
 def backfill_missing_references(
     project, *, batch_size: int = BATCH_SIZE, client: httpx.Client | None = None
 ) -> dict[str, int]:
-    """Fill blank title/abstract/reference lists for DOI papers.
+    """Enrich missing fields on DOI papers discovered in a project.
 
-    Returns {"checked": targets, "filled": updated, "batches": OpenAlex batches}.
-    Client is injectable so tests run without network.
+    Args:
+        project (Project): Project whose discovered papers are considered.
+
+    Kwargs:
+        batch_size (int): OpenAlex DOI chunk size. Defaults to BATCH_SIZE (50);
+            supply a positive integer, preferably no greater than 100.
+        client: Optional borrowed httpx.Client. Defaults to
+            None, which creates and closes a redirect-following lookup client.
+
+    Returns:
+        dict: Integer checked counts all discovered papers with a normalized
+            nonblank DOI, including already complete papers; filled counts
+            targets improved by enrich_papers; batches is the planned OpenAlex
+            chunk count for incomplete targets, not a count of HTTP attempts.
+
+    Raises:
+        ZeroDivisionError: If batch_size is zero and incomplete targets exist.
+        TypeError: If batch_size cannot be used in arithmetic or range().
+
+    Side Effects:
+        Read project papers, then delegate provider requests, pacing and
+        missing-field writes to enrich_papers; close only a client owned here.
     """
     paper_ids = set(
         Discovery.objects.filter(search__project=project).values_list(

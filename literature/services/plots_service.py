@@ -10,6 +10,10 @@
 
 '''
 
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
+
 # Regular library imports
 from __future__ import annotations
 
@@ -17,6 +21,7 @@ from collections import deque
 from html import escape
 from itertools import combinations, islice
 from math import ceil, cos, exp, fsum, hypot, isfinite, log1p, pi, sin, sqrt
+from pathlib import Path
 from random import Random
 
 # Custom library Imports
@@ -27,13 +32,52 @@ import plotly.graph_objects as go
 # ------------------------------------------------------------------------ #
 
 # --- Keyword funnel bars ---
-def build_keyword_figure(counts: dict[str, dict[str, int]]) -> str:
+
+
+def _select_step(fig: go.Figure, step: str) -> None:
+    """Keep the requested trace without changing its point membership.
+
+    Args:
+        fig: Figure with found, title and final-gated abstract traces.
+        step: Validated all/found/title/final display selection.
+
+    Kwargs:
+        None
+
+    Returns:
+        None
+    """
+    if step != "all":
+        selected = "abstract" if step == "final" else step
+        fig.data = tuple(
+            trace for key, trace in zip(
+                ("found", "title", "abstract"), fig.data) if key == selected)
+
+
+def build_keyword_figure(
+    counts: dict[str, dict[str, int]], *, order: str = "az",
+    step: str = "all", plot_config: dict | None = None,
+) -> str:
     """Grouped bars per keyword: Found vs Title Yes vs Abstract Yes.
 
     Plain English labels; muted colours; decreasing heights show filtering.
     Returns an embeddable HTML div (Plotly.js loaded locally from the app).
+
+    Args:
+        counts: Ordered keyword counts for found/title/final-gated abstract.
+
+    Kwargs:
+        order: az preserves input order; found_desc sorts counts. Default az.
+        step: Display all/found/title/final. Defaults to all.
+        plot_config: Plotly configuration overrides. Defaults to None.
+
+    Returns:
+        str: Embeddable figure HTML without the Plotly bundle.
     """
     keywords = list(counts.keys())
+    if order == "found_desc":
+        keywords.sort(key=lambda word: (
+            -counts[word]["found"], word.casefold(), word))
     found = [counts[k]["found"] for k in keywords]
     title = [counts[k]["title"] for k in keywords]
     abstract = [counts[k]["abstract"] for k in keywords]
@@ -72,7 +116,9 @@ def build_keyword_figure(counts: dict[str, dict[str, int]]) -> str:
         legend_title="Step",
         margin=dict(b=200),
     )
-    return fig.to_html(full_html=False, include_plotlyjs=False)
+    _select_step(fig, step)
+    return fig.to_html(
+        full_html=False, include_plotlyjs=False, config=plot_config)
 
 
 # ------------------------------------------------------------------------ #
@@ -101,6 +147,7 @@ def source_pie_figure(
         "semantic_scholar": "Semantic Scholar",
         "crossref": "Crossref",
         "arxiv": "arXiv",
+        "scopus": "Scopus",
         "google_scholar": "Google Scholar",
         "publisher": "Publisher / journal website",
         "reference_list": "Reference list",
@@ -112,16 +159,20 @@ def source_pie_figure(
         "semantic_scholar": "#e5a33d",
         "crossref": "#8064a6",
         "arxiv": "#3f9d91",
+        "scopus": "#bc6b32",
         "manual": "#64748b",
     }
     ordered = [key for key in names if key in per_source]
-    ordered.extend(sorted(set(per_source) - set(names)))
-    values = [max(0, int(per_source[key].get(metric, 0) or 0)) for key in ordered]
+    ordered.extend(sorted(key for key in per_source
+                          if key not in names and str(key).strip()))
+    values = [max(0, int(per_source[key].get(metric, 0) or 0))
+              for key in ordered]
     total = sum(values)
     fig = go.Figure()
     if total:
         rates = [
-            100 * value / raw if (raw := per_source[key].get("results", 0)) else 0
+            100 * value /
+            raw if (raw := per_source[key].get("results", 0)) else 0
             for key, value in zip(ordered, values)
         ]
         hover = (
@@ -133,7 +184,8 @@ def source_pie_figure(
         fig.add_trace(go.Pie(
             labels=[names.get(key, key) for key in ordered],
             values=values,
-            marker=dict(colors=[colors.get(key, "#718096") for key in ordered]),
+            marker=dict(colors=[colors.get(key, "#718096")
+                        for key in ordered]),
             customdata=rates,
             textinfo="label+percent",
             hovertemplate=(
@@ -151,31 +203,50 @@ def source_pie_figure(
 
 
 # --- Current-state source bars (distinct papers; multi-source explicit) ---
-def current_source_figure(current: dict) -> go.Figure:
-    """Bars per current displayed source plus an unknown bar; never a pie.
+def current_source_figure(
+    current: dict, *, order: str = "canonical",
+) -> go.Figure:
+    """Plot only named current sources without changing source provenance.
 
     A paper with several sources counts once per bar, so bar heights may sum
-    past the distinct-paper total. Blank counts only current display gaps.
+    past the distinct-paper total. Blank counts remain in the metrics and
+    page explanation, not as a source category on this plot.
+
+    Args:
+        current: Distinct-paper, blank and per-source counts; blank is not
+            plotted as a source.
+
+    Kwargs:
+        order: canonical/name/count_desc bar ordering. Defaults to canonical.
+
+    Returns:
+        go.Figure: Named source bars with unchanged overlapping counts.
     """
     names = {
         "openalex": "OpenAlex",
         "semantic_scholar": "Semantic Scholar",
         "crossref": "Crossref",
         "arxiv": "arXiv",
+        "scopus": "Scopus",
         "google_scholar": "Google Scholar",
         "publisher": "Publisher / journal website",
         "reference_list": "Reference list",
         "other": "Other source",
     }
     per_source = (current or {}).get("per_source", {})
-    blank = int((current or {}).get("blank", 0) or 0)
     unique = int((current or {}).get("unique", 0) or 0)
     ordered = [key for key in names if key in per_source]
     ordered.extend(sorted(set(per_source) - set(names)))
-    labels = [names.get(key, key) for key in ordered] + ["Unknown (blank source)"]
-    values = [max(0, int(per_source.get(key, 0) or 0)) for key in ordered] + [max(0, blank)]
+    labels = [names.get(key, key) for key in ordered]
+    values = [max(0, int(per_source.get(key, 0) or 0))
+              for key in ordered]
+    if order != "canonical" and labels:
+        bars = sorted(zip(labels, values), key=(
+            (lambda pair: pair[0].casefold()) if order == "name"
+            else (lambda pair: (-pair[1], pair[0].casefold()))))
+        labels, values = map(list, zip(*bars))
     fig = go.Figure()
-    if unique or any(values):
+    if any(values):
         fig.add_bar(
             x=labels,
             y=values,
@@ -184,7 +255,8 @@ def current_source_figure(current: dict) -> go.Figure:
         )
     else:
         fig.add_annotation(
-            text="No papers in this project yet", x=0.5, y=0.5,
+            text=("No named sources to plot" if unique else
+                  "No papers in this project yet"), x=0.5, y=0.5,
             xref="paper", yref="paper", showarrow=False,
         )
     fig.update_layout(
@@ -197,9 +269,24 @@ def current_source_figure(current: dict) -> go.Figure:
     return fig
 
 
-def build_current_source_bars(current: dict) -> str:
-    """One embeddable current-state bar chart with its own download button."""
-    return current_source_figure(current).to_html(full_html=False, include_plotlyjs=False)
+def build_current_source_bars(
+    current: dict, *, order: str = "canonical",
+    plot_config: dict | None = None,
+) -> str:
+    """One embeddable current-state bar chart with its own download button.
+
+    Args:
+        current: Distinct-paper, blank and per-source counts.
+
+    Kwargs:
+        order: canonical/name/count_desc ordering. Defaults to canonical.
+        plot_config: Plotly configuration overrides. Defaults to None.
+
+    Returns:
+        str: Embeddable source-bar HTML.
+    """
+    return current_source_figure(current, order=order).to_html(
+        full_html=False, include_plotlyjs=False, config=plot_config)
 
 
 def build_source_pie(
@@ -211,13 +298,25 @@ def build_source_pie(
 
 
 # --- Filtering flow (PRISMA-style Sankey, left to right) ---
-def build_funnel_figure(metrics: dict) -> str:
+def build_funnel_figure(
+    metrics: dict, *, counts: bool = True, plot_config: dict | None = None,
+) -> str:
     """Left-to-right flow showing how papers split at each check.
 
     Dropped lanes sit above, accepted lanes at the bottom. Node labels
     stay short (Plotly draws rightmost labels over the bands, so long
     text overlaps); counts live on the bands themselves via link labels
     plus hover text.
+
+    Args:
+        metrics: Project results and stage counts.
+
+    Kwargs:
+        counts: Show band count labels and hover counts. Defaults to True.
+        plot_config: Plotly configuration overrides. Defaults to None.
+
+    Returns:
+        str: Embeddable flow HTML retaining every category and band.
     """
     stages = metrics.get("stages", {})
     found = metrics.get("total_identified", 0)
@@ -240,7 +339,8 @@ def build_funnel_figure(metrics: dict) -> str:
     ]
     sources = [0, 0, 2, 2, 2, 4, 4, 4]
     targets = [1, 2, 3, 4, 7, 5, 6, 8]
-    values = [dups, unique, title_no, title_yes, stages.get("Title", {}).get("pending", 0), abstract_no, abstract_yes, stages.get("Abstract", {}).get("pending", 0)]
+    values = [dups, unique, title_no, title_yes, stages.get("Title", {}).get(
+        "pending", 0), abstract_no, abstract_yes, stages.get("Abstract", {}).get("pending", 0)]
     values = [max(int(v or 0), 0) for v in values]
     if sum(values) == 0:
         values = [0] * len(sources)
@@ -250,14 +350,18 @@ def build_funnel_figure(metrics: dict) -> str:
             node=dict(
                 label=labels,
                 pad=20,
-                color=["#8aa8c8", "#bbbbbb", "#9dbf9d", "#c88a8a", "#6f9e6f", "#a85a5a", "#3f7e3f", "#c4b78c", "#c4b78c"],
+                color=["#8aa8c8", "#bbbbbb", "#9dbf9d", "#c88a8a",
+                       "#6f9e6f", "#a85a5a", "#3f7e3f", "#c4b78c", "#c4b78c"],
             ),
             link=dict(
                 source=sources,
                 target=targets,
                 value=values,
-                label=[str(v) for v in values],
-                hovertemplate="From %{source.label} to %{target.label}: %{value} papers<extra></extra>",
+                label=[str(v) if counts else "" for v in values],
+                hovertemplate=(
+                    "From %{source.label} to %{target.label}"
+                    + (": %{value} papers" if counts else "")
+                    + "<extra></extra>"),
             ),
         )
     )
@@ -266,18 +370,33 @@ def build_funnel_figure(metrics: dict) -> str:
         font=dict(size=12),
     )
     if metrics.get("title_not_queued", 0):
-        fig.add_annotation(text=f"{metrics['title_not_queued']} stored papers are not queued for Title screening.<br>They are not pending decisions or rejections; missing titles need completion.", xref="paper", yref="paper", x=0, y=0, yshift=-70, xanchor="left", yanchor="top", showarrow=False)
+        fig.add_annotation(text=f"{metrics['title_not_queued']} stored papers are not queued for Title screening.<br>They are not pending decisions or rejections; missing titles need completion.",
+                           xref="paper", yref="paper", x=0, y=0, yshift=-70, xanchor="left", yanchor="top", showarrow=False)
         fig.update_layout(margin={"b": 120})
-    return fig.to_html(full_html=False, include_plotlyjs=False)
+    return fig.to_html(
+        full_html=False, include_plotlyjs=False, config=plot_config)
 
 
 # --- Papers per year ---
-def build_yearly_figure(data) -> str:
+def build_yearly_figure(
+    data: dict | list | tuple, *, step: str = "all",
+    plot_config: dict | None = None,
+) -> str:
     """Bars per year, layered by step (largest behind).
 
     Accepts the stage_year_cumulative dict (preferred) or a plain year
     list (single layer, backward compatible). The ring left showing
     around a colour = papers from that year lost at that check.
+
+    Args:
+        data: Dated stage counts, or a legacy list/tuple of years.
+
+    Kwargs:
+        step: Display all/found/title/final. Defaults to all.
+        plot_config: Plotly configuration overrides. Defaults to None.
+
+    Returns:
+        str: Embeddable IN-year bars with matching popup series identifiers.
     """
     from collections import Counter
 
@@ -307,9 +426,13 @@ def build_yearly_figure(data) -> str:
             yaxis_title="Number of papers",
             legend_title="Step",
         )
-        for trace, step in zip(fig.data, ("found", "title", "abstract")):
-            trace.customdata = [[step, "year", year] for year in years]
-        return fig.to_html(full_html=False, include_plotlyjs=False, post_script="window.dispatchEvent(new CustomEvent('survey-chart-ready', {detail: '{plot_id}'}));")
+        for trace, key in zip(fig.data, ("found", "title", "abstract")):
+            trace.customdata = [[key, "year", year] for year in years]
+        _select_step(fig, step)
+        return fig.to_html(
+            full_html=False, include_plotlyjs=False, config=plot_config,
+            post_script="window.dispatchEvent(new CustomEvent("
+            "'survey-chart-ready', {detail: '{plot_id}'}));")
     years_list = list(data) if isinstance(data, (list, tuple)) else []
     counts = Counter(y for y in years_list if y)
     ordered = sorted(counts)
@@ -326,7 +449,8 @@ def build_yearly_figure(data) -> str:
         xaxis_title="Year",
         yaxis_title="Number of papers",
     )
-    return fig.to_html(full_html=False, include_plotlyjs=False)
+    return fig.to_html(
+        full_html=False, include_plotlyjs=False, config=plot_config)
 
 
 # ------------------------------------------------------------------------ #
@@ -334,12 +458,27 @@ def build_yearly_figure(data) -> str:
 # ------------------------------------------------------------------------ #
 
 # --- Stage running totals ---
-def build_stage_cumulative_figure(data: dict) -> str:
+def build_stage_cumulative_figure(
+    data: dict, *, step: str = "all", inline_controls: bool = False,
+    plot_config: dict | None = None,
+) -> str:
     """Running totals per year, one line per filter step.
 
     Gaps between lines in an era = papers from those years filtered out.
     Dropdown isolates one step or compares all.
     A box plot would not fit here (boxes show spread, not growth over time).
+
+    Args:
+        data: THROUGH-year series calculated before any display window.
+
+    Kwargs:
+        step: Display all/found/title/final. Defaults to all.
+        inline_controls: Replace the series menu with page controls.
+            Defaults to False.
+        plot_config: Plotly configuration overrides. Defaults to None.
+
+    Returns:
+        str: Embeddable cumulative HTML with matching popup series keys.
     """
     years = data.get("years", [])
     series = data.get("series", {})
@@ -366,22 +505,39 @@ def build_stage_cumulative_figure(data: dict) -> str:
             margin={"b": 180},
         )
         fig.add_annotation(**footer)
-        return fig.to_html(full_html=False, include_plotlyjs=False)
+        return fig.to_html(
+            full_html=False, include_plotlyjs=False, config=plot_config)
 
     def _trace(name: str, values: list[int], color: str) -> go.Scatter:
+        """Build one cumulative trace with the displayed year coordinates.
+
+        Args:
+            name: Human-readable stage label.
+            values: Cumulative counts for the displayed years.
+            color: Trace color understood by Plotly.
+
+        Kwargs:
+            None
+
+        Returns:
+            go.Scatter: Labeled line and marker trace.
+        """
         return go.Scatter(
             x=years,
             y=values,
             mode="lines+markers",
             name=name,
             line=dict(color=color),
-            hovertemplate="Year: %{x}<br>" + name + ": %{y} so far<extra></extra>",
+            hovertemplate="Year: %{x}<br>" + name +
+            ": %{y} so far<extra></extra>",
         )
 
     fig = go.Figure()
     fig.add_trace(_trace("Found papers", series.get("found", []), "#8aa8c8"))
-    fig.add_trace(_trace("Kept after title check", series.get("title", []), "#6f9e6f"))
-    fig.add_trace(_trace("Kept after abstract check", series.get("abstract", []), "#c8a06f"))
+    fig.add_trace(_trace("Kept after title check",
+                  series.get("title", []), "#6f9e6f"))
+    fig.add_trace(_trace("Kept after abstract check",
+                  series.get("abstract", []), "#c8a06f"))
     # Prefer readable 1/2/5/10-year intervals, never more than ten years.
     span = max(years) - min(years)
     interval = next((step for step in (1, 2, 5, 10) if span <= step * 8), 10)
@@ -402,19 +558,29 @@ def build_stage_cumulative_figure(data: dict) -> str:
                 x=0.0,
                 y=1.15,
                 buttons=[
-                    dict(label="Compare: all steps", method="update", args=[{"visible": [True, True, True]}]),
-                    dict(label="Found only", method="update", args=[{"visible": [True, False, False]}]),
-                    dict(label="Title-kept only", method="update", args=[{"visible": [False, True, False]}]),
-                    dict(label="Abstract-kept only", method="update", args=[{"visible": [False, False, True]}]),
+                    dict(label="Compare: all steps", method="update",
+                         args=[{"visible": [True, True, True]}]),
+                    dict(label="Found only", method="update",
+                         args=[{"visible": [True, False, False]}]),
+                    dict(label="Title-kept only", method="update",
+                         args=[{"visible": [False, True, False]}]),
+                    dict(label="Abstract-kept only", method="update",
+                         args=[{"visible": [False, False, True]}]),
                 ],
             ),
         ],
     )
     fig.add_annotation(**footer)
     fig.update_layout(margin={"b": 180})
-    for trace, step in zip(fig.data, ("found", "title", "abstract")):
-        trace.customdata = [[step, "through", year] for year in years]
-    return fig.to_html(full_html=False, include_plotlyjs=False, post_script="window.dispatchEvent(new CustomEvent('survey-chart-ready', {detail: '{plot_id}'}));")
+    for trace, key in zip(fig.data, ("found", "title", "abstract")):
+        trace.customdata = [[key, "through", year] for year in years]
+    _select_step(fig, step)
+    if inline_controls or step != "all":
+        fig.layout.updatemenus = []
+    return fig.to_html(
+        full_html=False, include_plotlyjs=False, config=plot_config,
+        post_script="window.dispatchEvent(new CustomEvent("
+        "'survey-chart-ready', {detail: '{plot_id}'}));")
 
 
 # ------------------------------------------------------------------------ #
@@ -442,7 +608,8 @@ def _layout_quality(
 
     for (a, b), (c, d) in combinations(edges, 2):
         if len({a, b, c, d}) == 4 and (
-            side(a, b, c) * side(a, b, d) < -1e-9 and side(c, d, a) * side(c, d, b) < -1e-9
+            side(a, b, c) * side(a, b, d) < -
+            1e-9 and side(c, d, a) * side(c, d, b) < -1e-9
         ):
             crossings += 1
             trouble.update((a, b, c, d))
@@ -455,7 +622,8 @@ def _layout_quality(
         for pk, (x, y) in points.items():
             if pk in (a, b):
                 continue
-            t = max(0.0, min(1.0, ((x - ax) * dx + (y - ay) * dy) / max(length_squared, 1e-9)))
+            t = max(0.0, min(1.0, ((x - ax) * dx + (y - ay) * dy) /
+                    max(length_squared, 1e-9)))
             if (x - ax - t * dx) ** 2 + (y - ay - t * dy) ** 2 < 0.8**2:
                 intrusions += 1
                 trouble.add(pk)
@@ -511,7 +679,8 @@ def _spring_positions(order: list[int], edges: list) -> dict[int, tuple[float, f
         for pk in order:
             dx, dy = movement[pk]
             factor = min(1.0, temperature / max(hypot(dx, dy), 1e-9))
-            points[pk] = (points[pk][0] + dx * factor, points[pk][1] + dy * factor)
+            points[pk] = (points[pk][0] + dx * factor,
+                          points[pk][1] + dy * factor)
         if best_score is not None and step % 10 == 9:
             candidate = _spaced_positions(points)
             score, _ = _layout_quality(candidate, edges)
@@ -541,7 +710,8 @@ def _topology_positions(
             stack.extend((child, False) for child in reversed(children[pk]))
         else:
             x = (
-                fsum(points[child][0] for child in children[pk]) / len(children[pk])
+                fsum(points[child][0]
+                     for child in children[pk]) / len(children[pk])
                 if children[pk]
                 else cursor
             )
@@ -578,11 +748,13 @@ def _repair_positions(
             # Once readable, compact within the same planar drawing; never trade crossings for size.
             cx = points[pk][0] * 0.75 + cx * 0.25
             cy = points[pk][1] * 0.75 + cy * 0.25
-        radius = 0.8 if clear else max(2.5, sqrt(score[2] / max(1, len(edges))))
+        radius = 0.8 if clear else max(
+            2.5, sqrt(score[2] / max(1, len(edges))))
         angle = rng.random() * 2 * pi
         distance = radius * rng.uniform(0.3, 1.5)
         candidate = dict(points)
-        candidate[pk] = (cx + distance * cos(angle), cy + distance * sin(angle))
+        candidate[pk] = (cx + distance * cos(angle),
+                         cy + distance * sin(angle))
         try:
             candidate = _spaced_positions(candidate, shrink=clear)
         except ValueError:
@@ -597,7 +769,8 @@ def _repair_positions(
             continue
         energy = score[0] * 1000 + score[1] * 20 + score[2] * 0.01
         candidate_energy = (
-            candidate_score[0] * 1000 + candidate_score[1] * 20 + candidate_score[2] * 0.01
+            candidate_score[0] * 1000 + candidate_score[1] *
+            20 + candidate_score[2] * 0.01
         )
         temperature = 1400 * (1 - step / trials) ** 2 + 0.1
         if candidate_energy <= energy or rng.random() < exp(
@@ -622,7 +795,8 @@ def family_positions(
         if src in neighbour and tgt in neighbour and src != tgt:
             neighbour[src].add(tgt)
             neighbour[tgt].add(src)
-    links = sorted({tuple(sorted((a, b))) for a in neighbour for b in neighbour[a]})
+    links = sorted({tuple(sorted((a, b)))
+                   for a in neighbour for b in neighbour[a]})
     unseen = set(by_id)
     clusters = []
     roots: set[int] = set()
@@ -638,11 +812,14 @@ def family_positions(
             unseen.remove(pk)
             members.add(pk)
             stack.extend(sorted(neighbour[pk] & unseen, reverse=True))
-        selected = [pk for pk in members if by_id[pk].get("is_seed")] or list(members)
-        dated_selected = [pk for pk in selected if by_id[pk].get("year") is not None]
+        selected = [pk for pk in members if by_id[pk].get(
+            "is_seed")] or list(members)
+        dated_selected = [
+            pk for pk in selected if by_id[pk].get("year") is not None]
         if dated_selected:
             newest_year = max(by_id[pk]["year"] for pk in dated_selected)
-            roots.update(pk for pk in dated_selected if by_id[pk]["year"] == newest_year)
+            roots.update(
+                pk for pk in dated_selected if by_id[pk]["year"] == newest_year)
         else:
             roots.add(min(selected))
         hub = min(members, key=lambda pk: (-len(neighbour[pk]), pk))
@@ -677,7 +854,8 @@ def family_positions(
             Random(0).shuffle(random_order)
             points = _spaced_positions(_topology_positions(order, neighbour))
             best_score = (
-                _layout_quality(points, component_edges)[0] if len(component_edges) <= 250 else None
+                _layout_quality(points, component_edges)[0] if len(
+                    component_edges) <= 250 else None
             )
             for candidate_order in (order, sorted(members), random_order):
                 candidate = _spring_positions(candidate_order, component_edges)
@@ -691,7 +869,8 @@ def family_positions(
             if len(component_edges) <= 250:
                 # Bounded coordinate exchanges repair crossings without forcing a false tree.
                 score, trouble = _layout_quality(points, component_edges)
-                critical = sorted(trouble, key=lambda pk: (-len(neighbour[pk]), pk))
+                critical = sorted(
+                    trouble, key=lambda pk: (-len(neighbour[pk]), pk))
                 for a, b in islice(combinations(critical, 2), 24):
                     candidate = dict(points)
                     candidate[a], candidate[b] = candidate[b], candidate[a]
@@ -702,12 +881,14 @@ def family_positions(
                 for pk in sorted(trouble, key=lambda pk: (-len(neighbour[pk]), pk))[:6]:
                     for dx, dy in ((0.83, 0.63), (0.83, -0.63), (-0.83, 0.63), (-0.83, -0.63)):
                         candidate = dict(points)
-                        candidate[pk] = (points[pk][0] + dx, points[pk][1] + dy)
+                        candidate[pk] = (points[pk][0] + dx,
+                                         points[pk][1] + dy)
                         try:
                             candidate = _spaced_positions(candidate)
                         except ValueError:
                             continue
-                        new_score, _ = _layout_quality(candidate, component_edges)
+                        new_score, _ = _layout_quality(
+                            candidate, component_edges)
                         if new_score < score:
                             points, score = candidate, new_score
                 points = _repair_positions(points, component_edges, neighbour)
@@ -715,8 +896,10 @@ def family_positions(
         dated = [pk for pk in order if by_id[pk].get("year")]
         if len(dated) > 1:
             mean_year = fsum(by_id[pk]["year"] for pk in dated) / len(dated)
-            vx = fsum((by_id[pk]["year"] - mean_year) * points[pk][0] for pk in dated)
-            vy = fsum((by_id[pk]["year"] - mean_year) * points[pk][1] for pk in dated)
+            vx = fsum((by_id[pk]["year"] - mean_year)
+                      * points[pk][0] for pk in dated)
+            vy = fsum((by_id[pk]["year"] - mean_year)
+                      * points[pk][1] for pk in dated)
             norm = hypot(vx, vy)
             if norm > 1e-9:
                 # A diagonal trend uses both plot dimensions instead of turning citation chains into thin columns.
@@ -727,11 +910,14 @@ def family_positions(
                     )
                     for pk, (x, y) in points.items()
                 }
-        xmin, xmax = min(x for x, _ in points.values()), max(x for x, _ in points.values())
-        ymin, ymax = min(y for _, y in points.values()), max(y for _, y in points.values())
+        xmin, xmax = min(x for x, _ in points.values()), max(
+            x for x, _ in points.values())
+        ymin, ymax = min(y for _, y in points.values()), max(
+            y for _, y in points.values())
         clusters.append((points, xmin, xmax, ymin, ymax))
     # Pack disconnected groups in shelves, rather than one extremely long strip of tiny clusters.
-    target = max((xmax - xmin + 2.5 for _, xmin, xmax, _, _ in clusters), default=0)
+    target = max((xmax - xmin + 2.5 for _, xmin,
+                 xmax, _, _ in clusters), default=0)
     target = max(
         target,
         sqrt(
@@ -744,7 +930,8 @@ def family_positions(
     positions: dict[int, tuple[float, float]] = {}
     cursor = row_y = row_height = 0.0
     for points, xmin, xmax, ymin, ymax in sorted(
-        clusters, key=lambda c: (-(c[2] - c[1] + 2.5) * (c[4] - c[3] + 2.5), min(c[0]))
+        clusters, key=lambda c: (-(c[2] - c[1] + 2.5)
+                                 * (c[4] - c[3] + 2.5), min(c[0]))
     ):
         width, height = xmax - xmin + 2.5, ymax - ymin + 2.5
         if cursor and cursor + width > target:
@@ -759,38 +946,75 @@ def family_positions(
 
 
 # --- Citation stories ---
-def build_citation_figure(graph: dict, *, include_app_script: bool = True) -> str:
+def build_citation_figure(
+    graph: dict, *, include_app_script: bool = True,
+    plot_config: dict | None = None,
+) -> str:
     """Interactive Plotly citation clusters with directed edge tooltips.
 
     Node traces keep their existing customdata HTML hover text untouched and
     additionally carry raw per-node dicts in meta.paper_details (aligned with
     pointNumber) for the shared graph_node_popup.js renderer. Positions follow
     citation topology; chronology is only a soft orientation preference.
+    The bounded canvas starts at the same full-graph extent as Reset view;
+    wheel zoom and panning allow closer inspection without an oversized canvas.
     Standalone exports pass include_app_script=False: the app-only popup
     script needs the running app, so exports keep pan/zoom/hover/download
     and label list links as app-only.
+
+    Args:
+        graph: Existing graph nodes, directed edges and display metadata.
+
+    Kwargs:
+        include_app_script: Include local node-popup script. Defaults to True.
+        plot_config: Plotly configuration overrides. Defaults to None.
+
+    Returns:
+        str: Embeddable graph HTML preserving every supplied edge and cycle.
     """
     nodes = graph.get("nodes", [])
     edges = graph.get("edges", [])
     if not nodes:
         fig = go.Figure()
         fig.update_layout(
-            title=graph.get("title", "How your kept papers link together") + " (no papers to show yet)",
             height=700, autosize=True,
+            xaxis={"visible": False, "fixedrange": True},
+            yaxis={"visible": False, "fixedrange": True},
         )
-        return fig.to_html(full_html=False, include_plotlyjs=False, config={"responsive": True})
+        return fig.to_html(full_html=False, include_plotlyjs=False,
+                           config={"responsive": True, **(plot_config or {})})
 
     by_id = {n["id"]: n for n in nodes}
     positions, roots = family_positions(nodes, edges)
-    horizontal_span = max(x for x, _ in positions.values()) - min(
-        x for x, _ in positions.values()
-    )
-    vertical_span = max(y for _, y in positions.values()) - min(y for _, y in positions.values())
     # 40px/unit makes the 0.8-unit edge clearance 32px from a node centre:
-    # at least ~8px beyond the largest 46px circle and strokes at initial zoom.
-    # ponytail: enlarge the readable canvas, preserving the settled layout and every link.
-    plot_width = max(720, ceil((horizontal_span + 4) * 40 + 80))
-    plot_height = max(700, ceil((vertical_span + 4) * 40 + 180))
+    # at least ~8px beyond the largest 46px circle and strokes at readable zoom.
+    # ponytail: zoom the view, not the canvas; keep every node and link.
+    plot_width, plot_height = 720, 700
+    viewport = {}
+    axes = {}
+    for name, coordinates, pixels in (
+        ("xaxis", [x for x, _ in positions.values()], plot_width - 80),
+        ("yaxis", [y for _, y in positions.values()], plot_height - 180),
+    ):
+        low, high = min(coordinates), max(coordinates)
+        # At full fit, allow 32px for the largest 46px circle and its stroke.
+        padding = max(2, (high - low) * 32 / (pixels - 64))
+        fit = [low - padding, high + padding]
+        middle = (fit[0] + fit[1]) / 2
+        half_span = min(fit[1] - fit[0], pixels / 40) / 2
+        initial = [middle - half_span, middle + half_span]
+        # Reserve a small margin outside the full fit: pan and zoom-out
+        # remain usable even when the whole graph first fits the canvas.
+        margin = (fit[1] - fit[0]) * 0.2
+        bounds = [fit[0] - margin, fit[1] + margin]
+        viewport[name] = {"bounds": bounds, "initial": initial, "fit": fit}
+        axes[name] = {"visible": False, "fixedrange": False, "range": fit[:],
+                      "autorange": False}
+        # Older Plotly versions lack native bounds; the inline clamp applies.
+        if "minallowed" in go.layout.XAxis()._valid_props:
+            axes[name].update(minallowed=bounds[0], maxallowed=bounds[1])
+            axes[name]["autorangeoptions"] = {
+                "minallowed": bounds[0], "maxallowed": bounds[1]}
 
     inner_x: list[float | None] = []
     inner_y: list[float | None] = []
@@ -839,6 +1063,17 @@ def build_citation_figure(graph: dict, *, include_app_script: bool = True) -> st
     max_cites = max((n["citations"] or 0) for n in nodes) or 1
 
     def _role(node: dict) -> str:
+        """Choose the existing graph color role without changing membership.
+
+        Args:
+            node: Graph node with seed and joining-path flags.
+
+        Kwargs:
+            None
+
+        Returns:
+            str: seed, joiner or outer display role, in that priority order.
+        """
         if node.get("is_seed"):
             return "seed"
         if node.get("is_joiner"):
@@ -846,7 +1081,8 @@ def build_citation_figure(graph: dict, *, include_app_script: bool = True) -> st
         return "outer"
 
     for label, role, color in (
-        ("Your kept papers", "seed", "#3f7e3f"),
+        ("Your chosen survey entries" if graph.get("curated")
+         else "Your kept papers", "seed", "#3f7e3f"),
         ("Links between kept papers", "joiner", "#8a8a8a"),
         ("Unconnected branches", "outer", "#3C27F5"),
     ):
@@ -864,7 +1100,8 @@ def build_citation_figure(graph: dict, *, include_app_script: bool = True) -> st
             ys.append(y)
             # Citation counts are heavy-tailed: a bounded log scale keeps
             # the largest paper from obscuring its neighbours.
-            sizes.append(28 + 18 * log1p(max(0, node["citations"] or 0)) / log1p(max_cites))
+            sizes.append(
+                28 + 18 * log1p(max(0, node["citations"] or 0)) / log1p(max_cites))
             star = " ★ Starting paper" if node["id"] in roots else ""
             texts.append(
                 f"{escape(str(node['title']))}{star}<br>Year: {node['year'] or 'unknown'}"
@@ -892,7 +1129,8 @@ def build_citation_figure(graph: dict, *, include_app_script: bool = True) -> st
                 mode="markers+text",
                 name=f"{label} ({len(xs)})",
                 textposition="middle center",
-                textfont=dict(color="#15202a" if role == "joiner" else "#ffffff", size=10),
+                textfont=dict(color="#15202a" if role ==
+                              "joiner" else "#ffffff", size=10),
                 marker=dict(
                     size=sizes,
                     color=color,
@@ -910,28 +1148,44 @@ def build_citation_figure(graph: dict, *, include_app_script: bool = True) -> st
             xref="paper", yref="paper", x=0.5, y=1.08,
             showarrow=False, font=dict(color="#555555"),
         )
+    smallest_node_diameter = min(
+        size for trace in fig.data if trace.meta and "paper_details" in trace.meta
+        for size in trace.marker.size
+    )
     fig.update_layout(
-        title=graph.get("title", "How your kept papers link together") + " (readability-first layout)",
+        title=graph.get("title", "How your kept papers link together") +
+        " (readability-first layout)",
         height=plot_height, autosize=True,
-        xaxis={"visible": False, "fixedrange": False, "range": [min(x for x, _ in positions.values()) - 2, max(x for x, _ in positions.values()) + 2]},
-        yaxis={"visible": False, "fixedrange": False, "range": [min(y for _, y in positions.values()) - 2, max(y for _, y in positions.values()) + 2]},
+        **axes,
+        meta={"citation_viewport": viewport,
+              "smallest_node_diameter": smallest_node_diameter},
         legend_title="Dot colour",
-        legend={"orientation": "h", "x": 0, "y": 0, "xanchor": "left", "yanchor": "top"},
+        legend={"orientation": "h", "x": 0, "y": 0,
+                "xanchor": "left", "yanchor": "top"},
         dragmode="pan",
         margin={"l": 40, "r": 40, "t": 80, "b": 100},
         hovermode="closest",
     )
     from django.templatetags.static import static
 
+    # ponytail: inline the same tiny controller for app pages and offline exports.
+    viewport_script = (
+        Path(__file__).resolve().parents[1] /
+        "static/literature/citation_viewport.js"
+    ).read_text(encoding="utf-8")
     html = fig.to_html(full_html=False, include_plotlyjs=False,
-                       config={"responsive": True, "scrollZoom": True},
-                       post_script="window.dispatchEvent(new CustomEvent('graph-ready', {detail: '{plot_id}'}));")
+                       config={"responsive": True, "scrollZoom": True,
+                               **(plot_config or {})},
+                       post_script=viewport_script + "\nwindow.dispatchEvent(new CustomEvent('graph-ready', {detail: '{plot_id}'}));")
     popup = ""
     if include_app_script:
         popup_script = static("literature/graph_node_popup.js")
         popup = f'<script src="{escape(popup_script)}" defer></script>'
     return (
         '<div role="region" aria-label="Citation graph, scroll horizontally" '
+        'aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Home" '
+        'title="Scroll to zoom; drag to pan. Keyboard: + or - to zoom, '
+        'arrows to pan, Home to fit the whole graph." '
         'tabindex="0" style="max-width:100%;overflow-x:auto">'
         f'<div style="width:100%;min-width:{plot_width}px">{html}</div></div>'
         f'{popup}'

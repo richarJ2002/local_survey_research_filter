@@ -10,13 +10,15 @@
 
 '''
 
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
+
 # Regular library imports
 from __future__ import annotations
 
 from collections.abc import Iterable
 from pathlib import Path
-
-from django.conf import settings
 
 # Custom library Imports
 from literature.models import Paper, Project
@@ -26,10 +28,20 @@ from literature.models import Paper, Project
 # ------------------------------------------------------------------------ #
 
 # --- Build markdown for one project ---
+
+
 def build_markdown(project: Project) -> str:
-    """Render this project's papers; project-scoped, not a reloadable store."""
-    if getattr(settings, "WP_ROLE", "developer") != "worker":
-        project.ensure_default_stages()
+    """Render stored project state without repairing stages or decisions.
+
+    Args:
+        project: Owning project whose discovered papers are exported.
+
+    Kwargs:
+        None
+
+    Returns:
+        str: Project-scoped Markdown report, not a reloadable store.
+    """
     stages = list(project.stages.order_by("order"))
     lines: list[str] = [f"# Literature Database — {project.name}", ""]
     lines += ["_Project-scoped export; not a reloadable store._", ""]
@@ -66,7 +78,8 @@ def build_markdown(project: Project) -> str:
         lines += ["### Abstract", "", paper.abstract or "_No abstract._", ""]
         from literature.services.screening_service import has_reference_list
 
-        lines += ["### References", "", "Available" if has_reference_list(paper) else "Awaiting reference completion", ""]
+        lines += ["### References", "", "Available" if has_reference_list(
+            paper) else "Awaiting reference completion", ""]
         if paper.reference_text:
             lines += [paper.reference_text, ""]
         lines += [f"- {reference}" for reference in paper.references]
@@ -74,7 +87,8 @@ def build_markdown(project: Project) -> str:
         # ponytail: scope provenance to this project's searches; shared-paper
         # rows from other projects must never leak into this export.
         own_discs = list(
-            paper.discoveries.filter(search__project=project).select_related("search")
+            paper.discoveries.filter(
+                search__project=project).select_related("search")
         )
         for disc in own_discs:
             lines += [
@@ -84,9 +98,11 @@ def build_markdown(project: Project) -> str:
         if not own_discs:
             lines += ["- _No provenance recorded._"]
         lines += ["", "### Screening", ""]
+        if not stages:
+            lines += ["- _No screening stages recorded._"]
         for stage in stages:
             dec = paper.decisions.filter(stage=stage).first()
-            status = dec.decision if dec else "PENDING"
+            status = dec.decision if dec else "NOT_QUEUED"
             lines += [f"- {stage.name}: {status}"]
             if stage.name == "Abstract" and status == "ACCEPT" and not has_reference_list(paper):
                 lines += ["  - Content passed; awaiting references, not finally selected."]
@@ -106,10 +122,22 @@ def build_markdown(project: Project) -> str:
 def build_references_markdown(
     project: Project, papers: Iterable[Paper], *, heading: str,
 ) -> str:
-    """Format one paper group as a compact, human-readable bibliography."""
+    """Format a selected paper group as a local Markdown bibliography.
+
+    Args:
+        project: Owning project whose name labels the report.
+        papers: Caller-filtered papers; this function does not change membership.
+
+    Kwargs:
+        heading: Required report heading before the project name.
+
+    Returns:
+        str: Newest-first bibliography with stable title/PK ties and count.
+    """
     ordered = sorted(
         papers,
-        key=lambda paper: (-(paper.publication_year or 0), paper.title.casefold(), paper.pk),
+        key=lambda paper: (-(paper.publication_year or 0),
+                           paper.title.casefold(), paper.pk),
     )
     lines = [f"# {heading} — {project.name}", "", f"{len(ordered)} papers", ""]
     if not ordered:
@@ -127,7 +155,21 @@ def build_references_markdown(
 
 # --- Write markdown to disk ---
 def write_markdown(project: Project, output: Path) -> Path:
-    """Write markdown export and return the file path."""
+    """Write a generated Markdown report without modifying research rows.
+
+    Args:
+        project: Project whose stored research is exported.
+        output: Destination file path; missing parent directories are created.
+
+    Kwargs:
+        None
+
+    Returns:
+        Path: The requested output path after writing UTF-8 Markdown.
+
+    Raises:
+        OSError: If parent creation or report writing fails.
+    """
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(build_markdown(project), encoding="utf-8")
     return output
