@@ -1,22 +1,30 @@
-# Copyright (c) 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group.
 """
-URL configuration for config project.
+Route Django admin and literature endpoints through the root URL table.
 
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/5.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
+Manager/worker admission and prefix isolation are enforced by middleware,
+not by changing database selection in this URL configuration.
+
+Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
+(AERO-Sys) group.
+
+@File:   urls.py
+
+@Brief:  Route Django admin and literature endpoints through the root URL table.
+
+@Date:   14/10/2026
 """
+
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
+
+# Custom library Imports
 from django.contrib import admin
 from django.urls import include, path
+
+# ------------------------------------------------------------------------ #
+# Module setup
+# ------------------------------------------------------------------------ #
 
 urlpatterns = [
     path('admin/', admin.site.urls),
