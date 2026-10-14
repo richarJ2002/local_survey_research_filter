@@ -5,6 +5,11 @@
 @Date: 03/10/2026
 """
 
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
+
+# Regular library imports
 from __future__ import annotations
 
 import json
@@ -19,6 +24,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+# Custom library Imports
 from django.db import transaction
 from django.test import RequestFactory, SimpleTestCase, TestCase
 
@@ -46,8 +52,13 @@ from literature.project_store import (
 from literature.services.metrics_service import project_revision
 from literature.tests.test_wp0105_lifecycle import _Client
 
+# ------------------------------------------------------------------------ #
+# Definitions
+# ------------------------------------------------------------------------ #
 
 # --- Actual before/after A mutations; B remains unchanged ---
+
+
 class RevisionQualificationTests(TestCase):
     def test_all_relevant_content_edits_and_deletions_are_project_scoped(self):
         a = Project.objects.create(name="A")
@@ -56,17 +67,22 @@ class RevisionQualificationTests(TestCase):
         paper = Paper.objects.create(title="A", doi="10.1000/a")
         Discovery.objects.create(search=search, paper=paper)
         other = Paper.objects.create(title="B", doi="10.1000/b")
-        Discovery.objects.create(search=Search.objects.create(project=b, name="B"), paper=other)
+        Discovery.objects.create(search=Search.objects.create(
+            project=b, name="B"), paper=other)
         stage = Stage.objects.create(project=a, name="Title", order=1)
         decision = ScreeningDecision.objects.create(paper=paper, stage=stage)
         run = SearchRun.objects.create(search=search)
         assignment = PaperKeywordAssignment.objects.create(
             project=a, search=search, paper=paper, keyword="one"
         )
-        first = SurveyEntry.objects.create(project=a, title="One", reference_number=7)
-        second = SurveyEntry.objects.create(project=a, title="Two", reference_number=12)
-        cache = OpenCitationsLookup.objects.create(doi=paper.doi, direction="references")
-        foreign_cache = OpenCitationsLookup.objects.create(doi=other.doi, direction="references")
+        first = SurveyEntry.objects.create(
+            project=a, title="One", reference_number=7)
+        second = SurveyEntry.objects.create(
+            project=a, title="Two", reference_number=12)
+        cache = OpenCitationsLookup.objects.create(
+            doi=paper.doi, direction="references")
+        foreign_cache = OpenCitationsLookup.objects.create(
+            doi=other.doi, direction="references")
         before_b = project_revision(b)
 
         def changed(operation):
@@ -90,10 +106,12 @@ class RevisionQualificationTests(TestCase):
             with self.subTest(model=type(row).__name__):
                 changed(
                     lambda row=row, field=field, value=value: (
-                        type(row).objects.filter(pk=row.pk).update(**{field: value})
+                        type(row).objects.filter(
+                            pk=row.pk).update(**{field: value})
                     )
                 )
-        changed(lambda: SurveyCitation.objects.create(citing=first, cited=second))
+        changed(lambda: SurveyCitation.objects.create(
+            citing=first, cited=second))
         changed(lambda: SurveyCitation.objects.filter(citing=first).delete())
         changed(
             lambda: ScreeningRevision.objects.create(
@@ -123,8 +141,10 @@ class RevisionQualificationTests(TestCase):
     def test_cached_arxiv_and_curated_doi_alias_mutations_refresh_only_a(self):
         a = Project.objects.create(name="Alias A")
         b = Project.objects.create(name="Alias B")
-        paper = Paper.objects.create(title="Arxiv", source_ids={"arxiv": "2401.00001v2"})
-        Discovery.objects.create(paper=paper, search=Search.objects.create(project=a, name="A"))
+        paper = Paper.objects.create(title="Arxiv", source_ids={
+                                     "arxiv": "2401.00001v2"})
+        Discovery.objects.create(
+            paper=paper, search=Search.objects.create(project=a, name="A"))
         SurveyEntry.objects.create(
             project=a,
             title="Alias snapshot",
@@ -134,7 +154,8 @@ class RevisionQualificationTests(TestCase):
         before_b = project_revision(b)
         for doi in ("10.48550/arxiv.2401.00001", "10.1000/alias"):
             before = project_revision(a)
-            cache = OpenCitationsLookup.objects.create(doi=doi, direction="outgoing", edges=[])
+            cache = OpenCitationsLookup.objects.create(
+                doi=doi, direction="outgoing", edges=[])
             self.assertNotEqual(project_revision(a), before)
             before = project_revision(a)
             cache.delete()
@@ -158,7 +179,8 @@ class DrainQualificationTests(SimpleTestCase):
             },
         )
         cls.environment.start()
-        cls.store = create_project_store(cls.root / "project", "Synthetic drain")
+        cls.store = create_project_store(
+            cls.root / "project", "Synthetic drain")
 
     @classmethod
     def tearDownClass(cls):
@@ -180,7 +202,8 @@ class DrainQualificationTests(SimpleTestCase):
         self.writer = _Client(self.tab["handle_id"])
         self.control = _Client()
         self.assertEqual(self.writer.get(self.base + "/search/new/")[0], 200)
-        self.assertEqual(self.control.get(self.base + "/lifecycle/drain/")[0], 200)
+        self.assertEqual(self.control.get(
+            self.base + "/lifecycle/drain/")[0], 200)
         self.addCleanup(ws.release_handle, self.tab["handle_id"])
 
     def snapshot(self):
@@ -232,8 +255,10 @@ class DrainQualificationTests(SimpleTestCase):
                 ).fetchone()[0],
                 1,
             )
-            self.assertEqual(connection.execute("PRAGMA integrity_check").fetchone()[0], "ok")
-            self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
+            self.assertEqual(connection.execute(
+                "PRAGMA integrity_check").fetchone()[0], "ok")
+            self.assertEqual(connection.execute(
+                "PRAGMA foreign_key_check").fetchall(), [])
 
     def test_refused_closure_and_concurrent_attach_leave_survivor_writable(self):
         ws.release_handle(self.tab["handle_id"])
@@ -256,7 +281,8 @@ class DrainQualificationTests(SimpleTestCase):
         result = ws.drain_and_stop(self.canonical)
         self.assertEqual(result["reason"], "handles-live")
         self.assertFalse(self.snapshot()["draining"])
-        self.assertEqual(self.save("Survivor after live handle refusal")[0], 200)
+        self.assertEqual(
+            self.save("Survivor after live handle refusal")[0], 200)
 
     def test_timeout_cancels_drain_and_survivor_can_save(self):
         with (
@@ -269,7 +295,8 @@ class DrainQualificationTests(SimpleTestCase):
                 self.wait(lambda: self.snapshot()["in_flight"] == 1)
                 ws.release_handle(self.tab["handle_id"])
                 close = pool.submit(ws.drain_and_stop, self.canonical, 0.2)
-                self.assertEqual(close.result(timeout=10)["reason"], "drain-timeout")
+                self.assertEqual(close.result(timeout=10)[
+                                 "reason"], "drain-timeout")
                 self.assertFalse(self.snapshot()["draining"])
             finally:
                 lock.rollback()
@@ -305,13 +332,16 @@ class DrainQualificationTests(SimpleTestCase):
         class FailedDelete(sqlite3.Connection):
             def execute(self, sql, *args, **kwargs):
                 if sql.startswith("DELETE FROM leases"):
-                    raise sqlite3.OperationalError("synthetic registry DELETE failure")
+                    raise sqlite3.OperationalError(
+                        "synthetic registry DELETE failure")
                 return super().execute(sql, *args, **kwargs)
 
         request = RequestFactory().post(
-            self.base + "/lifecycle/release/", {"handle_id": self.tab["handle_id"]}
+            self.base +
+            "/lifecycle/release/", {"handle_id": self.tab["handle_id"]}
         )
-        bound = {"ok": True, "store": self.canonical, "uuid": self.tab["project_uuid"]}
+        bound = {"ok": True, "store": self.canonical,
+                 "uuid": self.tab["project_uuid"]}
         # Exercise the actual decorated lifecycle view and registry DELETE; only
         # its fixed-store/Project lookup is supplied without a second ORM binding.
         with (
@@ -324,23 +354,38 @@ class DrainQualificationTests(SimpleTestCase):
             with patch.object(
                 ws.sqlite3,
                 "connect",
-                side_effect=lambda *a, **kw: connect(*a, **kw, factory=FailedDelete),
+                side_effect=lambda *a, **kw: connect(
+                    *a, **kw, factory=FailedDelete),
             ):
                 with self.assertRaisesRegex(ProjectStoreError, "cannot release"):
                     ws.release_handle(self.tab["handle_id"])
-                response = project_lifecycle(request, self.tab["project_id"], "release")
+                response = project_lifecycle(
+                    request, self.tab["project_id"], "release")
                 self.assertEqual(response.status_code, 503)
                 self.assertFalse(json.loads(response.content)["released"])
             self.assertIsNotNone(ws.heartbeat_handle(self.tab["handle_id"]))
             self.assertEqual(ws.live_handle_count(self.canonical), 1)
-            for _ in range(2):  # First release, then already-absent idempotent retry.
-                response = project_lifecycle(request, self.tab["project_id"], "release")
+            # First release, then already-absent idempotent retry.
+            for _ in range(2):
+                response = project_lifecycle(
+                    request, self.tab["project_id"], "release")
                 self.assertEqual(response.status_code, 200)
                 self.assertTrue(json.loads(response.content)["released"])
                 self.assertIsNone(ws._lease_row(self.tab["handle_id"]))
             self.assertTrue(ws.release_handle(self.tab["handle_id"]))
 
     def test_no_migration_drift_against_two_opened_synthetic_stores(self):
+        """Check opened synthetic schemas using the guarded developer entry.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         other = create_project_store(self.root / "drift B", "Synthetic B")
         tab = ws.acquire_handle(other.location)
         self.addCleanup(ws.release_handle, tab["handle_id"])
@@ -350,8 +395,10 @@ class DrainQualificationTests(SimpleTestCase):
             db = opened.location / "project.sqlite3"
             self.assertTrue(schema_status(db).in_sync)
             result = subprocess.run(
-                [sys.executable, "manage.py", "makemigrations", "--check", "--dry-run"],
-                env=dict(os.environ, LOCAL_SURVEY_DB=str(db), WP_ROLE="developer"),
+                [sys.executable, "launch.py", "django", "makemigrations",
+                 "--check", "--dry-run"],
+                env=dict(os.environ, LOCAL_SURVEY_DB=str(db),
+                         WP_ROLE="developer"),
                 capture_output=True,
                 text=True,
                 timeout=30,

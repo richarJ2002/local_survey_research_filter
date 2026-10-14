@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
 
-'''
+"""Verify citation paths, graph lenses, pruning, and resumable queues.
+
 @File:   test_citations.py
 
 @Brief:  Tests for citation graph stories and shuffled queue.
 
 @Date:   28/09/2026
-@Copyright: 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group.
+@Copyright: 2026 Aerospace Engineering Research & Operation Systems
+    (AERO-Sys) group.
 
-'''
+"""
+
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
 
 # Regular library imports
 from __future__ import annotations
@@ -16,8 +22,12 @@ from __future__ import annotations
 # Custom library Imports
 from django.test import TestCase
 
-from literature.models import Discovery, Paper, Project, ScreeningDecision, Search
-from literature.services.citation_service import _connecting_papers, build_graph
+from literature.models import (
+    Discovery, Paper, Project, ScreeningDecision, Search,
+)
+from literature.services.citation_service import (
+    _connecting_papers, build_graph,
+)
 from literature.services.plots_service import build_citation_figure
 
 # ------------------------------------------------------------------------ #
@@ -29,19 +39,55 @@ class CitationTests(TestCase):
     """Within-library links form stories; shuffle keeps queue resumable."""
 
     def _select_final(self, paper: Paper, stage) -> None:
-        """Construct a reference-completed fixture without inventing any citation edges."""
+        """Complete the fixture's references and accept Title and Abstract.
+
+        Construct a reference-completed fixture without inventing any citation
+        edges.
+
+        Args:
+            paper (Paper): Fixture paper whose blank abstract is filled and
+                whose bibliography is assigned when reference IDs are absent.
+            stage (ScreeningStage): Abstract stage whose project supplies the
+                preceding Title acceptance.
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         if not paper.references:
-            paper.reference_text = "Fixture author (2000). A reference not discovered in this project."
+            paper.reference_text = (
+                "Fixture author (2000). A reference not discovered in this "
+                "project."
+            )
         paper.abstract = paper.abstract or "Fixture abstract"
         paper.save(update_fields=["reference_text", "abstract"])
-        ScreeningDecision.objects.get_or_create(paper=paper, stage=stage.project.stages.get(name="Title"), defaults={"decision": "ACCEPT"})
-        ScreeningDecision.objects.create(paper=paper, stage=stage, decision="ACCEPT")
+        ScreeningDecision.objects.get_or_create(
+            paper=paper, stage=stage.project.stages.get(name="Title"),
+            defaults={"decision": "ACCEPT"},
+        )
+        ScreeningDecision.objects.create(
+            paper=paper, stage=stage, decision="ACCEPT")
 
     # --- Graph links ---
     def test_chain_links_and_depth(self) -> None:
-        """A cites B cites C chains with depth cutoff."""
+        """Build chains at full and zero depth and render the full graph.
+
+        A cites B cites C chains with depth cutoff.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         project = Project.objects.create(name="P")
-        search = Search.objects.create(project=project, name="S", keywords=["a"])
+        search = Search.objects.create(
+            project=project, name="S", keywords=["a"])
         a = Paper.objects.create(
             title="A", openalex_id="WA", source_ids={"openalex": "WA"},
             references=["https://openalex.org/WB"], citation_count=5,
@@ -57,7 +103,8 @@ class CitationTests(TestCase):
             references=[], citation_count=1, publication_year=2018,
         )
         for paper in (a, b, c):
-            Discovery.objects.create(paper=paper, search=search, source="openalex", query="a")
+            Discovery.objects.create(
+                paper=paper, search=search, source="openalex", query="a")
         full = build_graph(project, depth=5, seed_stage="found")
         self.assertEqual(len(full["edges"]), 2)
         shallow = build_graph(project, depth=0, seed_stage="found")
@@ -68,9 +115,22 @@ class CitationTests(TestCase):
 
     # --- Found lens ---
     def test_found_lens_seeds_everything(self) -> None:
-        """Found lens seeds every paper, however cited, links intact."""
+        """Keep low- and high-citation papers linked in the found lens.
+
+        Found lens seeds every paper, however cited, links intact.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         project = Project.objects.create(name="P")
-        search = Search.objects.create(project=project, name="S", keywords=["a"])
+        search = Search.objects.create(
+            project=project, name="S", keywords=["a"])
         high = Paper.objects.create(
             title="H", citation_count=100, openalex_id="WH1",
             source_ids={"openalex": "WH1"},
@@ -81,30 +141,58 @@ class CitationTests(TestCase):
             source_ids={"openalex": "WL1"}, references=[],
         )
         for paper in (high, low):
-            Discovery.objects.create(paper=paper, search=search, source="openalex", query="a")
+            Discovery.objects.create(
+                paper=paper, search=search, source="openalex", query="a")
         graph = build_graph(project, depth=0, seed_stage="found")
         self.assertEqual({n["id"] for n in graph["nodes"]}, {high.pk, low.pk})
         self.assertEqual(len(graph["edges"]), 1)
 
     def test_references_match_doi_and_semantic_scholar_id(self) -> None:
-        """Fallback reference identifiers create real directed edges."""
+        """Resolve DOI and Semantic Scholar references to directed edges.
+
+        Fallback reference identifiers create real directed edges.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         project = Project.objects.create(name="P")
-        search = Search.objects.create(project=project, name="S", keywords=["a"])
+        search = Search.objects.create(
+            project=project, name="S", keywords=["a"])
         source = Paper.objects.create(
-            title="Citing", references=["https://doi.org/10.1/old", "S2:s2-old"],
+            title="Citing",
+            references=["https://doi.org/10.1/old", "S2:s2-old"],
         )
         doi_paper = Paper.objects.create(title="DOI", doi="10.1/old")
         s2_paper = Paper.objects.create(
             title="S2", source_ids={"semantic_scholar": "s2-old"},
         )
         for paper in (source, doi_paper, s2_paper):
-            Discovery.objects.create(paper=paper, search=search, source="openalex", query="a")
+            Discovery.objects.create(
+                paper=paper, search=search, source="openalex", query="a")
         graph = build_graph(project, seed_stage="found")
         self.assertEqual(set(graph["edges"]),
                          {(source.pk, doi_paper.pk), (source.pk, s2_paper.pk)})
 
     def test_long_citation_chain_avoids_recursion_limit(self) -> None:
-        """Finding paths in a large project must not use recursive DFS."""
+        """Find all 1,498 interior chain nodes without recursive traversal.
+
+        Finding paths in a large project must not use recursive DFS.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         links = {pk: set() for pk in range(1500)}
         for pk in range(1499):
             links[pk].add(pk + 1)
@@ -113,10 +201,23 @@ class CitationTests(TestCase):
 
     # --- Final seeds + prune ---
     def test_final_seeds_and_prune(self) -> None:
-        """One kept paper cannot turn its side branches into connections."""
+        """Prune a single selected paper's branches but keep the seed.
+
+        One kept paper cannot turn its side branches into connections.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         project = Project.objects.create(name="P")
         project.ensure_default_stages()
-        search = Search.objects.create(project=project, name="S", keywords=["a"])
+        search = Search.objects.create(
+            project=project, name="S", keywords=["a"])
         seed = Paper.objects.create(
             title="Seed", openalex_id="WS1", source_ids={"openalex": "WS1"},
             references=["https://openalex.org/WM1"], citation_count=5,
@@ -137,7 +238,8 @@ class CitationTests(TestCase):
             publication_year=2021,
         )
         for paper in (seed, mid, old, side):
-            Discovery.objects.create(paper=paper, search=search, source="openalex", query="a")
+            Discovery.objects.create(
+                paper=paper, search=search, source="openalex", query="a")
         abstract = project.stages.get(name="Abstract")
         self._select_final(seed, abstract)
         full = build_graph(project, depth=5)
@@ -149,11 +251,26 @@ class CitationTests(TestCase):
         self.assertEqual(pruned["edges"], [])
         self.assertEqual(pruned["pruned"], 2)
 
-    def test_depth_follows_references_backward_not_incoming_citations(self) -> None:
-        """Each hop reaches an older cited paper, never an unselected citer."""
+    def test_depth_follows_references_backward_not_incoming_citations(
+        self,
+    ) -> None:
+        """Follow cited references by depth without adding incoming citers.
+
+        Each hop reaches an older cited paper, never an unselected citer.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         project = Project.objects.create(name="P")
         project.ensure_default_stages()
-        search = Search.objects.create(project=project, name="S", keywords=["a"])
+        search = Search.objects.create(
+            project=project, name="S", keywords=["a"])
         newest = Paper.objects.create(
             title="Newest", openalex_id="WBACK1", publication_year=2024,
             references=["https://openalex.org/WBACK2"],
@@ -170,9 +287,11 @@ class CitationTests(TestCase):
             references=["https://openalex.org/WBACK2"],
         )
         for paper in (newest, middle, oldest, incoming):
-            Discovery.objects.create(paper=paper, search=search, source="openalex", query="a")
+            Discovery.objects.create(
+                paper=paper, search=search, source="openalex", query="a")
         ScreeningDecision.objects.create(
-            paper=newest, stage=project.stages.get(name="Abstract"), decision="ACCEPT",
+            paper=newest, stage=project.stages.get(name="Abstract"),
+            decision="ACCEPT",
         )
         expected = ({newest.pk}, {newest.pk, middle.pk},
                     {newest.pk, middle.pk, oldest.pk})
@@ -183,36 +302,71 @@ class CitationTests(TestCase):
             self.assertEqual(len(graph["edges"]), depth)
             self.assertNotIn(incoming.pk, shown)
 
-    def test_shared_cited_paper_connects_newest_selected_branches(self) -> None:
-        """Two selected tips citing one ancestor form a visible cluster."""
+    def test_shared_cited_paper_connects_newest_selected_branches(
+        self,
+    ) -> None:
+        """Retain a shared cited ancestor as a joiner between selected tips.
+
+        Two selected tips citing one ancestor form a visible cluster.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         project = Project.objects.create(name="P")
         project.ensure_default_stages()
-        search = Search.objects.create(project=project, name="S", keywords=["a"])
-        ancestor = Paper.objects.create(title="Common ancestor", openalex_id="WANCESTOR",
-                                        publication_year=2019)
+        search = Search.objects.create(
+            project=project, name="S", keywords=["a"])
+        ancestor = Paper.objects.create(
+            title="Common ancestor", openalex_id="WANCESTOR",
+            publication_year=2019)
         tips = [
-            Paper.objects.create(title=f"Tip {year}", openalex_id=f"WTIP{year}",
+            Paper.objects.create(title=f"Tip {year}",
+                                 openalex_id=f"WTIP{year}",
                                  publication_year=year,
                                  references=["https://openalex.org/WANCESTOR"])
             for year in (2025, 2023)
         ]
         for paper in (*tips, ancestor):
-            Discovery.objects.create(paper=paper, search=search, source="openalex", query="a")
+            Discovery.objects.create(
+                paper=paper, search=search, source="openalex", query="a")
         abstract = project.stages.get(name="Abstract")
         for paper in tips:
-            ScreeningDecision.objects.create(paper=paper, stage=abstract, decision="ACCEPT")
+            ScreeningDecision.objects.create(
+                paper=paper, stage=abstract, decision="ACCEPT")
         graph = build_graph(project, depth=1, prune=True)
         self.assertEqual({n["id"] for n in graph["nodes"]},
                          {ancestor.pk} | {paper.pk for paper in tips})
-        self.assertEqual(set(graph["edges"]), {(paper.pk, ancestor.pk) for paper in tips})
-        self.assertTrue(next(n for n in graph["nodes"] if n["id"] == ancestor.pk)["is_joiner"])
+        self.assertEqual(set(graph["edges"]), {
+                         (paper.pk, ancestor.pk) for paper in tips})
+        self.assertTrue(
+            next(n for n in graph["nodes"] if n["id"] == ancestor.pk)[
+                "is_joiner"])
 
     # --- Prune keeps seed-to-seed stories ---
     def test_prune_keeps_story_between_seeds(self) -> None:
-        """A chain starting and ending with selected papers survives prune."""
+        """Keep the middle paper of a chain joining two selected endpoints.
+
+        A chain starting and ending with selected papers survives prune.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         project = Project.objects.create(name="P")
         project.ensure_default_stages()
-        search = Search.objects.create(project=project, name="S", keywords=["a"])
+        search = Search.objects.create(
+            project=project, name="S", keywords=["a"])
         new = Paper.objects.create(
             title="New", openalex_id="WN1", source_ids={"openalex": "WN1"},
             references=["https://openalex.org/WM2"], citation_count=2,
@@ -228,7 +382,8 @@ class CitationTests(TestCase):
             references=[], citation_count=1, publication_year=2018,
         )
         for paper in (new, mid, old):
-            Discovery.objects.create(paper=paper, search=search, source="openalex", query="a")
+            Discovery.objects.create(
+                paper=paper, search=search, source="openalex", query="a")
         abstract = project.stages.get(name="Abstract")
         self._select_final(new, abstract)
         self._select_final(old, abstract)
@@ -236,36 +391,69 @@ class CitationTests(TestCase):
         pruned_ids = {n["id"] for n in pruned["nodes"]}
         self.assertEqual(pruned_ids, {new.pk, mid.pk, old.pk})
 
-    def test_backbone_keeps_directed_edges_when_traversed_backwards(self) -> None:
-        """Undirected path selection still displays the actual citing direction."""
+    def test_backbone_keeps_directed_edges_when_traversed_backwards(
+        self,
+    ) -> None:
+        """Keep citing-to-cited directions when selecting an undirected path.
+
+        Undirected path selection still displays the actual citing direction.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         project = Project.objects.create(name="P")
         project.ensure_default_stages()
-        search = Search.objects.create(project=project, name="S", keywords=["a"])
+        search = Search.objects.create(
+            project=project, name="S", keywords=["a"])
         old = Paper.objects.create(title="Old", openalex_id="WOLD")
         mid = Paper.objects.create(
-            title="Mid", openalex_id="WMID", references=["https://openalex.org/WOLD"],
+            title="Mid", openalex_id="WMID",
+            references=["https://openalex.org/WOLD"],
         )
         new = Paper.objects.create(
-            title="New", openalex_id="WNEW", references=["https://openalex.org/WMID"],
+            title="New", openalex_id="WNEW",
+            references=["https://openalex.org/WMID"],
         )
         for paper in (old, mid, new):
-            Discovery.objects.create(paper=paper, search=search, source="openalex", query="a")
+            Discovery.objects.create(
+                paper=paper, search=search, source="openalex", query="a")
         abstract = project.stages.get(name="Abstract")
         for paper in (old, new):
             self._select_final(paper, abstract)
         graph = build_graph(project, depth=3, prune=True)
-        self.assertEqual(set(graph["edges"]), {(new.pk, mid.pk), (mid.pk, old.pk)})
+        self.assertEqual(set(graph["edges"]), {
+                         (new.pk, mid.pk), (mid.pk, old.pk)})
         self.assertIn("New cites Mid", build_citation_figure(graph))
 
     # --- Prune chooses one shortest track ---
     def test_prune_chooses_one_of_parallel_shortest_tracks(self) -> None:
-        """Equal-length routes resolve deterministically to one backbone."""
+        """Choose the same equal-length backbone on repeated graph builds.
+
+        Equal-length routes resolve deterministically to one backbone.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         project = Project.objects.create(name="P")
         project.ensure_default_stages()
-        search = Search.objects.create(project=project, name="S", keywords=["a"])
+        search = Search.objects.create(
+            project=project, name="S", keywords=["a"])
         top = Paper.objects.create(
             title="Top", openalex_id="WP1", source_ids={"openalex": "WP1"},
-            references=["https://openalex.org/WP2", "https://openalex.org/WP3"],
+            references=["https://openalex.org/WP2",
+                        "https://openalex.org/WP3"],
             publication_year=2023,
         )
         left = Paper.objects.create(
@@ -281,7 +469,8 @@ class CitationTests(TestCase):
             references=[], publication_year=2018,
         )
         for paper in (top, left, right, bottom):
-            Discovery.objects.create(paper=paper, search=search, source="openalex", query="a")
+            Discovery.objects.create(
+                paper=paper, search=search, source="openalex", query="a")
         abstract = project.stages.get(name="Abstract")
         self._select_final(top, abstract)
         self._select_final(bottom, abstract)
@@ -290,19 +479,35 @@ class CitationTests(TestCase):
             {n["id"] for n in pruned["nodes"]},
             {top.pk, left.pk, bottom.pk},
         )
-        self.assertEqual(set(pruned["edges"]), {(top.pk, left.pk), (left.pk, bottom.pk)})
+        self.assertEqual(set(pruned["edges"]), {
+                         (top.pk, left.pk), (left.pk, bottom.pk)})
         self.assertEqual(pruned["pruned_edges"], 2)
-        self.assertEqual(build_graph(project, depth=5, prune=True)["edges"], pruned["edges"])
+        self.assertEqual(build_graph(project, depth=5, prune=True)[
+                         "edges"], pruned["edges"])
 
     # --- Joiner flags ---
     def test_joiner_grey_outer_blue(self) -> None:
-        """Connectivity, not publication year, determines grey vs blue."""
+        """Distinguish joiners from branches and omit unreachable newer citers.
+
+        Connectivity, not publication year, determines grey vs blue.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         project = Project.objects.create(name="P")
         project.ensure_default_stages()
-        search = Search.objects.create(project=project, name="S", keywords=["a"])
+        search = Search.objects.create(
+            project=project, name="S", keywords=["a"])
         new = Paper.objects.create(
             title="New", openalex_id="WJ1", source_ids={"openalex": "WJ1"},
-            references=["https://openalex.org/WJ2", "https://openalex.org/WJ4"],
+            references=["https://openalex.org/WJ2",
+                        "https://openalex.org/WJ4"],
             publication_year=2023,
         )
         mid = Paper.objects.create(
@@ -318,17 +523,21 @@ class CitationTests(TestCase):
             references=[], publication_year=2021,
         )
         newer_bridge = Paper.objects.create(
-            title="New bridge", openalex_id="WJ5", source_ids={"openalex": "WJ5"},
-            references=["https://openalex.org/WJ1", "https://openalex.org/WJ3"],
+            title="New bridge", openalex_id="WJ5",
+            source_ids={"openalex": "WJ5"},
+            references=["https://openalex.org/WJ1",
+                        "https://openalex.org/WJ3"],
             publication_year=2025,
         )
         for paper in (new, mid, old, side, newer_bridge):
-            Discovery.objects.create(paper=paper, search=search, source="openalex", query="a")
+            Discovery.objects.create(
+                paper=paper, search=search, source="openalex", query="a")
         abstract = project.stages.get(name="Abstract")
         self._select_final(new, abstract)
         self._select_final(old, abstract)
         graph = build_graph(project, depth=5)
-        flags = {n["id"]: (n["is_seed"], n["is_joiner"]) for n in graph["nodes"]}
+        flags = {n["id"]: (n["is_seed"], n["is_joiner"])
+                 for n in graph["nodes"]}
         self.assertEqual(flags[new.pk], (True, False))
         self.assertEqual(flags[old.pk], (True, False))
         self.assertEqual(flags[mid.pk], (False, True))
@@ -346,10 +555,23 @@ class CitationTests(TestCase):
 
     # --- Cyclic branch is not a connection ---
     def test_attached_cycle_does_not_join_selected_papers(self) -> None:
-        """A loop hung off one selected paper is still an outer branch."""
+        """Exclude an attached cycle from joiners and the pruned backbone.
+
+        A loop hung off one selected paper is still an outer branch.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         project = Project.objects.create(name="P")
         project.ensure_default_stages()
-        search = Search.objects.create(project=project, name="S", keywords=["a"])
+        search = Search.objects.create(
+            project=project, name="S", keywords=["a"])
         papers = [
             Paper.objects.create(
                 title=f"Cycle {i}", openalex_id=f"WQ{i}",
@@ -359,7 +581,8 @@ class CitationTests(TestCase):
             for i, targets in enumerate(([1, 3], [2], [], [4], [0]))
         ]
         for paper in papers:
-            Discovery.objects.create(paper=paper, search=search, source="openalex", query="a")
+            Discovery.objects.create(
+                paper=paper, search=search, source="openalex", query="a")
         abstract = project.stages.get(name="Abstract")
         for paper in (papers[0], papers[2]):
             self._select_final(paper, abstract)
@@ -372,10 +595,23 @@ class CitationTests(TestCase):
 
     # --- Unequal routes still connect ---
     def test_longer_alternative_path_is_interior(self) -> None:
-        """Not only shortest paths count when two kept papers share a cluster."""
+        """Show longer alternative routes but prune to the shortest backbone.
+
+        Not only shortest paths count when two kept papers share a cluster.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         project = Project.objects.create(name="P")
         project.ensure_default_stages()
-        search = Search.objects.create(project=project, name="S", keywords=["a"])
+        search = Search.objects.create(
+            project=project, name="S", keywords=["a"])
         papers = [
             Paper.objects.create(
                 title=f"Path {i}", openalex_id=f"WR{i}",
@@ -385,23 +621,41 @@ class CitationTests(TestCase):
             for i, targets in enumerate(([1, 2], [4], [3], [4], []))
         ]
         for paper in papers:
-            Discovery.objects.create(paper=paper, search=search, source="openalex", query="a")
+            Discovery.objects.create(
+                paper=paper, search=search, source="openalex", query="a")
         abstract = project.stages.get(name="Abstract")
         for paper in (papers[0], papers[4]):
             self._select_final(paper, abstract)
         graph = build_graph(project, depth=5)
-        self.assertEqual({n["id"] for n in graph["nodes"]}, {p.pk for p in papers})
+        self.assertEqual({n["id"]
+                         for n in graph["nodes"]}, {p.pk for p in papers})
         pruned = build_graph(project, depth=5, prune=True)
         self.assertEqual({n["id"] for n in pruned["nodes"]},
                          {papers[i].pk for i in (0, 1, 4)})
         self.assertEqual(set(pruned["edges"]),
-                         {(papers[0].pk, papers[1].pk), (papers[1].pk, papers[4].pk)})
+                         {(papers[0].pk, papers[1].pk),
+                          (papers[1].pk, papers[4].pk)})
 
-    def test_backbone_spans_three_selected_papers_and_keeps_isolates(self) -> None:
-        """A connected trio uses two shortest links; other seeds stay visible."""
+    def test_backbone_spans_three_selected_papers_and_keeps_isolates(
+        self,
+    ) -> None:
+        """Span three selected papers with two edges and keep an isolated seed.
+
+        A connected trio uses two shortest links; other seeds stay visible.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         project = Project.objects.create(name="P")
         project.ensure_default_stages()
-        search = Search.objects.create(project=project, name="S", keywords=["a"])
+        search = Search.objects.create(
+            project=project, name="S", keywords=["a"])
         papers = [
             Paper.objects.create(
                 title=f"Triangle {i}", openalex_id=f"WT{i}",
@@ -411,31 +665,49 @@ class CitationTests(TestCase):
             for i, targets in enumerate(([1, 2], [2], [], []))
         ]
         for paper in papers:
-            Discovery.objects.create(paper=paper, search=search, source="openalex", query="a")
+            Discovery.objects.create(
+                paper=paper, search=search, source="openalex", query="a")
             self._select_final(paper, project.stages.get(name="Abstract"))
         graph = build_graph(project, prune=True)
-        self.assertEqual({n["id"] for n in graph["nodes"]}, {p.pk for p in papers})
+        self.assertEqual({n["id"]
+                         for n in graph["nodes"]}, {p.pk for p in papers})
         self.assertEqual(set(graph["edges"]),
-                         {(papers[0].pk, papers[1].pk), (papers[0].pk, papers[2].pk)})
+                         {(papers[0].pk, papers[1].pk),
+                          (papers[0].pk, papers[2].pk)})
 
     # --- Smallest chain ---
     def test_min_chain_hides_outliers(self) -> None:
-        """Groups smaller than min_chain vanish; the main line stays."""
+        """Keep a three-paper component and hide a seed below min_chain.
+
+        Groups smaller than min_chain vanish; the main line stays.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         project = Project.objects.create(name="P")
         project.ensure_default_stages()
-        search = Search.objects.create(project=project, name="S", keywords=["a"])
+        search = Search.objects.create(
+            project=project, name="S", keywords=["a"])
         chain = [
             Paper.objects.create(
                 title=f"C{i}", openalex_id=f"WC{i}",
                 source_ids={"openalex": f"WC{i}"},
-                references=[f"https://openalex.org/WC{i + 1}"] if i < 2 else [],
+                references=[
+                    f"https://openalex.org/WC{i + 1}"] if i < 2 else [],
                 publication_year=2020 + i,
             )
             for i in range(3)
         ]
         lone = Paper.objects.create(title="Lone", publication_year=2021)
         for paper in (*chain, lone):
-            Discovery.objects.create(paper=paper, search=search, source="openalex", query="a")
+            Discovery.objects.create(
+                paper=paper, search=search, source="openalex", query="a")
         abstract = project.stages.get(name="Abstract")
         for paper in (*chain, lone):
             self._select_final(paper, abstract)
@@ -447,12 +719,26 @@ class CitationTests(TestCase):
 
     # --- Isolated seeds stay visible ---
     def test_isolated_seeds_kept(self) -> None:
-        """Final papers with no links still appear (seeds never vanish)."""
+        """Display an isolated final seed even when it has no citation links.
+
+        Final papers with no links still appear (seeds never vanish).
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         project = Project.objects.create(name="P")
         project.ensure_default_stages()
-        search = Search.objects.create(project=project, name="S", keywords=["a"])
+        search = Search.objects.create(
+            project=project, name="S", keywords=["a"])
         lone = Paper.objects.create(title="Lone", citation_count=3)
-        Discovery.objects.create(paper=lone, search=search, source="openalex", query="a")
+        Discovery.objects.create(
+            paper=lone, search=search, source="openalex", query="a")
         abstract = project.stages.get(name="Abstract")
         self._select_final(lone, abstract)
         graph = build_graph(project, depth=2)
@@ -460,20 +746,36 @@ class CitationTests(TestCase):
 
     # --- Seed stage lens ---
     def test_seed_stage_lens(self) -> None:
-        """Title lens seeds title-kept papers; final lens seeds abstract-kept."""
+        """Check Title, final, found, and unknown lens seed selection.
+
+        Title lens seeds title-kept papers; final lens seeds abstract-kept.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         project = Project.objects.create(name="P")
         project.ensure_default_stages()
-        search = Search.objects.create(project=project, name="S", keywords=["a"])
+        search = Search.objects.create(
+            project=project, name="S", keywords=["a"])
         kept_title = Paper.objects.create(title="KT", citation_count=1)
         kept_final = Paper.objects.create(title="KF", citation_count=1)
         for paper in (kept_title, kept_final):
-            Discovery.objects.create(paper=paper, search=search, source="openalex", query="a")
+            Discovery.objects.create(
+                paper=paper, search=search, source="openalex", query="a")
         title = project.stages.get(name="Title")
         abstract = project.stages.get(name="Abstract")
-        ScreeningDecision.objects.create(paper=kept_title, stage=title, decision="ACCEPT")
+        ScreeningDecision.objects.create(
+            paper=kept_title, stage=title, decision="ACCEPT")
         self._select_final(kept_final, abstract)
         title_graph = build_graph(project, depth=0, seed_stage="title")
-        self.assertEqual({n["id"] for n in title_graph["nodes"]}, {kept_title.pk, kept_final.pk})
+        self.assertEqual({n["id"] for n in title_graph["nodes"]}, {
+                         kept_title.pk, kept_final.pk})
         final_graph = build_graph(project, depth=0, seed_stage="final")
         self.assertIn(kept_final.pk, {n["id"] for n in final_graph["nodes"]})
         found_graph = build_graph(project, depth=0, seed_stage="found")
@@ -483,7 +785,19 @@ class CitationTests(TestCase):
 
     # --- Shuffle resumable ---
     def test_shuffled_queue_stays_resumable(self) -> None:
-        """Random order still drains the pending pool exactly once."""
+        """Drain the shuffled Title queue once per paper, then return no item.
+
+        Random order still drains the pending pool exactly once.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         from literature.views import _next_pending
 
         project = Project.objects.create(name="P")
@@ -497,6 +811,7 @@ class CitationTests(TestCase):
             nxt = _next_pending(stage)
             self.assertIsNotNone(nxt)
             seen.add(nxt.pk)  # type: ignore[union-attr]
-            nxt.decisions.filter(stage=stage).update(decision="ACCEPT")  # type: ignore[union-attr]
+            nxt.decisions.filter(stage=stage).update(
+                decision="ACCEPT")  # type: ignore[union-attr]
         self.assertEqual(len(seen), 5)
         self.assertIsNone(_next_pending(stage))

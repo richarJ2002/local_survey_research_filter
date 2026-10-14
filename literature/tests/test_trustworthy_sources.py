@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
 
-'''
+"""Verify Crossref and arXiv mapping, source metrics, and duplicate merging.
+
 @File:   test_trustworthy_sources.py
 
 @Brief:  Tests for Crossref/arXiv mapping and metrics/duplicates.
 
 @Date:   28/09/2026
-@Copyright: 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group.
+@Copyright: 2026 Aerospace Engineering Research & Operation Systems
+    (AERO-Sys) group.
 
-'''
+"""
+
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
 
 # Regular library imports
 from __future__ import annotations
@@ -36,7 +42,19 @@ class TrustworthyMappingTests(TestCase):
 
     # --- Crossref ---
     def test_crossref_minimal(self) -> None:
-        """Crossref DOI/title/venue map; abstract empty."""
+        """Normalize Crossref DOI and venue while retaining source provenance.
+
+        Crossref DOI/title/venue map; abstract empty.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         item = {
             "DOI": "10.1234/ABC",
             "title": ["Crossref Title"],
@@ -56,7 +74,19 @@ class TrustworthyMappingTests(TestCase):
 
     # --- arXiv ---
     def test_arxiv_minimal(self) -> None:
-        """arXiv Atom entry maps abstract + arxiv id."""
+        """Map an arXiv summary and retain canonical and discovery sources.
+
+        arXiv Atom entry maps abstract + arxiv id.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         item = {
             "id": "http://arxiv.org/abs/2301.00001v1",
             "title": "Arxiv Title",
@@ -75,16 +105,41 @@ class TrustworthyMappingTests(TestCase):
 
     # --- arXiv query ---
     def test_arxiv_query_joins_keywords(self) -> None:
-        """Keyword rows become OR-joined all: query."""
+        """Include a quoted all-field keyword in the arXiv search query.
+
+        Keyword rows become OR-joined all: query.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         from literature.providers.arxiv import ArxivConfig
 
         src = ArxivSource()
-        cfg = ArxivConfig(query="battery lithium", keywords=("battery", "lithium"))
+        cfg = ArxivConfig(query="battery lithium",
+                          keywords=("battery", "lithium"))
         self.assertIn('all:"battery"', src.build_search_query(cfg))
 
     # --- Crossref headers carry mailto ---
     def test_crossref_headers_polite(self) -> None:
-        """Crossref UA includes mailto when configured."""
+        """Include the configured email as mailto in Crossref's user agent.
+
+        Crossref UA includes mailto when configured.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         src = CrossrefSource(email="a@b.c")
         self.assertIn("mailto:a@b.c", src.default_headers()["User-Agent"])
 
@@ -94,10 +149,23 @@ class MetricsDuplicateTests(TestCase):
 
     # --- Metrics ---
     def test_metrics_groups_by_source(self) -> None:
-        """Per-source totals, dups, unique, and stage counts."""
+        """Check audited source totals independently of discovered papers.
+
+        Per-source totals, dups, unique, and stage counts.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         project = Project.objects.create(name="P")
         project.ensure_default_stages()
-        search = Search.objects.create(project=project, name="S", keywords=["a"])
+        search = Search.objects.create(
+            project=project, name="S", keywords=["a"])
         SearchRun.objects.create(
             search=search, source="openalex", status="completed",
             results_count=10, new_papers_count=7, duplicates_count=3,
@@ -113,15 +181,32 @@ class MetricsDuplicateTests(TestCase):
 
     # --- Duplicates ---
     def test_duplicate_groups_and_merge(self) -> None:
-        """Same titles group; merge keeps history, drops duplicate."""
+        """Group normalized titles and merge while retaining discovery history.
+
+        Same titles group; merge keeps history, drops duplicate.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         project = Project.objects.create(name="P")
-        search = Search.objects.create(project=project, name="S", keywords=["a"])
+        search = Search.objects.create(
+            project=project, name="S", keywords=["a"])
         from literature.models import Discovery
 
-        keep = Paper.objects.create(title="Same Title", authors=[{"name": "A B"}])
-        drop = Paper.objects.create(title="same title!", authors=[{"name": "A B"}])
-        Discovery.objects.create(paper=keep, search=search, source="openalex", query="a")
-        Discovery.objects.create(paper=drop, search=search, source="crossref", query="a")
+        keep = Paper.objects.create(
+            title="Same Title", authors=[{"name": "A B"}])
+        drop = Paper.objects.create(
+            title="same title!", authors=[{"name": "A B"}])
+        Discovery.objects.create(
+            paper=keep, search=search, source="openalex", query="a")
+        Discovery.objects.create(
+            paper=drop, search=search, source="crossref", query="a")
         groups = duplicate_groups(project)
         self.assertEqual(len(groups), 1)
         merge_papers(keep=keep, drop=drop)

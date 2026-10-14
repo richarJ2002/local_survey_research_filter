@@ -1,14 +1,25 @@
 #!/usr/bin/env python3
 
-'''
+"""Test workspace discovery and New/Load flows using synthetic stores.
+
+WP01.04: New/Load workspace UX over real HTTP (synthetic stores).
+
+Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
+(AERO-Sys) group.
+
 @File:   test_wp0104_workspace.py
 
-@Brief:  WP01.04: New/Load workspace UX over real HTTP (synthetic stores).
+@Brief:  Test workspace discovery and New/Load flows using synthetic stores.
 
 @Date:   03/10/2026
-@Copyright: 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group.
+"""
 
-'''
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
+
+# @File: test_wp0104_workspace.py
+# @Date: 03/10/2026
 
 # Regular library imports
 from __future__ import annotations
@@ -24,7 +35,7 @@ from pathlib import Path
 from typing import ClassVar
 from unittest import skipIf
 
-# Custom library imports
+# Custom library Imports
 from django.conf import settings as dj_settings
 from django.test import Client, SimpleTestCase
 
@@ -50,10 +61,25 @@ class WorkspaceTests(SimpleTestCase):
     # --- Isolated XDG state plus a small synthetic workspace, once ---
     @classmethod
     def setUpClass(cls):
+        """Create two synthetic projects under isolated XDG workspace state.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+
+        Side Effects:
+            Override XDG paths and record the prior role and live DB mtime.
+        """
         super().setUpClass()
         cls._tmp = tempfile.TemporaryDirectory(prefix="wp0104-ws-")
         tmp = Path(cls._tmp.name)
-        cls._old_xdg = (os.getenv("XDG_DATA_HOME"), os.getenv("XDG_CACHE_HOME"))
+        cls._old_xdg = (os.getenv("XDG_DATA_HOME"),
+                        os.getenv("XDG_CACHE_HOME"))
         os.environ["XDG_DATA_HOME"] = str(tmp / "xdg-data")
         os.environ["XDG_CACHE_HOME"] = str(tmp / "xdg-cache")
         live = Path(dj_settings.BASE_DIR) / "projects" / "db.sqlite3"
@@ -68,6 +94,17 @@ class WorkspaceTests(SimpleTestCase):
     # --- Stop owned workers, restore env, prove the live DB untouched ---
     @classmethod
     def tearDownClass(cls):
+        """Stop tracked workers, restore the environment and check DB mtime.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         for worker in cls._workers:
             try:
                 pid = int(worker.get("pid", 0))
@@ -101,6 +138,17 @@ class WorkspaceTests(SimpleTestCase):
 
     # --- Run a block as the manager role (middleware reads env per request) ---
     def _as_manager(self):
+        """Set the manager role and arrange restoration after this test.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            Client: Django test client with CSRF checks enabled.
+        """
         old = os.getenv("WP_ROLE")
         os.environ["WP_ROLE"] = "manager"
         self.addCleanup(lambda: os.environ.__setitem__("WP_ROLE", old) if old is not None
@@ -109,6 +157,18 @@ class WorkspaceTests(SimpleTestCase):
 
     # --- Track spawned workers for teardown ---
     def _track(self, worker: dict, canonical: str) -> dict:
+        """Record a worker and its canonical store path for class teardown.
+
+        Args:
+            worker (dict): Worker record mutated to include the canonical path.
+            canonical (str): Resolved project-store location for cleanup.
+
+        Kwargs:
+            None
+
+        Returns:
+            dict: The same worker record after it is added to tracking lists.
+        """
         worker["canonical"] = canonical
         self._workers.append(worker)
         type(self)._workers.append(worker)
@@ -116,6 +176,17 @@ class WorkspaceTests(SimpleTestCase):
 
     # --- Only direct children (plus the root) are listed; never recursive ---
     def test_discovery_is_nonrecursive(self) -> None:
+        """List direct project children but not notes or deeper projects.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         (self.root / "notes.txt").write_text("not a project\n", encoding="utf-8")
         outer = self.root / "outer"
         outer.mkdir(exist_ok=True)
@@ -129,18 +200,42 @@ class WorkspaceTests(SimpleTestCase):
 
     # --- Space/unicode names open exactly like plain ones ---
     def test_space_and_unicode_names(self) -> None:
+        """Create, reopen and discover project paths with spaces and Unicode.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         with tempfile.TemporaryDirectory(prefix="wp0104-names-") as tmp:
             for name in ("my survey 2026", "étude über lowering"):
-                created = create_project_store(Path(tmp) / name, f"Name {name}")
+                created = create_project_store(
+                    Path(tmp) / name, f"Name {name}")
                 reopened = open_project_store(Path(tmp) / name)
                 self.assertEqual(reopened.project_uuid, created.project_uuid)
-                self.assertTrue(inspect_project_store(Path(tmp) / name)["complete"])
+                self.assertTrue(inspect_project_store(
+                    Path(tmp) / name)["complete"])
             found = ws.discover_workspace(Path(tmp))
             self.assertEqual(len(found["entries"]), 2)
             self.assertEqual(found["errors"], [])
 
     # --- Outside-root symlink targets open; aliases collapse to one entry ---
     def test_external_symlink_and_alias_dedup(self) -> None:
+        """Resolve outside-root symlinks and collapse aliases by DB identity.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         with tempfile.TemporaryDirectory(prefix="wp0104-link-") as tmp:
             outside = Path(tmp) / "outside"
             outside.mkdir()
@@ -167,8 +262,10 @@ class WorkspaceTests(SimpleTestCase):
                 # ponytail: one entry for two aliases; discovery counts the extra alias.
                 both = Path(tmp) / "ws3"
                 both.mkdir()
-                (both / "one").symlink_to(outside / "real", target_is_directory=True)
-                (both / "two").symlink_to(outside / "real", target_is_directory=True)
+                (both / "one").symlink_to(outside /
+                                          "real", target_is_directory=True)
+                (both / "two").symlink_to(outside /
+                                          "real", target_is_directory=True)
                 merged = ws.discover_workspace(both)
                 self.assertEqual(len(merged["entries"]), 1)
                 self.assertEqual(merged["entries"][0]["aliases"], 1)
@@ -178,6 +275,17 @@ class WorkspaceTests(SimpleTestCase):
 
     # --- Same UUID at different files is an explicit collision, never a merge ---
     def test_same_uuid_different_file_is_collision(self) -> None:
+        """Flag both independent file copies sharing a project UUID.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         with tempfile.TemporaryDirectory(prefix="wp0104-clash-") as tmp:
             base = Path(tmp) / "ws"
             base.mkdir()
@@ -189,10 +297,22 @@ class WorkspaceTests(SimpleTestCase):
             self.assertEqual(len(flagged), 2)
             for entry in flagged:
                 opened = open_project_store(entry["directory"])
-                self.assertEqual(str(opened.project_uuid), entry["project_uuid"])
+                self.assertEqual(str(opened.project_uuid),
+                                 entry["project_uuid"])
 
     # --- Refusals never mutate: populated New, missing Load, corrupt stores ---
     def test_refusals_never_mutate(self) -> None:
+        """Preserve populated, missing, malformed and corrupt refused targets.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         with tempfile.TemporaryDirectory(prefix="wp0104-refuse-") as tmp:
             populated = Path(tmp) / "populated"
             populated.mkdir()
@@ -202,7 +322,8 @@ class WorkspaceTests(SimpleTestCase):
                 ws.check_new_target(str(populated))
             with self.assertRaises(ProjectStoreError):
                 create_project_store(populated, "Nope")
-            self.assertEqual(sorted(p.name for p in populated.iterdir()), before)
+            self.assertEqual(
+                sorted(p.name for p in populated.iterdir()), before)
             missing = Path(tmp) / "absent"
             with self.assertRaises(ProjectStoreError):
                 ws.check_load_target(str(missing))
@@ -212,7 +333,8 @@ class WorkspaceTests(SimpleTestCase):
             (bad / "project.json").write_text("{not json", encoding="utf-8")
             with self.assertRaises(ProjectStoreError):
                 open_project_store(bad)
-            self.assertEqual((bad / "project.json").read_text(encoding="utf-8"), "{not json")
+            self.assertEqual(
+                (bad / "project.json").read_text(encoding="utf-8"), "{not json")
             garbage = Path(tmp) / "garbage"
             garbage.mkdir()
             (garbage / "project.json").write_text(json.dumps({
@@ -228,6 +350,17 @@ class WorkspaceTests(SimpleTestCase):
     # --- Unwritable destinations refuse with an actionable message ---
     @skipIf(os.geteuid() == 0, "root bypasses permission bits")
     def test_unwritable_destination_refused(self) -> None:
+        """Refuse a child destination under a nonwritable directory.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         with tempfile.TemporaryDirectory(prefix="wp0104-perm-") as tmp:
             locked = Path(tmp) / "locked"
             locked.mkdir(mode=0o500)
@@ -239,6 +372,17 @@ class WorkspaceTests(SimpleTestCase):
 
     # --- Broken and looping links become error entries, never crashes ---
     def test_broken_and_loop_links_are_errors(self) -> None:
+        """Report broken and looping symlinks while listing a valid project.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         with tempfile.TemporaryDirectory(prefix="wp0104-links-") as tmp:
             base = Path(tmp) / "ws"
             base.mkdir()
@@ -258,6 +402,17 @@ class WorkspaceTests(SimpleTestCase):
 
     # --- Manager landing renders the toggle; CSRF is really enforced ---
     def test_manager_landing_and_csrf(self) -> None:
+        """Render New/Load controls, enforce CSRF and reject research routes.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         client = self._as_manager()
         ws.set_workspace_root(str(self.root))
         response = client.get("/")
@@ -268,7 +423,8 @@ class WorkspaceTests(SimpleTestCase):
         self.assertContains(response, "Project A")
         self.assertContains(response, "csrfmiddlewaretoken")
         # ponytail: bare POST with no token proves CSRF is really enforced.
-        bare = client.post("/workspace/set-root/", {"directory": str(self.root)})
+        bare = client.post("/workspace/set-root/",
+                           {"directory": str(self.root)})
         self.assertEqual(bare.status_code, 403)
         token = client.cookies["csrftoken"].value
         ok = client.post("/workspace/set-root/", {"directory": str(self.root)},
@@ -281,6 +437,17 @@ class WorkspaceTests(SimpleTestCase):
 
     # --- Typed New leads over real HTTP to the correctly bound worker ---
     def test_new_flow_reaches_prefixed_worker(self) -> None:
+        """Confirm a typed destination and reach its real bound worker.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         client = self._as_manager()
         ws.set_workspace_root(str(self.root))
         client.get("/")
@@ -289,6 +456,13 @@ class WorkspaceTests(SimpleTestCase):
         response = client.post("/workspace/new/",
                                {"directory": str(target), "name": "Typed New"},
                                HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(target.exists())
+        preview_token = response.context["new_form"].data["preview_token"]
+        response = client.post("/workspace/new/", {
+            "directory": str(target), "name": "Typed New", "confirm": "on",
+            "preview_token": preview_token,
+        }, HTTP_X_CSRFTOKEN=token)
         self.assertEqual(response.status_code, 302, response.content[:500])
         location = response["Location"]
         self.assertIn(f"/p/{self._uuid_of(target)}/", location)
@@ -305,7 +479,8 @@ class WorkspaceTests(SimpleTestCase):
         self.assertEqual(page.status, 200)
         self.assertIn("Typed New", body)
         short = self._uuid_of(target).hex[:8]
-        self.assertTrue(any(f"wpcsrft_{short}" in c for c in set_cookies), set_cookies)
+        self.assertTrue(
+            any(f"wpcsrft_{short}" in c for c in set_cookies), set_cookies)
         self.assertTrue(any("Path=/p/" in c for c in set_cookies), set_cookies)
         # ponytail: opening the same store again reuses the recorded worker.
         client.get("/")
@@ -321,6 +496,17 @@ class WorkspaceTests(SimpleTestCase):
 
     # --- Load through a symlink alias lands on the same canonical worker ---
     def test_load_via_alias_reuses_worker(self) -> None:
+        """Reuse the canonical worker when loading through a symlink alias.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         with tempfile.TemporaryDirectory(prefix="wp0104-alias-") as tmp:
             outside = Path(tmp) / "outside"
             outside.mkdir()
@@ -330,7 +516,8 @@ class WorkspaceTests(SimpleTestCase):
                 alias.symlink_to(outside / "real", target_is_directory=True)
             except OSError as exc:
                 self.skipTest(f"symlinks unavailable ({exc})")
-            first = self._track(ws.start_worker(outside / "real"), str(created.location))
+            first = self._track(ws.start_worker(
+                outside / "real"), str(created.location))
             second = ws.start_worker(alias)
             self.assertTrue(second["reused"])
             self.assertEqual(second["port"], first["port"])
@@ -342,6 +529,17 @@ class WorkspaceTests(SimpleTestCase):
 
     # --- Typed-path errors show the resolved target and change nothing ---
     def test_typed_errors_show_target_without_mutation(self) -> None:
+        """Show resolved typed-path errors without overwriting or creating data.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         client = self._as_manager()
         ws.set_workspace_root(str(self.root))
         client.get("/")
@@ -365,14 +563,38 @@ class WorkspaceTests(SimpleTestCase):
     # --- Manifest UUID for redirect assertions (read-only, stdlib only) ---
     @staticmethod
     def _uuid_of(directory: Path):
+        """Read a synthetic project's UUID from its manifest.
+
+        Args:
+            directory (Path): Project directory containing project.json.
+
+        Kwargs:
+            None
+
+        Returns:
+            UUID: Project identity parsed from the manifest.
+        """
         from uuid import UUID
 
-        doc = json.loads((directory / "project.json").read_text(encoding="utf-8"))
+        doc = json.loads(
+            (directory / "project.json").read_text(encoding="utf-8"))
         return UUID(doc["project_uuid"])
 
     # --- Row counter tolerant of pre-migration stores ---
     @staticmethod
     def _table_count(db: Path, table: str) -> int:
+        """Count synthetic table rows, treating an absent table as empty.
+
+        Args:
+            db (Path): Synthetic SQLite store to inspect.
+            table (str): Internal table name used directly in the count query.
+
+        Kwargs:
+            None
+
+        Returns:
+            int: Row count, or zero if the table is absent.
+        """
         with sqlite3.connect(db) as connection:
             names = {row[0] for row in connection.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'")}

@@ -5,6 +5,11 @@
 @Date: 03/10/2026
 """
 
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
+
+# Regular library imports
 from __future__ import annotations
 
 import base64
@@ -25,10 +30,16 @@ import urllib.request
 import venv
 from pathlib import Path
 
+# Custom library Imports
 from literature.tests.test_wp0110_launcher import OFFLINE, wait_for
 
+# ------------------------------------------------------------------------ #
+# Definitions
+# ------------------------------------------------------------------------ #
 
 # --- W3C WebDriver over stdlib HTTP; only our newly launched Firefox session ---
+
+
 class Browser:
     def __init__(self, base):
         self.base = base
@@ -113,7 +124,8 @@ class Browser:
         )
 
     def native(self, selector, value=None):
-        element = self.command("POST", "/element", {"using": "css selector", "value": selector})
+        element = self.command(
+            "POST", "/element", {"using": "css selector", "value": selector})
         element_id = element["element-6066-11e4-a52e-4f735466cecf"]
         if value is None:
             return self.command("POST", f"/element/{element_id}/click", {})
@@ -121,6 +133,7 @@ class Browser:
         return self.command("POST", f"/element/{element_id}/value", {"text": value})
 
 
+# --- Functions
 def rows(db, sql, args=()):
     with sqlite3.connect(db.resolve().as_uri() + "?mode=ro", uri=True) as connection:
         return connection.execute(sql, args).fetchall()
@@ -135,12 +148,14 @@ def qualify(browser, root, manager, restart):
 
     def leases(location):
         return rows(
-            registry, "SELECT handle_id FROM leases WHERE store_canonical=?", (str(location),)
+            registry, "SELECT handle_id FROM leases WHERE store_canonical=?", (str(
+                location),)
         )
 
     def project_new(location, name):
         b.go(manager + "/", False)
-        b.submit("#workspace-new-pane form", {"directory": str(location), "name": name})
+        b.submit("#workspace-new-pane form",
+                 {"directory": str(location), "name": name})
         b.until("return location.pathname.startsWith('/p/') && !!window.__wpHandle?.()")
         return b.js("return location.origin + location.pathname.split('?')[0]")
 
@@ -154,7 +169,8 @@ def qualify(browser, root, manager, restart):
     def exit_with(selector="[data-project-exit]"):
         b.js("document.querySelector(arguments[0]).click()", selector)
         b.until(
-            "return location.origin === arguments[0]".replace("arguments[0]", json.dumps(manager))
+            "return location.origin === arguments[0]".replace(
+                "arguments[0]", json.dumps(manager))
         )
 
     def operation(action, source, destination=""):
@@ -169,7 +185,8 @@ def qualify(browser, root, manager, restart):
         )
         b.until("return !!document.querySelector('.messages .success')")
         assert (
-            "complete" in b.js("return document.querySelector('.messages').textContent").lower()
+            "complete" in b.js(
+                "return document.querySelector('.messages').textContent").lower()
             or action == "close"
         )
 
@@ -205,7 +222,8 @@ def qualify(browser, root, manager, restart):
     # A/A genuine duplicate copies sessionStorage, but its live Web Lock mints a lease.
     b.js("window.open(location.href, '_blank'); return true")
     assert wait_for(lambda: len(b.command("GET", "/window/handles")) == 2)
-    duplicate = next(h for h in b.command("GET", "/window/handles") if h != main)
+    duplicate = next(h for h in b.command(
+        "GET", "/window/handles") if h != main)
     b.switch(duplicate)
     b.until("return !!window.__wpHandle?.()")
     duplicate_handle = b.js("return window.__wpHandle()")
@@ -222,7 +240,8 @@ def qualify(browser, root, manager, restart):
     b.js("window.dispatchEvent(new Event('focus')); return true")
     b.until("return document.body.textContent.includes('Your drafts are kept')")
     assert (
-        b.js("return document.querySelector('form input:not([type=hidden])').value")
+        b.js(
+            "return document.querySelector('form input:not([type=hidden])').value")
         == "Draft stays"
     )
 
@@ -261,12 +280,15 @@ def qualify(browser, root, manager, restart):
             "document.querySelector('#wp-handle-note').remove(); const original=window.__qualificationFetch; window.fetch=async (url,options)=>{const response=await original(url,options); if(String(url).includes('/lifecycle/release/')) window.__qualificationRelease={status:response.status,data:await response.clone().json()}; return response;}; document.querySelector('#wp-exit').click(); return true"
         )
         b.until("return window.__qualificationRelease?.status === 503")
-        b.until("return document.body.textContent.includes('Could not release this tab')")
-        assert b.js("return window.__qualificationRelease.data.released") is False
+        b.until(
+            "return document.body.textContent.includes('Could not release this tab')")
+        assert b.js(
+            "return window.__qualificationRelease.data.released") is False
         assert b.js("return window.__wpHandle()") == duplicate_handle
         assert b.js("return window.__wpDirty()")
         assert (
-            b.js("return document.querySelector('form input:not([type=hidden])').value")
+            b.js(
+                "return document.querySelector('form input:not([type=hidden])').value")
             == "Draft stays"
         )
         assert b.js("return location.origin") != manager
@@ -290,7 +312,8 @@ def qualify(browser, root, manager, restart):
         db_b, "SELECT id,doi FROM literature_paper"
     )
     before_b = rows(db_b, "SELECT * FROM literature_paper")
-    rev_b = b.js("return document.querySelector('[data-project-revision-url]').dataset.revision")
+    rev_b = b.js(
+        "return document.querySelector('[data-project-revision-url]').dataset.revision")
     b.switch(main)
 
     # Real screening controls, partial missing abstract then reference completion.
@@ -298,8 +321,10 @@ def qualify(browser, root, manager, restart):
     b.js("document.querySelector('button[data-decision=ACCEPT]').click()")
     b.until("return !document.querySelector('#screening-card')")
     b.go(base_a + "screen/abstract/")
-    assert b.js("return document.querySelector('button[data-decision=ACCEPT]').disabled")
-    b.submit("#missing-metadata-form", {"abstract": "A abstract supplied offline"})
+    assert b.js(
+        "return document.querySelector('button[data-decision=ACCEPT]').disabled")
+    b.submit("#missing-metadata-form",
+             {"abstract": "A abstract supplied offline"})
     b.until(
         "return !!document.querySelector('button[data-decision=ACCEPT]') && !document.querySelector('button[data-decision=ACCEPT]').disabled"
     )
@@ -319,7 +344,39 @@ def qualify(browser, root, manager, restart):
     assert rows(db_b, "SELECT * FROM literature_paper") == before_b
 
     # Graph editor iframe belongs to the same tab; labels/cycles survive each form save.
-    for number in (7, 12, 17):
+    research_before = {
+        table: rows(db_a, f"SELECT * FROM literature_{table} ORDER BY id")
+        for table in (
+            "paper",
+            "discovery",
+            "searchrun",
+            "screeningdecision",
+            "paperkeywordassignment",
+        )
+    }
+
+    def entry_only():
+        content = b.js(
+            "return document.querySelector('iframe').contentDocument.body.innerHTML")
+        for forbidden in (
+            str(a),
+            "project-save-status",
+            "Submitted edits are saved immediately",
+            "saves validated entry changes automatically",
+            "No extra Save Project",
+            "Save project copy",
+            "Backup / Restore",
+            "Legacy shared-DB",
+            'class="site-header"',
+            'class="site-footer"',
+            'class="site-nav"',
+        ):
+            assert forbidden not in content, forbidden
+        assert b.js(
+            "return ['light','dark'].includes(document.querySelector('iframe').contentDocument.documentElement.dataset.theme)"
+        )
+
+    for count, number in enumerate((7, 12, 17), start=1):
         b.go(base_a + "survey/")
         b.js("document.querySelector('a[data-survey-entry]').click()")
         b.until(
@@ -330,6 +387,22 @@ def qualify(browser, root, manager, restart):
             == first_handle
         )
         assert len(leases(a)) == 1
+        entry_only()
+        if number == 7:
+            # Bypass native required-field checks to exercise server validation with
+            # the actual form's CSRF token and the iframe's owning parent lease.
+            b.js(
+                "const form=document.querySelector('iframe').contentDocument.querySelector('form:has(input[value=save])'); form.noValidate=true; form.requestSubmit(); return true"
+            )
+            b.until(
+                "return !!document.querySelector('iframe').contentDocument?.querySelector('.errorlist')"
+            )
+            entry_only()
+            assert rows(db_a, "SELECT * FROM literature_surveyentry") == []
+        if number == 17:
+            b.js(
+                "document.querySelector('iframe').contentDocument.querySelector('[name=cited_entries][value=\"1\"]').checked=true"
+            )
         b.submit(
             'form:has(input[value="save"])',
             {
@@ -344,9 +417,58 @@ def qualify(browser, root, manager, restart):
         b.until(
             "return !!document.querySelector('dialog') && !document.querySelector('dialog').open"
         )
-        b.until("return document.body.textContent.includes('A curated [" + str(number) + "]')")
+        b.until(
+            "return document.body.textContent.includes('A curated [" + str(number) + "]')")
+        assert len(rows(db_a, "SELECT id FROM literature_surveyentry")) == count
+        b.until("return !!window.__wpHandle?.()")
+        assert b.js("return window.__wpHandle()") == first_handle
+        assert len(leases(a)) == 1
+    assert rows(
+        db_a, "SELECT citing_id,cited_id FROM literature_surveycitation") == [(3, 1)]
+    for path in ("survey/add/", "survey/1/edit/"):
+        b.go(base_a + path)
+        assert b.js(
+            "return !!document.querySelector('[name=reference_number]')")
+        assert b.js("return !document.querySelector('#project-save-status')")
+        text = b.js("return document.body.textContent")
+        for forbidden in (
+            str(a),
+            "Submitted edits are saved immediately",
+            "No extra Save Project",
+        ):
+            assert forbidden not in text
+        assert b.js(
+            "return !!document.querySelector('.site-nav a[aria-label^=\"Save project copy\"]')"
+        )
+    b.go(base_a + "survey/")
+    b.js(
+        "document.querySelector('a[data-survey-entry][data-survey-title^=Edit]').click()")
+    b.until(
+        "return !!document.querySelector('iframe').contentDocument?.querySelector('[name=version]') && !!document.querySelector('iframe').contentWindow.__wpHandle?.()"
+    )
+    entry_only()
+    b.submit(
+        'form:has(input[value="save"])',
+        {"title": "A curated [7] edited"},
+        "document.querySelector('iframe')?.contentDocument",
+    )
+    b.until(
+        "return document.body.textContent.includes('A curated [7] edited')")
+    assert len(rows(db_a, "SELECT id FROM literature_surveyentry")) == 3
+    b.until("return !!window.__wpHandle?.()")
+    assert b.js("return window.__wpHandle()") == first_handle
+    assert len(leases(a)) == 1
+    for table, snapshot in research_before.items():
+        assert rows(
+            db_a, f"SELECT * FROM literature_{table} ORDER BY id") == snapshot
+    assert b.js(
+        "return !document.querySelector('#project-save-status') && !!document.querySelector('.site-nav a[aria-label^=\"Save project copy\"]')"
+    )
+    assert "Submitted edits are saved immediately" not in b.js(
+        "return document.body.textContent")
     for citing, cited in ((1, 2), (2, 3), (3, 1)):
-        b.submit('form:has(input[value="link"])', {"citing": str(citing), "cited": str(cited)})
+        b.submit('form:has(input[value="link"])', {
+                 "citing": str(citing), "cited": str(cited)})
         b.until(
             "return !!document.querySelector('form [name=citing]') && document.querySelectorAll('input[value=remove_link]').length >= "
             + str(citing)
@@ -366,16 +488,19 @@ def qualify(browser, root, manager, restart):
         and "[12]" in json.dumps(traces)
         and "[17]" in json.dumps(traces)
     )
-    assert next(t["n"] for t in traces if t["name"] == "Citation direction: citing → cited") == 3
+    assert next(t["n"] for t in traces if t["name"] ==
+                "Citation direction: citing → cited") == 3
     b.js(
         "document.querySelector('.js-plotly-plot').scrollIntoView({behavior:'instant',block:'center'}); return true"
     )
     b.until("return document.querySelector('.js-plotly-plot').getBoundingClientRect().top < 100")
     screenshot = b.command("GET", "/screenshot")
-    (Path("/tmp/opencode") / "wp11-curated-firefox.png").write_bytes(base64.b64decode(screenshot))
+    (Path("/tmp/opencode") /
+     "wp11-curated-firefox.png").write_bytes(base64.b64decode(screenshot))
     b.go(base_a + "plots/")
     b.until("return document.querySelectorAll('.js-plotly-plot').length >= 3")
-    assert "Current papers by source" in b.js("return document.body.textContent")
+    assert "Current papers by source" in b.js(
+        "return document.body.textContent")
     assert b.js(
         "return [...document.scripts].every(s=>!s.src || new URL(s.src).origin === location.origin)"
     )
@@ -383,7 +508,8 @@ def qualify(browser, root, manager, restart):
     b.js("window.dispatchEvent(new Event('focus')); return true")
     assert b.js("return window.__wpHandle()") == b_handle
     assert (
-        b.js("return document.querySelector('[data-project-revision-url]').dataset.revision")
+        b.js(
+            "return document.querySelector('[data-project-revision-url]').dataset.revision")
         == rev_b
     )
     assert rows(db_b, "SELECT * FROM literature_paper") == before_b
@@ -411,7 +537,8 @@ def qualify(browser, root, manager, restart):
             lock.rollback()
     b.switch(main)
     b.until("return !location.pathname.endsWith('/edit/') && !!window.__wpHandle?.()")
-    assert rows(db_a, "SELECT name FROM literature_search") == [("A search edited under lock",)]
+    assert rows(db_a, "SELECT name FROM literature_search") == [
+        ("A search edited under lock",)]
     for path in ("export/markdown/", "plots/download/"):
         exported = b.fetch_text(base_a + path)
         assert exported["status"] == 200
@@ -434,7 +561,8 @@ def qualify(browser, root, manager, restart):
     assert leases(a) == []
     copy = root / "Shared A"
     operation("copy", a, copy)
-    assert {p.name for p in copy.iterdir()} == {"project.json", "project.sqlite3"}
+    assert {p.name for p in copy.iterdir()} == {"project.json",
+                                                "project.sqlite3"}
     assert (
         json.loads((copy / "project.json").read_text())["project_uuid"]
         != json.loads((a / "project.json").read_text())["project_uuid"]
@@ -448,7 +576,8 @@ def qualify(browser, root, manager, restart):
         "surveycitation",
     ):
         assert rows(
-            copy / "project.sqlite3", f"SELECT * FROM literature_{table} ORDER BY id"
+            copy /
+            "project.sqlite3", f"SELECT * FROM literature_{table} ORDER BY id"
         ) == rows(db_a, f"SELECT * FROM literature_{table} ORDER BY id")
     copy_base = load(copy)
     b.go(copy_base + "survey/")
@@ -528,7 +657,8 @@ def main():
             ):
                 continue
             if (
-                path.suffix not in {".py", ".html", ".js", ".cjs", ".css", ".toml", ".txt", ".md"}
+                path.suffix not in {".py", ".html", ".js",
+                                    ".cjs", ".css", ".toml", ".txt", ".md"}
                 and name != "LICENSE"
             ):
                 continue
@@ -552,7 +682,8 @@ def main():
         )
         (site / "installed-runtime.pth").write_text(sysconfig.get_path("purelib") + "\n")
         (runtime / "requirements.sha256").write_text(
-            hashlib.sha256((clone / "requirements.txt").read_bytes()).hexdigest()
+            hashlib.sha256(
+                (clone / "requirements.txt").read_bytes()).hexdigest()
         )
         offline = root / "offline"
         offline.mkdir()
@@ -562,6 +693,8 @@ def main():
             "OPENALEX_EMAIL",
             "SEMANTIC_SCHOLAR_KEY",
             "OPENCITATIONS_TOKEN",
+            "ELSEVIER_API_KEY",
+            "ELSEVIER_INSTTOKEN",
             "DJANGO_SECRET_KEY",
             "WP_ROLE",
             "WP_LAUNCHER",
@@ -590,7 +723,8 @@ def main():
             nonlocal manager_proc
             with log.open("a") as stream:
                 manager_proc = subprocess.Popen(
-                    [sys.executable, str(clone / "launch.py"), "--port", str(manager_port)],
+                    [sys.executable, str(clone / "launch.py"),
+                     "--port", str(manager_port)],
                     env=env,
                     stdout=stream,
                     stderr=stream,
@@ -602,7 +736,16 @@ def main():
                 )
             ), "launcher readiness"
             assert manager_proc.poll() is None, log.read_text()
-            time.sleep(0.4)
+
+            def listening():
+                try:
+                    with urllib.request.urlopen(manager + "/", timeout=1) as response:
+                        return response.status == 200
+                except OSError:
+                    return False
+
+            # Restart appends to the log: an old PID line is not socket readiness.
+            assert wait_for(listening), "own manager HTTP readiness"
 
         def restart():
             manager_proc.send_signal(signal.SIGINT)
@@ -699,20 +842,25 @@ def main():
                 browser.prefix = "/session/" + session["sessionId"]
                 browser.go(manager + "/", False)
                 browser.native(
-                    '#workspace-new-pane input[name="directory"]', str(root / "NoJS project")
+                    '#workspace-new-pane input[name="directory"]', str(
+                        root / "NoJS project")
                 )
-                browser.native('#workspace-new-pane input[name="name"]', "NoJS synthetic")
+                browser.native(
+                    '#workspace-new-pane input[name="name"]', "NoJS synthetic")
                 browser.native("#workspace-new-pane button[type=submit]")
                 browser.until("return location.pathname.startsWith('/p/')")
-                assert browser.js("return typeof window.__wpHandle") == "undefined"
+                assert browser.js(
+                    "return typeof window.__wpHandle") == "undefined"
                 browser.native(".site-nav [data-project-exit]")
                 browser.native('input[name="workspace-mode"][value=load]')
                 browser.native(
-                    '#workspace-load-pane input[name="directory"]', str(root / "Project A")
+                    '#workspace-load-pane input[name="directory"]', str(
+                        root / "Project A")
                 )
                 browser.native("#workspace-load-pane button[type=submit]")
                 browser.until("return location.pathname.startsWith('/p/')")
-                assert browser.js("return typeof window.__wpHandle") == "undefined"
+                assert browser.js(
+                    "return typeof window.__wpHandle") == "undefined"
                 assert (
                     rows(
                         root / "state" / "local-survey-filter" / "registry.sqlite3",
@@ -735,7 +883,8 @@ def main():
                     )
                 except RuntimeError:
                     pass
-                print("Synthetic launcher log:", log.read_text()[-6000:], flush=True)
+                print("Synthetic launcher log:",
+                      log.read_text()[-6000:], flush=True)
                 raise
         finally:
             if browser is not None and browser.prefix:
@@ -750,6 +899,10 @@ def main():
                 manager_proc.send_signal(signal.SIGINT)
                 manager_proc.wait(timeout=40)
 
+
+# ------------------------------------------------------------------------ #
+# Entry point
+# ------------------------------------------------------------------------ #
 
 if __name__ == "__main__":
     main()

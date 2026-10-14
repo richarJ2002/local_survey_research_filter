@@ -39,4 +39,17 @@ let refreshed = "";
 const parentURL = "http://localhost/project/1/plots/?depth=3";
 vm.runInNewContext(saved, {window: {parent: {location: {href: parentURL, replace(url) { refreshed = url; }}}}});
 assert.equal(refreshed, parentURL, "Return by GET without resubmitting an iframe POST; retain owning page filters");
-console.log("Survey entry dialog checks passed: add/edit, modifiers, close, fallback and saved-page refresh.");
+const base = fs.readFileSync(path.join(__dirname, "../templates/literature/base.html"), "utf8");
+const themeScripts = [...base.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1]);
+const root = {};
+let loaded;
+const themeContext = {
+  document: {documentElement: root, getElementById: () => null},
+  localStorage: {getItem: () => "dark"},
+  window: {addEventListener(name, callback) { if (name === "load") loaded = callback; }},
+};
+root.dataset = {};
+themeScripts.forEach(script => vm.runInNewContext(script, themeContext));
+loaded();
+assert.equal(root.dataset.theme, "dark", "Popup theme initializes without a header toggle button");
+console.log("Survey entry dialog checks passed: add/edit, modifiers, close, fallback, saved-page refresh and headerless theme.");

@@ -5,9 +5,15 @@
 @Date: 03/10/2026
 """
 
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
+
+# Regular library imports
 import socket
 from unittest.mock import patch
 
+# Custom library Imports
 import plotly
 from django.test import TestCase, override_settings
 from django.urls import resolve, reverse
@@ -31,8 +37,13 @@ from literature.services.plots_service import (
 )
 from literature.worker import is_research_path
 
+# ------------------------------------------------------------------------ #
+# Definitions
+# ------------------------------------------------------------------------ #
 
 # --- Installed bundle served locally ---
+
+
 class LocalBundleTests(TestCase):
     def test_version_matches_installed_dependency(self):
         self.assertEqual(plotly_version(), plotly.__version__)
@@ -60,17 +71,20 @@ class NoCdnTests(TestCase):
     def setUp(self):
         self.project = Project.objects.create(name="Offline")
         self.project.ensure_default_stages()
-        self.search = Search.objects.create(project=self.project, name="S", keywords=["k"])
+        self.search = Search.objects.create(
+            project=self.project, name="S", keywords=["k"])
         self.paper = Paper.objects.create(
             title="Offline Paper", sources=["openalex"], publication_year=2024,
         )
-        Discovery.objects.create(search=self.search, paper=self.paper, source="openalex")
+        Discovery.objects.create(
+            search=self.search, paper=self.paper, source="openalex")
 
     def _figures(self):
         metrics = build_metrics(self.project)
         stage_data = stage_year_cumulative(self.project)
         return [
-            build_keyword_figure({"k": {"found": 1, "title": 1, "abstract": 0}}),
+            build_keyword_figure(
+                {"k": {"found": 1, "title": 1, "abstract": 0}}),
             build_current_source_bars(metrics.get("current", {})),
             build_source_pie(metrics.get("per_source", {})),
             build_source_pie(metrics.get("per_source", {}), metric="dups"),
@@ -107,12 +121,15 @@ class StandaloneExportTests(TestCase):
     def setUp(self):
         self.project = Project.objects.create(name="Export")
         self.project.ensure_default_stages()
-        self.search = Search.objects.create(project=self.project, name="S", keywords=["k"])
+        self.search = Search.objects.create(
+            project=self.project, name="S", keywords=["k"])
         paper = Paper.objects.create(title="Export Paper", sources=["arxiv"])
-        Discovery.objects.create(search=self.search, paper=paper, source="arxiv")
+        Discovery.objects.create(
+            search=self.search, paper=paper, source="arxiv")
 
     def test_download_needs_no_cdn_or_app_server(self):
-        response = self.client.get(reverse("plots_download", args=[self.project.pk]))
+        response = self.client.get(
+            reverse("plots_download", args=[self.project.pk]))
         self.assertEqual(response.status_code, 200)
         content = response.content.decode()
         self.assertIn("plotly.js v", content)
@@ -145,7 +162,8 @@ class OfflineLocalWorkTests(TestCase):
     def setUp(self):
         self.project = Project.objects.create(name="OfflineWork")
         self.project.ensure_default_stages()
-        self.search = Search.objects.create(project=self.project, name="S", keywords=["k"])
+        self.search = Search.objects.create(
+            project=self.project, name="S", keywords=["k"])
         self.paper = Paper.objects.create(
             title="Keep Me", abstract="An abstract.",
             doi="10.1000/offline-test", sources=["crossref"],
@@ -191,8 +209,10 @@ class OfflineLocalWorkTests(TestCase):
 
     def test_explicit_provider_posts_fail_harmlessly_offline(self):
         with self._offline():
-            backfill = self.client.post(reverse("refs_backfill", args=[self.project.pk]))
-            enrich = self.client.post(reverse("citations_enrich", args=[self.project.pk]))
+            backfill = self.client.post(
+                reverse("refs_backfill", args=[self.project.pk]))
+            enrich = self.client.post(
+                reverse("citations_enrich", args=[self.project.pk]))
         self.assertIn(backfill.status_code, (200, 302))
         self.assertIn(enrich.status_code, (200, 302))
         self.paper.refresh_from_db()
@@ -209,10 +229,28 @@ class OfflineLocalWorkTests(TestCase):
     @override_settings(
         OPENALEX_EMAIL="synthetic@example.com",
         OPENCITATIONS_TOKEN="synthetic-oc-token-9f8e7d6c5b4a",
+        ELSEVIER_API_KEY="synthetic-scopus-key-9f8e7d6c5b4a",
+        ELSEVIER_INSTTOKEN="synthetic-scopus-token-9f8e7d6c5b4a",
     )
-    def test_settings_works_offline_without_printing_token(self):
+    def test_settings_works_offline_without_printing_token(self) -> None:
+        """Keep optional saved secrets hidden without any network access.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         with self._offline():
             response = self.client.get(reverse("settings_view"))
         self.assertEqual(response.status_code, 200)
         # ponytail: synthetic override only; the real .env is never read here.
         self.assertNotContains(response, "synthetic-oc-token-9f8e7d6c5b4a")
+        self.assertNotContains(response, "synthetic-scopus-key-9f8e7d6c5b4a")
+        self.assertNotContains(response, "synthetic-scopus-token-9f8e7d6c5b4a")
+        self.assertContains(response, "Elsevier Scopus API key configured")
+        self.assertContains(
+            response, "Elsevier institutional token configured")

@@ -10,6 +10,10 @@
 
 '''
 
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
+
 # Regular library imports
 from __future__ import annotations
 
@@ -68,19 +72,32 @@ class Phase1Tests(TestCase):
             }
         )
         self.assertTrue(form.is_valid(), form.errors)
-        self.assertEqual(form.cleaned_data["sources_selected"], ["openalex", "arxiv"])
+        self.assertEqual(form.cleaned_data["sources_selected"], [
+                         "openalex", "arxiv"])
 
     # --- Edit reconfigures ---
     def test_search_update_reconfigures(self) -> None:
-        """Edit view updates rows without requiring a new search."""
+        """Edit signed current settings without creating another search.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         project = Project.objects.create(name="P")
-        search = Search.objects.create(project=project, name="S", keywords=["a"])
+        search = Search.objects.create(
+            project=project, name="S", keywords=["a"], is_current=True)
         url = f"/project/{project.pk}/search/{search.pk}/edit/"
         get_resp = self.client.get(url)
         self.assertEqual(get_resp.status_code, 200)
         post_resp = self.client.post(
             url,
             data={
+                "configuration_token": get_resp.context["configuration_token"],
                 "name": "S2",
                 "keywords_json": '["b", "a"]',
                 "venues_json": "[]",

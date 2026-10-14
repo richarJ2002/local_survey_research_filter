@@ -10,11 +10,16 @@
 
 '''
 
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
+
 # Regular library imports
 from __future__ import annotations
 
 import http.cookiejar
 import os
+import re
 import sqlite3
 import tempfile
 import threading
@@ -26,7 +31,7 @@ from pathlib import Path
 from typing import ClassVar
 from urllib.parse import quote
 
-# Custom library imports
+# Custom library Imports
 from django.conf import settings as dj_settings
 from django.test import Client, SimpleTestCase
 
@@ -47,16 +52,50 @@ class _Client:
     """Minimal cookie/CSRF client for real worker HTTP (synthetic stores)."""
 
     def __init__(self, handle: str | None = None) -> None:
+        """Initialize cookies and saved configuration previews for one tab.
+
+        Args:
+            None
+
+        Kwargs:
+            handle: Tab lease identity. Defaults to None for unattached reads.
+
+        Returns:
+            None
+        """
         self.jar = http.cookiejar.CookieJar()
         self.opener = urllib.request.build_opener(
             urllib.request.HTTPCookieProcessor(self.jar))
         self.handle = handle
+        self.configuration_tokens: dict[str, str] = {}
+        self.configuration_actions: dict[str, str] = {}
 
     def get(self, url: str, timeout: float = 20.0):
+        """Read a worker page and retain its signed configuration preview.
+
+        Args:
+            url: Absolute same-origin test URL.
+
+        Kwargs:
+            timeout: Request limit in seconds. Defaults to 20.0.
+
+        Returns:
+            tuple: Status, body and headers, or REFUSED on connection loss.
+        """
         request = urllib.request.Request(url, method="GET")
         try:
             with self.opener.open(request, timeout=timeout) as response:
-                return response.status, response.read(), response.headers
+                body = response.read()
+                token = re.search(
+                    rb'name="configuration_token" value="([^"]+)"', body)
+                if token:
+                    self.configuration_tokens[url] = token[1].decode()
+                    action = re.search(
+                        rb'id="search-form" action="([^"]+)"', body)
+                    if action:
+                        self.configuration_actions[url] = urllib.parse.urljoin(
+                            url, action[1].decode())
+                return response.status, body, response.headers
         except urllib.error.HTTPError as exc:
             return exc.code, exc.read(), exc.headers
         except (urllib.error.URLError, ConnectionError, OSError):
@@ -65,10 +104,33 @@ class _Client:
             return "REFUSED", b"", {}
 
     def post(self, url: str, fields: dict, timeout: float = 30.0):
+        """Submit native form actions while preserving explicit test tokens.
+
+        Args:
+            url: Absolute same-origin test mutation URL.
+            fields: Form data; known stale/forged tokens remain unchanged.
+
+        Kwargs:
+            timeout: Request limit in seconds. Defaults to 30.0.
+
+        Returns:
+            tuple: Status, body and headers, or REFUSED on connection loss.
+        """
         body_fields = dict(fields)
+        if ("/search/" in url and url.endswith(("/new/", "/edit/"))
+                and "configuration_token" not in body_fields):
+            if url not in self.configuration_tokens:
+                self.get(url)
+            token = self.configuration_tokens.get(url)
+            if token:
+                body_fields["configuration_token"] = token
+                # Normal forms submit to their displayed action, not New's
+                # alias URL. Explicit forged/stale token tests keep their URL.
+                url = self.configuration_actions.get(url, url)
         # ponytail: lifecycle paths validate handle_id themselves; every
         # other worker mutation carries the tab handle for middleware.
-        if self.handle and "/lifecycle/" not in url and "wp_handle" not in body_fields:
+        if (self.handle and "/lifecycle/" not in url
+                and "wp_handle" not in body_fields):
             body_fields["wp_handle"] = self.handle
         data = urllib.parse.urlencode(body_fields, doseq=True).encode()
         request = urllib.request.Request(
@@ -91,7 +153,8 @@ class _Client:
                    "X-CSRFToken": self._csrf()}
         if self.handle:
             headers["X-Project-Handle"] = self.handle
-        request = urllib.request.Request(url, data=data, method="POST", headers=headers)
+        request = urllib.request.Request(
+            url, data=data, method="POST", headers=headers)
         try:
             with self.opener.open(request, timeout=timeout) as response:
                 return response.status, response.read(), response.headers
@@ -125,7 +188,8 @@ class LifecycleTests(SimpleTestCase):
         super().setUpClass()
         cls._tmp = tempfile.TemporaryDirectory(prefix="wp0105-lc-")
         tmp = Path(cls._tmp.name)
-        cls._old_xdg = (os.getenv("XDG_DATA_HOME"), os.getenv("XDG_CACHE_HOME"))
+        cls._old_xdg = (os.getenv("XDG_DATA_HOME"),
+                        os.getenv("XDG_CACHE_HOME"))
         os.environ["XDG_DATA_HOME"] = str(tmp / "xdg-data")
         os.environ["XDG_CACHE_HOME"] = str(tmp / "xdg-cache")
         live = Path(dj_settings.BASE_DIR) / "projects" / "db.sqlite3"
@@ -276,7 +340,8 @@ class LifecycleTests(SimpleTestCase):
         fresh = self._tab(self.store_a.location)
         self.assertNotEqual(fresh["epoch"], tab_a["epoch"])
         self.assertIsNone(ws.heartbeat_handle(old_handle))
-        status, _, _ = client.get(f"{old_prefix}/project/{tab_a['project_id']}/papers/")
+        status, _, _ = client.get(
+            f"{old_prefix}/project/{tab_a['project_id']}/papers/")
         # ponytail: dead port (REFUSED) or live-but-wrong epoch (404) both fail
         # closed; neither can take a write for the reopened store.
         self.assertIn(status, (404, "REFUSED"))
@@ -357,7 +422,8 @@ class LifecycleTests(SimpleTestCase):
         import json as _json
 
         with tempfile.TemporaryDirectory(prefix="wp0105-drain-") as tmp:
-            manifest = create_project_store(Path(tmp) / "draining", "Drain Probe")
+            manifest = create_project_store(
+                Path(tmp) / "draining", "Drain Probe")
             canonical = str(manifest.location)
             tab = self._tab(manifest.location)
             db_path = manifest.location / "project.sqlite3"
@@ -365,7 +431,8 @@ class LifecycleTests(SimpleTestCase):
             held = threading.Event()
 
             def hold_exclusive() -> None:
-                connection = sqlite3.connect(db_path, timeout=30, isolation_level=None)
+                connection = sqlite3.connect(
+                    db_path, timeout=30, isolation_level=None)
                 try:
                     connection.execute("BEGIN EXCLUSIVE")
                     connection.execute(
@@ -427,7 +494,8 @@ class LifecycleTests(SimpleTestCase):
                         self._search_count(manifest.location, "Rejected ws0105"), 0)
                     self.assertTrue(self._wait_in_flight(tab, 0, timeout=20))
                     self._exit(tab)
-                    result = ws.drain_and_stop(canonical, in_flight_timeout=20.0)
+                    result = ws.drain_and_stop(
+                        canonical, in_flight_timeout=20.0)
                     self.assertTrue(result["stopped"], result)
                 open_project_store(manifest.location)
                 with sqlite3.connect(db_path) as connection:
@@ -527,7 +595,8 @@ class LifecycleTests(SimpleTestCase):
         self.assertTrue(attached["tab_token"])
         type(self)._handles.append(handle_id)
         try:
-            status, _, _ = client.get(f"{base}/lifecycle/status/?handle_id={handle_id}")
+            status, _, _ = client.get(
+                f"{base}/lifecycle/status/?handle_id={handle_id}")
             self.assertEqual(status, 200)
             status, _, _ = client.post(
                 f"{base}/lifecycle/heartbeat/", {"handle_id": handle_id})
@@ -535,7 +604,8 @@ class LifecycleTests(SimpleTestCase):
             status, _, _ = client.post(
                 f"{base}/lifecycle/release/", {"handle_id": handle_id})
             self.assertEqual(status, 200)
-            status, _, _ = client.get(f"{base}/lifecycle/status/?handle_id={handle_id}")
+            status, _, _ = client.get(
+                f"{base}/lifecycle/status/?handle_id={handle_id}")
             self.assertEqual(status, 410)
             status, _, _ = client.post(
                 f"{base}/lifecycle/heartbeat/", {"handle_id": handle_id})
@@ -549,6 +619,17 @@ class LifecycleTests(SimpleTestCase):
 
     # --- Released/foreign/missing handles cannot mutate; zero writes ---
     def test_mutations_require_live_handle(self) -> None:
+        """Require a live owning handle for creating or editing current rows.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         tab_a = self._tab(self.store_a.location)
         tab_b = self._tab(self.store_b.location)
         search_url_a = (f"{tab_a['base']}{tab_a['prefix']}/project/"
@@ -563,27 +644,40 @@ class LifecycleTests(SimpleTestCase):
         # ponytail: the owned tab writes fine (redirect followed to 200).
         status, _, _ = owned.post(search_url_a, dict(fields))
         self.assertEqual(status, 200)
-        self.assertEqual(self._search_count(self.store_a.location), before + 1)
+        expected = max(before, 1)
+        self.assertEqual(self._search_count(self.store_a.location), expected)
+        self.assertEqual(self._search_count(
+            self.store_a.location, fields["name"]), 1)
         # ponytail: JSON decide with a live handle reaches the view (404 for
         # the absent paper proves middleware passed, not the 410 gate).
         status, _, _ = owned.post_json(
-            decide_url_a, {"paper_id": 9999, "stage_id": 9999, "decision": "ACCEPT"})
+            decide_url_a, {"paper_id": 9999, "stage_id": 9999,
+                           "decision": "ACCEPT"})
         self.assertEqual(status, 404)
         for probe in (_Client(), _Client(handle="hdeadbeef00"),
                       _Client(handle=tab_b["handle_id"])):
             # ponytail: missing, garbage and foreign-store handles all fail
             # closed with no DB touch.
-            status, _, _ = probe.post(search_url_a, dict(fields))
+            status, _, _ = probe.post(search_url_a, {
+                **fields, "name": "Forbidden handle mutation",
+            })
             self.assertEqual(status, 410, status)
             status, _, _ = probe.post_json(
-                decide_url_a, {"paper_id": 9999, "stage_id": 9999, "decision": "ACCEPT"})
+                decide_url_a, {"paper_id": 9999, "stage_id": 9999,
+                               "decision": "ACCEPT"})
             self.assertEqual(status, 410, status)
-        self.assertEqual(self._search_count(self.store_a.location), before + 1)
+        self.assertEqual(self._search_count(self.store_a.location), expected)
+        self.assertEqual(self._search_count(
+            self.store_a.location, "Forbidden handle mutation"), 0)
         # ponytail: after explicit Exit the same handle cannot write again.
         self._exit(tab_a)
-        status, _, _ = owned.post(search_url_a, dict(fields))
+        status, _, _ = owned.post(search_url_a, {
+            **fields, "name": "Forbidden handle mutation",
+        })
         self.assertEqual(status, 410)
-        self.assertEqual(self._search_count(self.store_a.location), before + 1)
+        self.assertEqual(self._search_count(self.store_a.location), expected)
+        self.assertEqual(self._search_count(
+            self.store_a.location, fields["name"]), 1)
         self._exit(tab_b)
 
     # --- Duplicate tabs mint their own handle; Exit never releases survivors ---
@@ -613,7 +707,8 @@ class LifecycleTests(SimpleTestCase):
             try:
                 ws.release_handle(first["handle_id"])
                 # ponytail: exiting the source leaves the survivor fully valid.
-                self.assertIsNotNone(ws.heartbeat_handle(duplicate["handle_id"]))
+                self.assertIsNotNone(
+                    ws.heartbeat_handle(duplicate["handle_id"]))
                 self.assertEqual(ws.live_handle_count(canonical), 2)
                 ws.release_handle(duplicate["handle_id"])
             finally:
@@ -695,7 +790,8 @@ class LifecycleTests(SimpleTestCase):
     # --- A racing stop never kills a worker out from under a valid lease ---
     def test_stop_vs_acquire_safe(self) -> None:
         with tempfile.TemporaryDirectory(prefix="wp0105-stoprace-") as tmp:
-            manifest = create_project_store(Path(tmp) / "stoprace", "Stop Race")
+            manifest = create_project_store(
+                Path(tmp) / "stoprace", "Stop Race")
             canonical = str(manifest.location)
             first = self._tab(manifest.location)
             barrier = threading.Barrier(2)
@@ -750,7 +846,8 @@ class LifecycleTests(SimpleTestCase):
     # --- Worker GETs never bootstrap stages; legacy developer path keeps it ---
     def test_worker_get_never_writes_stages(self) -> None:
         with tempfile.TemporaryDirectory(prefix="wp0105-stages-") as tmp:
-            manifest = create_project_store(Path(tmp) / "stages", "Stage Probe")
+            manifest = create_project_store(
+                Path(tmp) / "stages", "Stage Probe")
             canonical = str(manifest.location)
             db_path = manifest.location / "project.sqlite3"
             with sqlite3.connect(db_path) as connection:
@@ -758,7 +855,8 @@ class LifecycleTests(SimpleTestCase):
                 connection.commit()
             tab = self._tab(manifest.location)
             client = _Client()
-            detail = (f"{tab['base']}{tab['prefix']}/project/{tab['project_id']}")
+            detail = (
+                f"{tab['base']}{tab['prefix']}/project/{tab['project_id']}")
             for path in ("", "/papers/"):
                 status, _, _ = client.get(detail + path)
                 self.assertEqual(status, 200, path)
@@ -774,6 +872,7 @@ class LifecycleTests(SimpleTestCase):
             self.assertEqual(remaining, 0)
             self._exit(tab)
             self.assertTrue(ws.stop_worker(canonical)["stopped"])
+
     def _post_search(self, client: _Client, handle: dict, name: str) -> bool:
         url = (f"{handle['base']}{handle['prefix']}/project/"
                f"{handle['project_id']}/search/new/")

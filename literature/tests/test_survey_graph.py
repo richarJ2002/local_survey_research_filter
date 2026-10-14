@@ -5,9 +5,15 @@
 @Date: 01/10/2026
 """
 
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
+
+# Regular library imports
 from datetime import timedelta
 from unittest.mock import patch
 
+# Custom library Imports
 import httpx
 from django.core import signing
 from django.db import OperationalError
@@ -33,8 +39,13 @@ from literature.services.survey_graph_service import (
     save_survey_entry,
 )
 
+# ------------------------------------------------------------------------ #
+# Definitions
+# ------------------------------------------------------------------------ #
 
 # --- Shared fixtures ---
+
+
 def make_project(name="P"):
     project = Project.objects.create(name=name)
     project.ensure_default_stages()
@@ -61,6 +72,7 @@ def make_entry(project, number=1, doi="", title="T", year=None, text=""):
     )
 
 
+# --- Classes
 class SurveyKeyTests(TestCase):
     """Actual IDs only; OpenAlex slash trim; DOI suffix slash kept."""
 
@@ -77,7 +89,8 @@ class SurveyKeyTests(TestCase):
 
     def test_doi_pattern_and_suffix_slash_kept(self):
         self.assertEqual(citation_key("10.1000/Example"), "10.1000/example")
-        self.assertEqual(citation_key("https://doi.org/10.1000/foo/"), "10.1000/foo/")
+        self.assertEqual(citation_key(
+            "https://doi.org/10.1000/foo/"), "10.1000/foo/")
         self.assertEqual(citation_key("10.1/x"), "")
 
 
@@ -86,9 +99,11 @@ class SurveyPrefillTests(TestCase):
 
     def test_string_authors_prefill(self):
         project = make_project()
-        out = prefill(project, "10.1000/a", {"title": "T", "authors": "A, B"}, None)
+        out = prefill(project, "10.1000/a",
+                      {"title": "T", "authors": "A, B"}, None)
         self.assertEqual(out["authors"], "A, B")
-        out2 = prefill(project, "10.1000/a", {"title": "T", "authors": [{"name": "X"}, "Y"]}, None)
+        out2 = prefill(project, "10.1000/a",
+                       {"title": "T", "authors": [{"name": "X"}, "Y"]}, None)
         self.assertIn("X", out2["authors"])
         self.assertIn("Y", out2["authors"])
 
@@ -116,7 +131,8 @@ class SurveyPrefillTests(TestCase):
             text="https://openalex.org/W42\narxiv:2508.06283\nS2:abc123\nUnresolved Paper Title",
         )
         make_entry(project, number=3, title="Unresolved Paper Title")
-        self.assertEqual(build_survey_graph(project)["edges"], [(source.pk, entry.pk)])
+        self.assertEqual(build_survey_graph(project)[
+                         "edges"], [(source.pk, entry.pk)])
         cached = OpenCitationsLookup.objects.create(
             doi="10.48550/arxiv.2508.06283",
             direction="outgoing",
@@ -124,19 +140,24 @@ class SurveyPrefillTests(TestCase):
         )
         source.doi = "10.1000/source"
         source.save()
-        self.assertIn((entry.pk, source.pk), build_survey_graph(project)["edges"])
+        self.assertIn((entry.pk, source.pk),
+                      build_survey_graph(project)["edges"])
         cached.delete()
 
     def test_prefill_snapshot_does_not_mutate_library(self):
         project = make_project()
-        search = Search.objects.create(project=project, name="S", keywords=["robotics"])
-        paper = Paper.objects.create(title="Orig", doi="10.1000/orig", authors=[{"name": "P A"}])
-        Discovery.objects.create(paper=paper, search=search, source="openalex", query="robotics")
+        search = Search.objects.create(
+            project=project, name="S", keywords=["robotics"])
+        paper = Paper.objects.create(
+            title="Orig", doi="10.1000/orig", authors=[{"name": "P A"}])
+        Discovery.objects.create(
+            paper=paper, search=search, source="openalex", query="robotics")
         PaperKeywordAssignment.objects.create(
             paper=paper, project=project, search=search, keyword="robotics"
         )
         stage = project.stages.get(name="Title")
-        ScreeningDecision.objects.create(paper=paper, stage=stage, decision="ACCEPT")
+        ScreeningDecision.objects.create(
+            paper=paper, stage=stage, decision="ACCEPT")
         snap = (
             paper.title,
             paper.doi,
@@ -184,7 +205,8 @@ class SurveySaveTests(TestCase):
         with self.assertRaises(ValueError):
             make_entry(project, number=1, doi="10.1000/b", title="B")
         with self.assertRaises(ValueError):
-            make_entry(project, number=2, doi="HTTPS://DOI.ORG/10.1000/A ", title="Dup")
+            make_entry(project, number=2,
+                       doi="HTTPS://DOI.ORG/10.1000/A ", title="Dup")
         # Blank DOI may repeat.
         make_entry(project, number=2, title="No DOI")
         make_entry(project, number=3, title="No DOI 2")
@@ -221,7 +243,8 @@ class SurveySaveTests(TestCase):
         )
         self.assertIn("W111", entry.identity_aliases)
         self.assertEqual(entry.paper_id, paper.pk)
-        version = signing.dumps([entry.pk, entry.updated_at.isoformat()], salt="survey-version")
+        version = signing.dumps(
+            [entry.pk, entry.updated_at.isoformat()], salt="survey-version")
         kept = save_survey_entry(
             project,
             {
@@ -241,7 +264,8 @@ class SurveySaveTests(TestCase):
             entry_id=entry.pk,
         )
         self.assertIn("W111", kept.identity_aliases)
-        version2 = signing.dumps([kept.pk, kept.updated_at.isoformat()], salt="survey-version")
+        version2 = signing.dumps(
+            [kept.pk, kept.updated_at.isoformat()], salt="survey-version")
         changed = save_survey_entry(
             project,
             {
@@ -266,7 +290,8 @@ class SurveySaveTests(TestCase):
     def test_stale_save_rejected(self):
         project = make_project()
         entry = make_entry(project, number=1, title="A")
-        version = signing.dumps([entry.pk, entry.updated_at.isoformat()], salt="survey-version")
+        version = signing.dumps(
+            [entry.pk, entry.updated_at.isoformat()], salt="survey-version")
         entry.title = "Elsewhere"
         entry.save()
         with self.assertRaises(ValueError):
@@ -331,7 +356,8 @@ class SurveySaveTests(TestCase):
             )
         self.assertFalse(SurveyEntry.objects.exists())
         other = make_project(name="Q")
-        foreign = prefill(other, "10.1000/a", {"title": "T"}, None)["preview_token"]
+        foreign = prefill(other, "10.1000/a",
+                          {"title": "T"}, None)["preview_token"]
         with self.assertRaises(ValueError):
             save_survey_entry(
                 project,
@@ -351,10 +377,12 @@ class SurveySaveTests(TestCase):
                 },
             )
         tampered = prefill(
-            project, "10.1000/a", {"title": "T", "openalex_id": "https://openalex.org/W5"}, None
+            project, "10.1000/a", {"title": "T",
+                                   "openalex_id": "https://openalex.org/W5"}, None
         )
         tampered["preview_token"] = signing.dumps(
-            {"project": project.pk, "doi": "10.1000/a", "aliases": ["not an id!!"], "paper": None},
+            {"project": project.pk, "doi": "10.1000/a",
+                "aliases": ["not an id!!"], "paper": None},
             salt="survey-prefill",
         )
         with self.assertRaises(ValueError):
@@ -386,7 +414,8 @@ class SurveyGraphViewTests(TestCase):
         ea = make_entry(a, number=1, title="A1")
         eb = make_entry(b, number=1, title="B1")
         # Entry edit scoped to project.
-        self.assertEqual(self.client.get(f"/project/{a.pk}/survey/{eb.pk}/edit/").status_code, 404)
+        self.assertEqual(self.client.get(
+            f"/project/{a.pk}/survey/{eb.pk}/edit/").status_code, 404)
         # Foreign entry cannot be linked inside project A.
         resp = self.client.post(
             f"/project/{a.pk}/survey/",
@@ -418,14 +447,16 @@ class SurveyGraphViewTests(TestCase):
         ):
             with self.subTest(field=field, value=value):
                 response = self.client.post(
-                    f"/project/{project.pk}/survey/add/", {**base, field: value}
+                    f"/project/{project.pk}/survey/add/", {**
+                                                           base, field: value}
                 )
                 self.assertEqual(response.status_code, 200)
                 self.assertIn(field, response.context["form"].errors)
                 self.assertFalse(SurveyEntry.objects.exists())
         with patch("literature.survey_views.lookup_doi") as lookup:
             self.assertEqual(
-                self.client.get(f"/project/{project.pk}/survey/add/?doi=not-a-doi").status_code, 200
+                self.client.get(
+                    f"/project/{project.pk}/survey/add/?doi=not-a-doi").status_code, 200
             )
         lookup.assert_not_called()
 
@@ -437,18 +468,22 @@ class SurveyGraphViewTests(TestCase):
             abstract="Known abstract",
             references=["https://openalex.org/W8"],
         )
-        search = Search.objects.create(project=project, name="S", keywords=["original"])
-        Discovery.objects.create(search=search, paper=paper, source="crossref", query="original")
+        search = Search.objects.create(
+            project=project, name="S", keywords=["original"])
+        Discovery.objects.create(
+            search=search, paper=paper, source="crossref", query="original")
         PaperKeywordAssignment.objects.create(
             project=project, paper=paper, search=search, keyword="original"
         )
         ScreeningDecision.objects.create(
             stage=project.stages.get(name="Title"), paper=paper, decision="ACCEPT"
         )
-        models = (Paper, Discovery, PaperKeywordAssignment, ScreeningDecision, Search)
+        models = (Paper, Discovery, PaperKeywordAssignment,
+                  ScreeningDecision, Search)
         before = [list(model.objects.values()) for model in models]
         with patch("literature.survey_views.lookup_doi") as lookup:
-            response = self.client.get(f"/project/{project.pk}/survey/add/?doi=10.1000%2Fcanonical")
+            response = self.client.get(
+                f"/project/{project.pk}/survey/add/?doi=10.1000%2Fcanonical")
         lookup.assert_not_called()
         values = {
             **{
@@ -461,7 +496,8 @@ class SurveyGraphViewTests(TestCase):
             "origin_source": "crossref",
         }
         self.assertEqual(
-            self.client.post(f"/project/{project.pk}/survey/add/", values).status_code, 302
+            self.client.post(
+                f"/project/{project.pk}/survey/add/", values).status_code, 302
         )
         entry = project.survey_entries.get()
         values.pop("preview_token")
@@ -480,15 +516,18 @@ class SurveyGraphViewTests(TestCase):
             values["reference_number"] = "13"
             values["doi"] = "10.1000/other"
             self.assertContains(
-                self.client.post(f"/project/{project.pk}/survey/add/", values), "expired"
+                self.client.post(
+                    f"/project/{project.pk}/survey/add/", values), "expired"
             )
         self.assertEqual(
             self.client.post(
-                f"/project/{project.pk}/survey/", {"action": "remove_entry", "entry_id": entry.pk}
+                f"/project/{project.pk}/survey/", {"action": "remove_entry",
+                                                   "entry_id": entry.pk}
             ).status_code,
             302,
         )
-        self.assertEqual([list(model.objects.values()) for model in models], before)
+        self.assertEqual([list(model.objects.values())
+                         for model in models], before)
 
     def test_manual_add_cycle_and_removal(self):
         project = make_project()
@@ -499,7 +538,8 @@ class SurveyGraphViewTests(TestCase):
             {"action": "link", "citing": str(a.pk), "cited": str(b.pk)},
         )
         self.assertEqual(resp.status_code, 302)
-        self.assertTrue(SurveyCitation.objects.filter(citing=a, cited=b).exists())
+        self.assertTrue(SurveyCitation.objects.filter(
+            citing=a, cited=b).exists())
         # Self link rejected.
         resp = self.client.post(
             f"/project/{project.pk}/survey/",
@@ -515,12 +555,14 @@ class SurveyGraphViewTests(TestCase):
         self.assertEqual(SurveyCitation.objects.count(), 2)
         link = SurveyCitation.objects.get(citing=a, cited=b)
         resp = self.client.post(
-            f"/project/{project.pk}/survey/", {"action": "remove_link", "link_id": str(link.pk)}
+            f"/project/{project.pk}/survey/", {"action": "remove_link",
+                                               "link_id": str(link.pk)}
         )
         self.assertEqual(resp.status_code, 302)
         self.assertFalse(SurveyCitation.objects.filter(pk=link.pk).exists())
         resp = self.client.post(
-            f"/project/{project.pk}/survey/", {"action": "remove_entry", "entry_id": str(b.pk)}
+            f"/project/{project.pk}/survey/", {"action": "remove_entry",
+                                               "entry_id": str(b.pk)}
         )
         self.assertEqual(resp.status_code, 302)
         self.assertFalse(SurveyEntry.objects.filter(pk=b.pk).exists())
@@ -540,18 +582,21 @@ class SurveyGraphViewTests(TestCase):
         project = make_project()
         self.assertEqual(
             self.client.post(
-                f"/project/{project.pk}/survey/", {"action": "remove_link", "link_id": "abc"}
+                f"/project/{project.pk}/survey/", {"action": "remove_link",
+                                                   "link_id": "abc"}
             ).status_code,
             400,
         )
         self.assertEqual(
             self.client.post(
-                f"/project/{project.pk}/survey/", {"action": "remove_entry", "entry_id": ""}
+                f"/project/{project.pk}/survey/", {"action": "remove_entry",
+                                                   "entry_id": ""}
             ).status_code,
             400,
         )
         self.assertEqual(
-            self.client.post(f"/project/{project.pk}/survey/", {"action": "nope"}).status_code, 400
+            self.client.post(
+                f"/project/{project.pk}/survey/", {"action": "nope"}).status_code, 400
         )
 
     def test_cached_edges_used_regardless_age_and_doi_only(self):
@@ -577,13 +622,16 @@ class SurveyGraphViewTests(TestCase):
         for entry in (first, second):
             entry.identity_aliases = ["W123"]
             entry.save()
-        source = make_entry(project, number=3, text="https://openalex.org/W123\n10.1000/first")
-        self.assertEqual(build_survey_graph(project)["edges"], [(source.pk, first.pk)])
+        source = make_entry(project, number=3,
+                            text="https://openalex.org/W123\n10.1000/first")
+        self.assertEqual(build_survey_graph(project)[
+                         "edges"], [(source.pk, first.pk)])
 
     def test_provider_outage_falls_back_to_manual(self):
         project = make_project()
         with patch("literature.survey_views.lookup_doi", side_effect=httpx.RequestError("down")):
-            resp = self.client.get(f"/project/{project.pk}/survey/add/?doi=10.1000%2Fgone")
+            resp = self.client.get(
+                f"/project/{project.pk}/survey/add/?doi=10.1000%2Fgone")
         self.assertEqual(resp.status_code, 200)
         resp = self.client.post(
             f"/project/{project.pk}/survey/add/",

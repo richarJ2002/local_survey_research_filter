@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
 
-'''
+"""Verify search-row normalization, query derivation, and form validation.
+
 @File:   test_search_rows.py
 
 @Brief:  Tests for sorted keyword/venue/author rows and query derivation.
 
 @Date:   28/09/2026
-@Copyright: 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group.
+@Copyright: 2026 Aerospace Engineering Research & Operation Systems
+    (AERO-Sys) group.
 
-'''
+"""
+
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
 
 # Regular library imports
 from __future__ import annotations
@@ -29,8 +35,22 @@ class SearchRowTests(TestCase):
 
     # --- Sorting ---
     def test_clean_rows_sorts_and_dedupes(self) -> None:
-        """Unsorted/duped rows become sorted unique A-Z."""
-        assert Search.clean_rows(["lithium", "Battery", "battery ", "", "  degradation"]) == [
+        """Trim, drop blanks, dedupe case-insensitively, and sort search rows.
+
+        Unsorted/duped rows become sorted unique A-Z.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
+        assert Search.clean_rows([
+            "lithium", "Battery", "battery ", "", "  degradation",
+        ]) == [
             "Battery",
             "degradation",
             "lithium",
@@ -38,7 +58,19 @@ class SearchRowTests(TestCase):
 
     # --- Query derivation ---
     def test_save_rebuilds_query(self) -> None:
-        """Saving sorts rows and joins keywords into query."""
+        """Sort saved keywords and derive their space-joined provider query.
+
+        Saving sorts rows and joins keywords into query.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         project = Project.objects.create(name="P")
         search = Search(project=project, name="T", keywords=["zebra", "apple"])
         search.save()
@@ -47,15 +79,40 @@ class SearchRowTests(TestCase):
 
     # --- Form requires keywords ---
     def test_form_requires_keyword_row(self) -> None:
-        """Empty keyword rows are rejected."""
+        """Reject a search form with an empty keyword-row list.
+
+        Empty keyword rows are rejected.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         form = SearchForm(
-            data={"name": "T", "keywords_json": "[]", "venues_json": "[]", "author_names_json": "[]"}
+            data={"name": "T", "keywords_json": "[]",
+                  "venues_json": "[]", "author_names_json": "[]"}
         )
         assert not form.is_valid()
 
     # --- Form sorts rows ---
     def test_form_sorts_rows(self) -> None:
-        """Form cleaned rows are sorted A-Z."""
+        """Sort keyword rows during successful search-form validation.
+
+        Form cleaned rows are sorted A-Z.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         form = SearchForm(
             data={
                 "name": "T",

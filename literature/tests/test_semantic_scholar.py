@@ -10,6 +10,10 @@
 
 '''
 
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
+
 # Regular library imports
 from __future__ import annotations
 
@@ -54,7 +58,8 @@ class SemanticScholarMappingTests(TestCase):
         paper_data, disc = map_semantic_scholar_to_canonical(item)
         self.assertEqual(paper_data["doi"], "10.1234/xyz")
         self.assertEqual(paper_data["sources"], ["semantic_scholar"])
-        self.assertEqual(paper_data["source_ids"], {"semantic_scholar": "abc123"})
+        self.assertEqual(paper_data["source_ids"], {
+                         "semantic_scholar": "abc123"})
         self.assertEqual(disc["source"], "semantic_scholar")
 
     # --- Year param ---
@@ -63,7 +68,8 @@ class SemanticScholarMappingTests(TestCase):
         src = SemanticScholarSource(api_key="test-key")
         cfg = SemanticScholarConfig(query="battery")
         self.assertIsNone(src._year_param(cfg))
-        cfg2 = SemanticScholarConfig(query="battery", year_min=2015, year_max=2026)
+        cfg2 = SemanticScholarConfig(
+            query="battery", year_min=2015, year_max=2026)
         self.assertEqual(src._year_param(cfg2), "2015-2026")
 
     # --- Headers carry key ---
@@ -71,7 +77,8 @@ class SemanticScholarMappingTests(TestCase):
         """API key is sent as x-api-key, never in URL."""
         src = SemanticScholarSource(api_key="s2-test")
         self.assertEqual(src.default_headers()["x-api-key"], "s2-test")
-        self.assertNotIn("x-api-key", SemanticScholarSource(api_key="").default_headers())
+        self.assertNotIn(
+            "x-api-key", SemanticScholarSource(api_key="").default_headers())
 
 
 class MultiProviderTests(TestCase):
@@ -79,13 +86,26 @@ class MultiProviderTests(TestCase):
 
     # --- Both providers stored ---
     def test_run_search_combines_providers(self) -> None:
-        """Same DOI from OpenAlex+S2 merges; Crossref/arXiv isolated."""
+        """Merge provider duplicates through current settings with isolation.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         from literature.providers.openalex import ProviderResult as OAResult
-        from literature.providers.semantic_scholar import ProviderResult as S2Result
+        from literature.providers.semantic_scholar import (
+            ProviderResult as S2Result,
+        )
 
         project = Project.objects.create(name="P")
         search = Search.objects.create(
-            project=project, name="T", keywords=["battery"], query="battery"
+            project=project, name="T", keywords=["battery"], query="battery",
+            is_current=True,
         )
         oa_data = {
             "openalex_id": "W1",
@@ -113,11 +133,14 @@ class MultiProviderTests(TestCase):
         with (
             patch(
                 "literature.services.search_service.OpenAlexSource.fetch",
-                return_value=([OAResult(paper_data=oa_data, raw_response={})], 1),
+                return_value=(
+                    [OAResult(paper_data=oa_data, raw_response={})], 1),
             ),
             patch(
-                "literature.services.search_service.SemanticScholarSource.fetch",
-                return_value=([S2Result(paper_data=s2_data, raw_response={})], 1),
+                "literature.services.search_service."
+                "SemanticScholarSource.fetch",
+                return_value=(
+                    [S2Result(paper_data=s2_data, raw_response={})], 1),
             ),
             patch(
                 "literature.services.search_service.CrossrefSource.fetch",

@@ -10,10 +10,16 @@
 @Copyright: 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group.
 '''
 
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
+
+# Regular library imports
 from __future__ import annotations
 
 from unittest.mock import patch
 
+# Custom library Imports
 from django.test import TestCase
 from django.urls import reverse
 
@@ -22,15 +28,33 @@ from literature.models import (
 )
 from literature.services.screening_service import InvalidTransition, decide
 
+# ------------------------------------------------------------------------ #
+# Definitions
+# ------------------------------------------------------------------------ #
+
+# --- Classes
+
 
 class PaperManagerTests(TestCase):
     """Curated additions still pass through screening; corrections remain auditable."""
 
     def setUp(self) -> None:
+        """Create current settings for synthetic manual and lookup writes.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         self.project = Project.objects.create(name="Project A")
         self.project.ensure_default_stages()
         self.search = Search.objects.create(
             project=self.project, name="Primary", keywords=["robotics"],
+            is_current=True,
         )
         self.keyword = f"{self.search.pk}|robotics"
         self.title_stage = self.project.stages.get(name="Title")
@@ -52,8 +76,22 @@ class PaperManagerTests(TestCase):
         return self.client.post(reverse("paper_add", args=[self.project.pk]), data)
 
     def _lookup_post(self, url: str, data: dict):
-        """Submit the authenticated preview returned by the lookup page."""
+        """Fetch an explicit synthetic preview before a separate local save.
+
+        Args:
+            url: Project DOI-preview URL with its selected DOI query.
+            data: Entry form values submitted after fetching.
+
+        Kwargs:
+            None
+
+        Returns:
+            HttpResponse: Local save response using the signed fetched preview.
+        """
         preview = self.client.get(url)
+        if not preview.context["can_save_preview"]:
+            preview = self.client.post(
+                url, {"action": "fetch", "doi": preview.context["doi"]})
         return self.client.post(url, {"origin_source": "crossref", **data, "preview_token": preview.context["preview_token"]})
 
     def test_add_complete_paper_is_keyword_attributed_and_title_pending(self) -> None:
@@ -63,13 +101,16 @@ class PaperManagerTests(TestCase):
         self.assertEqual(paper.keywords, ["robotics"])
         self.assertEqual(paper.references, ["https://doi.org/10.1000/older"])
         self.assertEqual(paper.author_display(), "A. Author, B. Author")
-        discovery = Discovery.objects.get(paper=paper, search=self.search, source="crossref")
+        discovery = Discovery.objects.get(
+            paper=paper, search=self.search, source="crossref")
         self.assertEqual(discovery.query, "robotics")
         run = SearchRun.objects.get(pk=discovery.search_run_id)
-        self.assertEqual((run.results_count, run.new_papers_count, run.incomplete_count), (1, 1, 0))
+        self.assertEqual(
+            (run.results_count, run.new_papers_count, run.incomplete_count), (1, 1, 0))
         self.assertEqual(ScreeningDecision.objects.get(paper=paper, stage=self.title_stage).decision,
                          "PENDING")
-        self.assertFalse(ScreeningDecision.objects.filter(paper=paper, stage=self.abstract_stage).exists())
+        self.assertFalse(ScreeningDecision.objects.filter(
+            paper=paper, stage=self.abstract_stage).exists())
 
     def test_manual_metadata_entry_requires_source_selection(self) -> None:
         response = self._add(origin_source="")
@@ -101,19 +142,22 @@ class PaperManagerTests(TestCase):
 
     def test_existing_doi_is_linked_without_overwriting_curated_metadata(self) -> None:
         other = Project.objects.create(name="Other")
-        search = Search.objects.create(project=other, name="Other search", keywords=["a"])
+        search = Search.objects.create(
+            project=other, name="Other search", keywords=["a"])
         paper = Paper.objects.create(
             title="Original title", doi="10.1000/existing", abstract="Original summary",
             references=["https://doi.org/10.1000/ref"],
         )
-        Discovery.objects.create(paper=paper, search=search, source="crossref", query="a")
+        Discovery.objects.create(
+            paper=paper, search=search, source="crossref", query="a")
         response = self._add(title="Different title", doi="10.1000/existing")
         self.assertEqual(response.status_code, 302)
         paper.refresh_from_db()
         self.assertEqual(paper.title, "Original title")
         self.assertEqual(paper.abstract, "Original summary")
         self.assertEqual(Paper.objects.count(), 1)
-        self.assertEqual(SearchRun.objects.get(source="crossref").duplicates_count, 1)
+        self.assertEqual(SearchRun.objects.get(
+            source="crossref").duplicates_count, 1)
         self.assertTrue(ScreeningDecision.objects.filter(
             paper=paper, stage=self.title_stage, decision="PENDING",
         ).exists())
@@ -132,11 +176,14 @@ class PaperManagerTests(TestCase):
 
     def test_incomplete_doi_addition_can_be_completed_without_rerunning_search(self) -> None:
         with patch("literature.services.reference_service.enrich_papers", return_value=0):
-            response = self._add(title="", abstract="", references="", doi="10.1000/missed")
+            response = self._add(title="", abstract="",
+                                 references="", doi="10.1000/missed")
         self.assertEqual(response.status_code, 302)
         paper = Paper.objects.get(doi="10.1000/missed")
-        self.assertFalse(ScreeningDecision.objects.filter(paper=paper, stage=self.title_stage).exists())
-        self.assertEqual(SearchRun.objects.get(source="crossref").incomplete_count, 1)
+        self.assertFalse(ScreeningDecision.objects.filter(
+            paper=paper, stage=self.title_stage).exists())
+        self.assertEqual(SearchRun.objects.get(
+            source="crossref").incomplete_count, 1)
         manage_url = reverse("paper_manage", args=[self.project.pk, paper.pk])
         filled = self.client.post(manage_url, {
             "action": "details", "title": "Completed by hand", "doi": paper.doi,
@@ -147,35 +194,48 @@ class PaperManagerTests(TestCase):
         self.assertEqual(ScreeningDecision.objects.get(paper=paper, stage=self.title_stage).decision,
                          "PENDING")
 
-    def test_doi_lookup_completes_before_initial_queue_decision(self) -> None:
-        def fill(papers):
-            paper = papers[0]
-            paper.title = "Lookup title"
-            paper.abstract = "Lookup abstract"
-            paper.references = ["https://doi.org/10.1000/older"]
-            paper.save(update_fields=["title", "abstract", "references"])
-            return 1
+    def test_local_doi_save_never_fetches_or_queues_a_missing_title(self) -> None:
+        """Keep entered blank details local and leave Title unqueued.
 
-        with patch("literature.services.reference_service.enrich_papers", side_effect=fill):
-            self._add(title="", abstract="", references="", doi="10.1000/lookup")
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
+        with patch("literature.services.reference_service.enrich_papers") as fetch:
+            self._add(title="", abstract="",
+                      references="", doi="10.1000/lookup")
+        fetch.assert_not_called()
         paper = Paper.objects.get(doi="10.1000/lookup")
-        self.assertEqual(SearchRun.objects.get(source="crossref").incomplete_count, 0)
-        self.assertTrue(ScreeningDecision.objects.filter(
+        self.assertEqual((paper.title, paper.abstract,
+                         paper.references), ("", "", []))
+        self.assertEqual(SearchRun.objects.get(
+            source="crossref").incomplete_count, 1)
+        self.assertFalse(ScreeningDecision.objects.filter(
             paper=paper, stage=self.title_stage, decision="PENDING",
         ).exists())
 
     def test_papers_view_search_is_project_scoped(self) -> None:
         self._add()
         other = Project.objects.create(name="Other")
-        other_search = Search.objects.create(project=other, name="S2", keywords=["robotics"])
-        alien = Paper.objects.create(title="Another study", doi="10.1000/alien")
-        Discovery.objects.create(paper=alien, search=other_search, source="manual", query="robotics")
-        page = self.client.get(reverse("papers_view", args=[self.project.pk]) + "?q=missed")
+        other_search = Search.objects.create(
+            project=other, name="S2", keywords=["robotics"])
+        alien = Paper.objects.create(
+            title="Another study", doi="10.1000/alien")
+        Discovery.objects.create(
+            paper=alien, search=other_search, source="manual", query="robotics")
+        page = self.client.get(
+            reverse("papers_view", args=[self.project.pk]) + "?q=missed")
         self.assertContains(page, "A missed study")
         self.assertNotContains(page, "Another study")
         detail = reverse("paper_manage", args=[self.project.pk, alien.pk])
         self.assertEqual(self.client.get(detail).status_code, 404)
-        project_page = self.client.get(reverse("project_detail", args=[self.project.pk]))
+        project_page = self.client.get(
+            reverse("project_detail", args=[self.project.pk]))
         self.assertContains(project_page, "View Papers")
 
     def test_correcting_title_invalidates_abstract_with_audit_history(self) -> None:
@@ -195,14 +255,17 @@ class PaperManagerTests(TestCase):
         ).exists())
         self.assertEqual(correct("Abstract", "ACCEPT").status_code, 302)
         self.assertEqual(correct("Title", "REJECT").status_code, 302)
-        self.assertFalse(ScreeningDecision.objects.filter(paper=paper, stage=self.abstract_stage).exists())
-        self.assertEqual(ScreeningRevision.objects.filter(paper=paper).count(), 4)
+        self.assertFalse(ScreeningDecision.objects.filter(
+            paper=paper, stage=self.abstract_stage).exists())
+        self.assertEqual(ScreeningRevision.objects.filter(
+            paper=paper).count(), 4)
         self.assertTrue(ScreeningRevision.objects.filter(
             paper=paper, stage=self.abstract_stage, previous_decision="ACCEPT",
             new_decision="REMOVED",
         ).exists())
         blocked = correct("Abstract", "ACCEPT")
-        self.assertContains(blocked, "Accept the title before changing the abstract status")
+        self.assertContains(
+            blocked, "Accept the title before changing the abstract status")
         self.assertEqual(correct("Title", "ACCEPT").status_code, 302)
         self.assertTrue(ScreeningDecision.objects.filter(
             paper=paper, stage=self.abstract_stage, decision="PENDING",
@@ -212,12 +275,14 @@ class PaperManagerTests(TestCase):
 
     def test_paper_not_complete_cannot_be_forced_to_yes(self) -> None:
         with patch("literature.services.reference_service.enrich_papers", return_value=0):
-            self._add(title="", abstract="", references="", doi="10.1000/incomplete")
+            self._add(title="", abstract="", references="",
+                      doi="10.1000/incomplete")
         paper = Paper.objects.get(doi="10.1000/incomplete")
         response = self.client.post(reverse("paper_manage", args=[self.project.pk, paper.pk]), {
             "action": "status", "stage": "Title", "decision": "ACCEPT",
         })
-        self.assertContains(response, "A title is required before Title screening")
+        self.assertContains(
+            response, "A title is required before Title screening")
         self.assertEqual(ScreeningRevision.objects.count(), 0)
 
     def test_doi_search_opens_lookup_page(self) -> None:
@@ -226,7 +291,8 @@ class PaperManagerTests(TestCase):
             "action": "search", "doi": "https://doi.org/10.1000/looked-up",
         })
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/papers/lookup/?doi=10.1000%2Flooked-up", response["Location"])
+        self.assertIn("/papers/lookup/?doi=10.1000%2Flooked-up",
+                      response["Location"])
 
     def test_lookup_new_paper_shows_unified_add_panel(self) -> None:
         """Unknown DOIs show read-only details plus keyword and filtering choices."""
@@ -234,7 +300,9 @@ class PaperManagerTests(TestCase):
                    "abstract": "Found abstract", "references": ["https://doi.org/10.1000/ref"],
                    "found": True, "error": ""}
         with patch("literature.services.reference_service.lookup_doi", return_value=fetched):
-            page = self.client.get(reverse("paper_lookup", args=[self.project.pk]) + "?doi=10.1000/fresh")
+            page = self.client.post(
+                reverse("paper_lookup", args=[self.project.pk]),
+                {"action": "fetch", "doi": "10.1000/fresh"})
         self.assertEqual(page.status_code, 200)
         self.assertContains(page, "This paper is not in the database.")
         self.assertContains(page, "Fresh find")
@@ -255,7 +323,8 @@ class PaperManagerTests(TestCase):
                    "found": True, "error": ""}
         with patch("literature.services.reference_service.lookup_doi", return_value=fetched):
             response = self._lookup_post(
-                reverse("paper_lookup", args=[self.project.pk]) + "?doi=10.1000/fresh",
+                reverse("paper_lookup", args=[
+                        self.project.pk]) + "?doi=10.1000/fresh",
                 {"action": "save", "doi": "10.1000/fresh",
                  "search_keyword": self.keyword,
                  "new_keyword": "", "new_keyword_search": "",
@@ -268,7 +337,8 @@ class PaperManagerTests(TestCase):
         self.assertEqual(paper.keywords, ["robotics"])
         self.assertEqual(ScreeningDecision.objects.get(paper=paper, stage=self.title_stage).decision,
                          "PENDING")
-        self.assertFalse(ScreeningDecision.objects.filter(paper=paper, stage=self.abstract_stage).exists())
+        self.assertFalse(ScreeningDecision.objects.filter(
+            paper=paper, stage=self.abstract_stage).exists())
         self.assertEqual(ScreeningRevision.objects.count(), 0)
 
     def test_lookup_save_with_new_keyword_adds_it_to_search(self) -> None:
@@ -278,7 +348,8 @@ class PaperManagerTests(TestCase):
                    "found": True, "error": ""}
         with patch("literature.services.reference_service.lookup_doi", return_value=fetched):
             response = self._lookup_post(
-                reverse("paper_lookup", args=[self.project.pk]) + "?doi=10.1000/fresh",
+                reverse("paper_lookup", args=[
+                        self.project.pk]) + "?doi=10.1000/fresh",
                 {"action": "save", "doi": "10.1000/fresh",
                  "search_keyword": "NEW",
                  "new_keyword": "new-topic", "new_keyword_search": str(self.search.pk),
@@ -297,7 +368,8 @@ class PaperManagerTests(TestCase):
                    "found": True, "error": ""}
         with patch("literature.services.reference_service.lookup_doi", return_value=fetched):
             response = self._lookup_post(
-                reverse("paper_lookup", args=[self.project.pk]) + "?doi=10.1000/fresh",
+                reverse("paper_lookup", args=[
+                        self.project.pk]) + "?doi=10.1000/fresh",
                 {"action": "save", "doi": "10.1000/fresh",
                  "search_keyword": "", "new_keyword": "",
                  "new_keyword_search": "",
@@ -313,7 +385,8 @@ class PaperManagerTests(TestCase):
                    "found": True, "error": ""}
         with patch("literature.services.reference_service.lookup_doi", return_value=fetched):
             response = self._lookup_post(
-                reverse("paper_lookup", args=[self.project.pk]) + "?doi=10.1000/fresh",
+                reverse("paper_lookup", args=[
+                        self.project.pk]) + "?doi=10.1000/fresh",
                 {"action": "save", "doi": "10.1000/fresh",
                  "search_keyword": self.keyword,
                  "new_keyword": "", "new_keyword_search": "",
@@ -321,8 +394,10 @@ class PaperManagerTests(TestCase):
             )
         self.assertEqual(response.status_code, 302)
         paper = Paper.objects.get(doi="10.1000/fresh")
-        self.assertEqual(paper.decisions.get(stage=self.title_stage).decision, "ACCEPT")
-        self.assertEqual(paper.decisions.get(stage=self.abstract_stage).decision, "PENDING")
+        self.assertEqual(paper.decisions.get(
+            stage=self.title_stage).decision, "ACCEPT")
+        self.assertEqual(paper.decisions.get(
+            stage=self.abstract_stage).decision, "PENDING")
 
     def test_lookup_existing_paper_shows_update_panel(self) -> None:
         """Known DOIs show read-only stored details with an Update entry button."""
@@ -330,13 +405,16 @@ class PaperManagerTests(TestCase):
             title="Known study", doi="10.1000/known", abstract="Summary",
             references=["https://doi.org/10.1000/ref"],
         )
-        Discovery.objects.create(paper=paper, search=self.search, source="manual", query="robotics")
-        ScreeningDecision.objects.create(paper=paper, stage=self.title_stage, decision="ACCEPT")
+        Discovery.objects.create(
+            paper=paper, search=self.search, source="manual", query="robotics")
+        ScreeningDecision.objects.create(
+            paper=paper, stage=self.title_stage, decision="ACCEPT")
         fetched = {"doi": "10.1000/known", "title": "Known study",
                    "abstract": "Summary", "references": ["https://doi.org/10.1000/ref"],
                    "found": True, "error": ""}
         with patch("literature.services.reference_service.lookup_doi", return_value=fetched):
-            page = self.client.get(reverse("paper_lookup", args=[self.project.pk]) + "?doi=10.1000/known")
+            page = self.client.get(reverse("paper_lookup", args=[
+                                   self.project.pk]) + "?doi=10.1000/known")
         self.assertContains(page, "Already in the database")
         self.assertContains(page, "Known study")
         self.assertContains(page, "Update entry")
@@ -351,13 +429,15 @@ class PaperManagerTests(TestCase):
             title="Known study", doi="10.1000/known", abstract="Summary",
             references=["https://doi.org/10.1000/ref"],
         )
-        Discovery.objects.create(paper=paper, search=self.search, source="manual", query="robotics")
+        Discovery.objects.create(
+            paper=paper, search=self.search, source="manual", query="robotics")
         fetched = {"doi": "10.1000/known", "title": "Known study",
                    "abstract": "Summary", "references": ["https://doi.org/10.1000/ref"],
                    "found": True, "error": ""}
         with patch("literature.services.reference_service.lookup_doi", return_value=fetched):
             response = self._lookup_post(
-                reverse("paper_lookup", args=[self.project.pk]) + "?doi=10.1000/known",
+                reverse("paper_lookup", args=[
+                        self.project.pk]) + "?doi=10.1000/known",
                 {"action": "save", "doi": "10.1000/known",
                  "search_keyword": self.keyword,
                  "new_keyword": "", "new_keyword_search": "",

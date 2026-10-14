@@ -1,12 +1,18 @@
-"""
+"""Verify graph-node popup details, escaping, and renderer consistency.
+
 @File:   test_graph_node_popup.py
 
 @Brief:  Tests for the shared graph-node popup renderer metadata.
 
 @Date:   02/10/2026
-@Copyright: 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group.
+@Copyright: 2026 Aerospace Engineering Research & Operation Systems
+    (AERO-Sys) group.
 
 """
+
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
 
 # Regular library imports
 from __future__ import annotations
@@ -28,7 +34,19 @@ class GraphNodePopupTests(TestCase):
 
     # --- Draft fixture ---
     def _draft_graph(self) -> dict:
-        """Two draft papers citing backwards, newest first."""
+        """Build two draft nodes with one newer-to-older citation.
+
+        Two draft papers citing backwards, newest first.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            dict: Draft graph with raw title markup, years, and a single edge.
+        """
         return {
             "title": "How your kept papers link together",
             "nodes": [
@@ -54,7 +72,20 @@ class GraphNodePopupTests(TestCase):
 
     # --- Curated fixture ---
     def _curated_graph(self) -> dict:
-        """Survey snapshots carry project-unique ref IDs."""
+        """Build linked curated nodes with reference labels and a missing year.
+
+        Survey snapshots carry project-unique ref IDs.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            dict: Curated graph with reference numbers three and four and
+                one directed edge.
+        """
         return {
             "title": "Curated survey graph",
             "curated": True,
@@ -85,19 +116,45 @@ class GraphNodePopupTests(TestCase):
 
     # --- Raw details travel with the points ---
     def test_meta_carries_raw_details_for_draft(self) -> None:
-        """Meta holds raw dicts aligned to points; customdata HTML is kept."""
+        """Include draft popup metadata, escaped hover text, and readiness.
+
+        Meta holds raw dicts aligned to points; customdata HTML is kept.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         html = build_citation_figure(self._draft_graph())
         self.assertIn("paper_details", html)
         self.assertIn("New &lt;b&gt;study", html)  # escaped hover text kept
         self.assertIn("graph_node_popup.js", html)
         self.assertIn("graph-ready", html)
 
-    def test_full_title_and_trace_alignment_are_safe_in_inline_html(self) -> None:
+    def test_full_title_and_trace_alignment_are_safe_in_inline_html(
+        self,
+    ) -> None:
+        """Align full titles to nodes without emitting an inline script attack.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         graph = self._draft_graph()
         title = "Full paper title " * 30 + "</script><script>alert(1)</script>"
         graph["nodes"][0]["title"] = title
         with patch(
-            "plotly.graph_objects.Figure.to_html", autospec=True, return_value="plot"
+            "plotly.graph_objects.Figure.to_html", autospec=True,
+            return_value="plot",
         ) as render:
             build_citation_figure(graph)
         figure = render.call_args.args[0]
@@ -106,25 +163,51 @@ class GraphNodePopupTests(TestCase):
         self.assertEqual(details[0]["title"], title)
         self.assertEqual(details[1]["title"], "Old method")
         self.assertEqual(len(details), len(node_trace.x))
-        self.assertNotIn("</script><script>alert(1)</script>", build_citation_figure(graph))
+        self.assertNotIn("</script><script>alert(1)</script>",
+                         build_citation_figure(graph))
 
     # --- Curated graph shares the renderer ---
     def test_meta_carries_ref_ids_for_curated(self) -> None:
-        """Curated ref IDs appear in meta and in the circle labels."""
+        """Render curated reference labels with popup metadata and readiness.
+
+        Curated ref IDs appear in meta and in the circle labels.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         html = build_citation_figure(self._curated_graph())
         self.assertIn("paper_details", html)
         self.assertIn("[3]", html)
         self.assertIn("[4]", html)
         self.assertIn("graph_node_popup.js", html)
         self.assertIn("graph-ready", html)
-        self.assertIn("Your kept papers", html)
+        self.assertIn("Your chosen survey entries", html)
 
     # --- Existing chrome untouched ---
     def test_legends_hover_and_layout_preserved(self) -> None:
-        """Colours, edge tooltips, year labels and width survive the popup."""
+        """Keep legends, citation tooltips, width guidance, and native hover.
+
+        Colours, edge tooltips, year labels and width survive the popup.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         for graph in (self._draft_graph(), self._curated_graph()):
             html = build_citation_figure(graph)
-            self.assertIn("Your kept papers", html)
+            self.assertIn("Your chosen survey entries" if graph.get("curated")
+                          else "Your kept papers", html)
             self.assertIn("Dot colour", html)
             self.assertIn("cites", html)
             self.assertIn("Citation direction", html)
@@ -133,7 +216,19 @@ class GraphNodePopupTests(TestCase):
 
     # --- Full colour key when every role is present ---
     def test_all_three_roles_keep_colour_key(self) -> None:
-        """Seed, joiner and outer traces each keep their legend entry."""
+        """Retain all three role legends for seeds, joiners, and branches.
+
+        Seed, joiner and outer traces each keep their legend entry.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         html = build_citation_figure(
             {
                 "title": "Mixed",
@@ -154,7 +249,8 @@ class GraphNodePopupTests(TestCase):
                         "venue": "V",
                         "is_joiner": True,
                     },
-                    {"id": 3, "title": "Outer", "year": 2019, "citations": 0, "venue": ""},
+                    {"id": 3, "title": "Outer", "year": 2019,
+                        "citations": 0, "venue": ""},
                 ],
                 "edges": [(1, 2), (2, 3)],
             }
@@ -165,21 +261,50 @@ class GraphNodePopupTests(TestCase):
 
     # --- Empty graph stays ordinary ---
     def test_no_node_case_stays_ordinary_empty_graph(self) -> None:
-        """No papers means no popup metadata, readiness or script."""
+        """Render an empty graph without popup metadata, script, or readiness.
+
+        No papers means no popup metadata, readiness or script.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         html = build_citation_figure({"nodes": [], "edges": []})
-        self.assertIn("no papers to show yet", html)
+        self.assertNotIn("no papers to show yet", html)
+        self.assertIn('"xaxis":{"visible":false,"fixedrange":true}', html)
+        self.assertIn('"yaxis":{"visible":false,"fixedrange":true}', html)
         self.assertNotIn("paper_details", html)
         self.assertNotIn("graph-ready", html)
         self.assertNotIn("graph_node_popup.js", html)
 
     # --- Both live builders flow through one renderer ---
     def test_draft_and_curated_builders_share_renderer(self) -> None:
-        """Stored draft and survey entries both emit popup-ready figures."""
-        from literature.models import Discovery, Paper, Project, Search, SurveyEntry
+        """Render popup-ready figures from draft and curated graph builders.
+
+        Stored draft and survey entries both emit popup-ready figures.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
+        from literature.models import (
+            Discovery, Paper, Project, Search, SurveyEntry,
+        )
 
         project = Project.objects.create(name="P")
         project.ensure_default_stages()
-        search = Search.objects.create(project=project, name="S", keywords=["a"])
+        search = Search.objects.create(
+            project=project, name="S", keywords=["a"])
         paper = Paper.objects.create(
             title="Draft paper",
             publication_year=2022,
@@ -189,7 +314,8 @@ class GraphNodePopupTests(TestCase):
             source_ids={"openalex": "WG1"},
             references=[],
         )
-        Discovery.objects.create(paper=paper, search=search, source="openalex", query="a")
+        Discovery.objects.create(
+            paper=paper, search=search, source="openalex", query="a")
         entry = SurveyEntry.objects.create(
             project=project,
             reference_number=1,
@@ -200,7 +326,10 @@ class GraphNodePopupTests(TestCase):
         from literature.services.citation_service import build_graph
         from literature.services.survey_graph_service import build_survey_graph
 
-        for graph in (build_graph(project, seed_stage="found"), build_survey_graph(project)):
+        for graph in (
+            build_graph(project, seed_stage="found"),
+            build_survey_graph(project),
+        ):
             html = build_citation_figure(graph)
             self.assertIn("paper_details", html)
             self.assertIn("graph-ready", html)

@@ -5,6 +5,11 @@
 @Date: 03/10/2026
 """
 
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
+
+# Regular library imports
 import errno
 import json
 import os
@@ -16,10 +21,15 @@ from contextlib import closing
 from pathlib import Path
 from unittest.mock import patch
 
+# Custom library Imports
 from django.test import SimpleTestCase
 
 from literature import legacy_conversion as lc
 from literature import project_store as ps
+
+# ------------------------------------------------------------------------ #
+# Module setup
+# ------------------------------------------------------------------------ #
 
 # --- Shared DOI, divergent private annotations and overlapping curated labels ---
 SEED = """
@@ -91,6 +101,11 @@ OpenCitationsLookup.objects.create(doi='10.48550/arxiv.2401.00001', direction='o
 """
 
 
+# ------------------------------------------------------------------------ #
+# Definitions
+# ------------------------------------------------------------------------ #
+
+# --- Classes
 class LegacyConversionTests(SimpleTestCase):
     @classmethod
     def setUpClass(cls):
@@ -186,7 +201,8 @@ class LegacyConversionTests(SimpleTestCase):
         return result
 
     def read_store(self, pid):
-        db = Path(self.mapping["projects"][str(pid)]["destination"]) / ps.DATABASE_FILENAME
+        db = Path(self.mapping["projects"][str(pid)]
+                  ["destination"]) / ps.DATABASE_FILENAME
         with closing(ps._connect_ro(db)) as connection:
             return lc._read(connection)
 
@@ -194,26 +210,30 @@ class LegacyConversionTests(SimpleTestCase):
         result = self.cli("inventory")
         self.assertEqual(result.returncode, 0, result.stderr)
         report = json.loads(result.stdout)
-        self.assertEqual(report["source_digest"], self.inventory["source_digest"])
+        self.assertEqual(report["source_digest"],
+                         self.inventory["source_digest"])
         self.assertEqual(report["global_fields"]["41"]["owners"], [7, 23])
         self.assertEqual(
             report["mapping_template"]["projects"]["7"]["papers"]["41"]["raw"]["action"], "review"
         )
-        self.assertEqual(report["mapping_template"]["orphan_papers"], {"44": "review"})
+        self.assertEqual(report["mapping_template"]
+                         ["orphan_papers"], {"44": "review"})
         self.assertNotIn("B-PRIVATE", result.stdout)
         self.assertEqual(self.source.read_bytes(), self.original)
         self.assertFalse(self.recovery.exists())
         self.assertFalse((self.root / "project-7").exists())
 
     def test_dry_run_cli_verifies_mapping_counts_fks_and_writes_nothing(self):
-        result = self.cli("dry-run", "--mapping", str(self.root / "approved-mapping.json"))
+        result = self.cli("dry-run", "--mapping",
+                          str(self.root / "approved-mapping.json"))
         self.assertEqual(result.returncode, 0, result.stderr)
         report = json.loads(result.stdout)
         self.assertEqual(
             report["projects"]["7"]["evidence"]["paper"]["pk_mapping"],
             {"41": 41, "42": 42, "45": 45},
         )
-        self.assertEqual(report["projects"]["23"]["evidence"]["surveycitation"]["count"], 3)
+        self.assertEqual(report["projects"]["23"]
+                         ["evidence"]["surveycitation"]["count"], 3)
         self.assertEqual(self.source.read_bytes(), self.original)
         self.assertFalse(self.recovery.exists())
         self.assertFalse((self.root / "project-7").exists())
@@ -236,76 +256,95 @@ class LegacyConversionTests(SimpleTestCase):
             directory = Path(self.mapping["projects"][pid]["destination"])
             manifest = ps.validate_package(directory)
             self.assertEqual(
-                str(manifest.project_uuid), self.mapping["projects"][pid]["project_uuid"]
+                str(
+                    manifest.project_uuid), self.mapping["projects"][pid]["project_uuid"]
             )
-            self.assertEqual({p.name for p in directory.iterdir()}, ps.PACKAGE_MEMBERS)
+            self.assertEqual(
+                {p.name for p in directory.iterdir()}, ps.PACKAGE_MEMBERS)
             target = self.read_store(pid)
             self.assertEqual([p["id"] for p in target["project"]], [int(pid)])
             for table in lc.TABLES:
                 evidence = report["projects"][pid]["evidence"][table]
-                self.assertEqual(evidence["target_sha256"], evidence["projected_sha256"])
+                self.assertEqual(
+                    evidence["target_sha256"], evidence["projected_sha256"])
                 self.assertEqual(evidence["count"], len(target[table]))
                 # Independent comparison: every untransformed selected row/field is exact.
                 source_rows = {r["id"]: r for r in original[table]}
                 for row in target[table]:
                     for field in evidence["fields"]:
                         if field not in evidence["transformed_fields"]:
-                            self.assertEqual(row[field], source_rows[row["id"]][field])
+                            self.assertEqual(
+                                row[field], source_rows[row["id"]][field])
                 for fk in evidence["fk_mapping"]:
                     self.assertEqual(fk["source_fk"], fk["target_fk"])
                     if fk["target_fk"] is not None:
                         self.assertIn(
                             str(fk["target_fk"]),
-                            report["projects"][pid]["evidence"][fk["target_table"]]["pk_mapping"],
+                            report["projects"][pid]["evidence"][fk["target_table"]
+                                                                ]["pk_mapping"],
                         )
         a, b = self.read_store(7), self.read_store(23)
-        self.assertEqual([r["reference_number"] for r in a["surveyentry"]], [7, 12, 17])
+        self.assertEqual([r["reference_number"]
+                         for r in a["surveyentry"]], [7, 12, 17])
         self.assertEqual(len(a["surveycitation"]), 3)
         self.assertEqual(len(b["surveycitation"]), 3)
-        self.assertEqual({r["decision"] for r in a["screeningdecision"]}, {"ACCEPT", "PENDING"})
-        self.assertEqual({r["decision"] for r in b["screeningdecision"]}, {"REJECT"})
+        self.assertEqual({r["decision"] for r in a["screeningdecision"]}, {
+                         "ACCEPT", "PENDING"})
+        self.assertEqual({r["decision"]
+                         for r in b["screeningdecision"]}, {"REJECT"})
         self.assertEqual(a["discovery"][0]["source"], "manual")
         self.assertNotIn("B-PRIVATE", json.dumps(a))
         self.assertEqual(
-            json.loads(a["opencitationslookup"][0]["edges"]), [["10.1000/shared", "10.1000/a"]]
+            json.loads(a["opencitationslookup"][0]["edges"]), [
+                ["10.1000/shared", "10.1000/a"]]
         )
         self.assertEqual(
-            json.loads(b["opencitationslookup"][0]["edges"]), [["10.1000/shared", "10.1000/b"]]
+            json.loads(b["opencitationslookup"][0]["edges"]), [
+                ["10.1000/shared", "10.1000/b"]]
         )
-        self.assertEqual(a["opencitationslookup"][-1]["doi"], "10.48550/arxiv.2401.00001")
+        self.assertEqual(a["opencitationslookup"][-1]
+                         ["doi"], "10.48550/arxiv.2401.00001")
         self.assertEqual(
             json.loads(a["opencitationslookup"][-1]["edges"]),
             [["10.48550/arxiv.2401.00001", "10.1000/a"]],
         )
-        self.assertEqual(self.read_store(43)["stage"], [])  # no default-stage reset
+        # no default-stage reset
+        self.assertEqual(self.read_store(43)["stage"], [])
         db_a = self.root / "project-7" / ps.DATABASE_FILENAME
         with sqlite3.connect(db_a) as connection:
-            connection.execute("UPDATE literature_paper SET abstract='A divergence' WHERE id=41")
+            connection.execute(
+                "UPDATE literature_paper SET abstract='A divergence' WHERE id=41")
         self.assertEqual(self.read_store(23), b)
         self.assertEqual(self.source.read_bytes(), self.original)
         with closing(ps._connect_ro(self.recovery / "source.sqlite3")) as snapshot:
             self.assertEqual(lc._read(snapshot), original)
-        self.assertNotIn("B-PRIVATE", (self.recovery / "conversion-report.json").read_text())
+        self.assertNotIn("B-PRIVATE", (self.recovery /
+                         "conversion-report.json").read_text())
 
     def test_committed_wal_uncommitted_excluded_source_bytes_unchanged(self):
         writer = sqlite3.connect(self.source)
         self.addCleanup(writer.close)
         writer.execute("PRAGMA journal_mode=WAL")
         writer.execute("PRAGMA wal_autocheckpoint=0")
-        writer.execute("UPDATE literature_paper SET abstract='committed WAL' WHERE id=41")
+        writer.execute(
+            "UPDATE literature_paper SET abstract='committed WAL' WHERE id=41")
         writer.commit()
-        self.mapping["source_digest"] = lc.inventory_legacy(self.source)["source_digest"]
+        self.mapping["source_digest"] = lc.inventory_legacy(self.source)[
+            "source_digest"]
         new_template = lc.inventory_legacy(self.source)["mapping_template"]
         for pid in self.mapping["projects"]:
             self.mapping["projects"][pid]["project_uuid"] = new_template["projects"][pid][
                 "project_uuid"
             ]
         writer.execute("BEGIN IMMEDIATE")
-        writer.execute("UPDATE literature_paper SET abstract='not committed' WHERE id=41")
-        before, wal = self.source.read_bytes(), Path(str(self.source) + "-wal").read_bytes()
+        writer.execute(
+            "UPDATE literature_paper SET abstract='not committed' WHERE id=41")
+        before, wal = self.source.read_bytes(), Path(
+            str(self.source) + "-wal").read_bytes()
         report = lc.convert_legacy(self.source, self.mapping, self.recovery)
         self.assertEqual(report["status"], "complete")
-        self.assertEqual(self.read_store(7)["paper"][0]["abstract"], "committed WAL")
+        self.assertEqual(self.read_store(
+            7)["paper"][0]["abstract"], "committed WAL")
         self.assertEqual(self.source.read_bytes(), before)
         self.assertEqual(Path(str(self.source) + "-wal").read_bytes(), wal)
         writer.rollback()
@@ -352,15 +391,18 @@ class LegacyConversionTests(SimpleTestCase):
         with self.assertRaises(ps.ProjectStoreError):
             lc.convert_legacy(self.source, self.mapping, repeat_recovery)
         self.assertFalse(repeat_recovery.exists())
-        self.assertEqual((self.root / "project-7" / ps.DATABASE_FILENAME).read_bytes(), before)
+        self.assertEqual((self.root / "project-7" /
+                         ps.DATABASE_FILENAME).read_bytes(), before)
         self.assertEqual(
-            lc.inventory_legacy(self.source)["mapping_template"]["projects"]["7"]["project_uuid"],
+            lc.inventory_legacy(self.source)[
+                "mapping_template"]["projects"]["7"]["project_uuid"],
             self.mapping["projects"]["7"]["project_uuid"],
         )
 
     def test_schema_drift_unknown_migrations_and_missing_source_read_only_refusal(self):
         with sqlite3.connect(self.source) as connection:
-            connection.execute("ALTER TABLE literature_project ADD COLUMN legacy_feature TEXT")
+            connection.execute(
+                "ALTER TABLE literature_project ADD COLUMN legacy_feature TEXT")
         before = self.source.read_bytes()
         with self.assertRaisesRegex(ps.ProjectStoreError, "unsupported legacy schema"):
             lc.inventory_legacy(self.source)
@@ -369,7 +411,8 @@ class LegacyConversionTests(SimpleTestCase):
             lc.inventory_legacy(self.root / "missing.sqlite3")
         self.assertFalse((self.root / "missing.sqlite3").exists())
         with sqlite3.connect(self.source) as connection:
-            connection.execute("ALTER TABLE literature_project DROP COLUMN legacy_feature")
+            connection.execute(
+                "ALTER TABLE literature_project DROP COLUMN legacy_feature")
             connection.execute(
                 "UPDATE django_migrations SET name='unknown_version' WHERE app='literature' AND name LIKE '0012%'"
             )
@@ -396,11 +439,13 @@ class LegacyConversionTests(SimpleTestCase):
 
     def test_staging_failure_keeps_snapshot_and_reports_original_no_published_outputs(self):
         with (
-            patch.object(lc, "_stage", side_effect=OSError(errno.ENOSPC, "synthetic full")),
+            patch.object(lc, "_stage", side_effect=OSError(
+                errno.ENOSPC, "synthetic full")),
             self.assertRaises(ps.ProjectStoreError),
         ):
             lc.convert_legacy(self.source, self.mapping, self.recovery)
-        report = json.loads((self.recovery / "conversion-report.json").read_text())
+        report = json.loads(
+            (self.recovery / "conversion-report.json").read_text())
         self.assertTrue(report["status"].startswith("failed"))
         self.assertEqual(report["published"], [])
         self.assertTrue((self.recovery / "source.sqlite3").is_file())
@@ -424,15 +469,19 @@ class LegacyConversionTests(SimpleTestCase):
 
         with (
             patch.object(lc, "_bootstrap", side_effect=seeded_bootstrap),
-            self.assertRaisesRegex(ps.ProjectStoreError, "bootstrap contains research rows"),
+            self.assertRaisesRegex(ps.ProjectStoreError,
+                                   "bootstrap contains research rows"),
         ):
             lc.convert_legacy(self.source, self.mapping, self.recovery)
-        report = json.loads((self.recovery / "conversion-report.json").read_text())
+        report = json.loads(
+            (self.recovery / "conversion-report.json").read_text())
         self.assertEqual(report["published"], [])
-        staged = Path(report["projects"]["7"]["staging"]) / ps.DATABASE_FILENAME
+        staged = Path(report["projects"]["7"]["staging"]
+                      ) / ps.DATABASE_FILENAME
         with closing(ps._connect_ro(staged)) as connection:
             self.assertEqual(
-                connection.execute("SELECT id,name FROM literature_project").fetchall(),
+                connection.execute(
+                    "SELECT id,name FROM literature_project").fetchall(),
                 [(99, "unexpected")],
             )
         self.assertFalse((self.root / "project-7").exists())
@@ -454,7 +503,8 @@ class LegacyConversionTests(SimpleTestCase):
             self.assertRaises(ps.ProjectStoreError),
         ):
             lc.convert_legacy(self.source, self.mapping, self.recovery)
-        report = json.loads((self.recovery / "conversion-report.json").read_text())
+        report = json.loads(
+            (self.recovery / "conversion-report.json").read_text())
         self.assertEqual(report["published"], ["7"])
         ps.validate_package(self.root / "project-7")
         ps.validate_package(report["projects"]["23"]["staging"])
@@ -482,10 +532,12 @@ class LegacyConversionTests(SimpleTestCase):
 
     def test_cache_unknown_shape_is_reported_not_guessed_or_published(self):
         with sqlite3.connect(self.source) as connection:
-            connection.execute("UPDATE literature_opencitationslookup SET edges='[{}]' WHERE id=1")
+            connection.execute(
+                "UPDATE literature_opencitationslookup SET edges='[{}]' WHERE id=1")
         with self.assertRaisesRegex(ps.ProjectStoreError, "unsupported edge shape"):
             lc._projection(self._rows(), self.mapping, "7")
-        self.mapping["source_digest"] = lc.inventory_legacy(self.source)["source_digest"]
+        self.mapping["source_digest"] = lc.inventory_legacy(self.source)[
+            "source_digest"]
         template = lc.inventory_legacy(self.source)["mapping_template"]
         for pid in self.mapping["projects"]:
             self.mapping["projects"][pid]["project_uuid"] = template["projects"][pid][

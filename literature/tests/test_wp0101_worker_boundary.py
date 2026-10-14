@@ -1,14 +1,25 @@
 #!/usr/bin/env python3
 
-'''
+"""Test fixed-default worker isolation using synthetic stores.
+
+WP01.01 spike: two fixed-default workers stay isolated (synthetic stores).
+
+Copyright (c) 2026 Aerospace Engineering Research & Operation Systems
+(AERO-Sys) group.
+
 @File:   test_wp0101_worker_boundary.py
 
-@Brief:  WP01.01 spike: two fixed-default workers stay isolated (synthetic stores).
+@Brief:  Test fixed-default worker isolation using synthetic stores.
 
 @Date:   03/10/2026
-@Copyright: 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group.
+"""
 
-'''
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
+
+# @File: test_wp0101_worker_boundary.py
+# @Date: 03/10/2026
 
 # Regular library imports
 from __future__ import annotations
@@ -20,7 +31,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-# Custom library imports
+# Custom library Imports
 from django.conf import settings
 from django.test import SimpleTestCase
 
@@ -75,7 +86,23 @@ class WorkerBoundaryTests(SimpleTestCase):
 
     # --- Child worker plumbing ---
     def _run_worker(self, store: Path, mode: str, marker: str) -> str:
-        """Run one worker bound to ``store``; return its stdout."""
+        """Run one worker bound to ``store``; return its stdout.
+
+        Args:
+            store (Path): Synthetic SQLite file bound as the default DB.
+            mode (str): Seed a project, add a paper, or fail a transaction.
+            marker (str): Abstract marker distinguishing the worker's rows.
+
+        Kwargs:
+            None
+
+        Returns:
+            str: Stripped stdout from the successful worker process.
+
+        Raises:
+            AssertionError: If the worker exits unsuccessfully.
+            subprocess.TimeoutExpired: If the worker exceeds 180 seconds.
+        """
         base = Path(settings.BASE_DIR)
         env = dict(os.environ, LOCAL_SURVEY_DB=str(store))
         completed = subprocess.run(
@@ -96,6 +123,17 @@ class WorkerBoundaryTests(SimpleTestCase):
     # --- Row readers (parent inspects synthetic stores only) ---
     @staticmethod
     def _papers(store: Path) -> list[tuple]:
+        """Read ordered paper identities and content from a synthetic store.
+
+        Args:
+            store (Path): Synthetic SQLite file to inspect.
+
+        Kwargs:
+            None
+
+        Returns:
+            list[tuple]: Paper ID, title and abstract rows ordered by ID.
+        """
         with sqlite3.connect(store) as connection:
             return list(
                 connection.execute(
@@ -105,6 +143,17 @@ class WorkerBoundaryTests(SimpleTestCase):
 
     @staticmethod
     def _tables(store: Path) -> set[str]:
+        """Read table names from a synthetic SQLite file.
+
+        Args:
+            store (Path): Synthetic store or registry file to inspect.
+
+        Kwargs:
+            None
+
+        Returns:
+            set[str]: Names of all tables in the file.
+        """
         with sqlite3.connect(store) as connection:
             return {
                 row[0]
@@ -115,6 +164,17 @@ class WorkerBoundaryTests(SimpleTestCase):
 
     # --- Isolation with overlapping IDs and interleaved saves ---
     def test_overlapping_ids_and_interleaved_saves_stay_isolated(self) -> None:
+        """Keep distinct abstracts when worker IDs and titles overlap.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         with tempfile.TemporaryDirectory(prefix="wp0101-workers-") as tmp:
             store_a = Path(tmp) / "a.sqlite3"
             store_b = Path(tmp) / "b.sqlite3"
@@ -132,23 +192,47 @@ class WorkerBoundaryTests(SimpleTestCase):
             self.assertEqual([row[0] for row in papers_b], [1, 2])
             self.assertTrue(all(row[2] == "marker-A" for row in papers_a))
             self.assertTrue(all(row[2] == "marker-B" for row in papers_b))
-            self.assertEqual(papers_a[0][1], papers_b[0][1])  # same shared title
+            # same shared title
+            self.assertEqual(papers_a[0][1], papers_b[0][1])
 
     # --- Failed default-alias transaction rolls back only its own store ---
     def test_failed_transaction_rolls_back_only_own_store(self) -> None:
+        """Roll back a worker's partial pair without changing the other store.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         with tempfile.TemporaryDirectory(prefix="wp0101-fail-") as tmp:
             store_c = Path(tmp) / "c.sqlite3"
             store_d = Path(tmp) / "d.sqlite3"
             self._run_worker(store_c, "seed", "marker-C")
             self._run_worker(store_d, "seed", "marker-D")
             output = self._run_worker(store_c, "fail", "marker-C")
-            self.assertIn("papers=1", output)  # seed row survives, partial pair gone
+            # seed row survives, partial pair gone
+            self.assertIn("papers=1", output)
             self.assertEqual(len(self._papers(store_c)), 1)
             self.assertEqual(len(self._papers(store_d)), 1)
             self.assertEqual(self._papers(store_d)[0][2], "marker-D")
 
     # --- Parent/control registry never receives research records ---
     def test_parent_registry_receives_no_research_rows(self) -> None:
+        """Leave the registry schema unchanged when workers seed their stores.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         with tempfile.TemporaryDirectory(prefix="wp0101-registry-") as tmp:
             registry = Path(tmp) / "registry.sqlite3"
             with sqlite3.connect(registry) as connection:
@@ -180,6 +264,17 @@ class WorkerBoundaryTests(SimpleTestCase):
 
     # --- Cookie defaults confirm the port-sharing hazard (decision input) ---
     def test_cookie_defaults_confirm_port_sharing_hazard(self) -> None:
+        """Record legacy cookie defaults and the single default DB alias.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
         # ponytail: documents today's hazard; WP01.03 must give workers
         # non-colliding session/CSRF names or paths.
         self.assertEqual(settings.SESSION_COOKIE_NAME, "sessionid")
