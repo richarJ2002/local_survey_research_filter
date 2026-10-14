@@ -12,42 +12,7 @@
   .papers-table { table-layout:fixed; width:68rem; }
   .papers-table th, .papers-table td { overflow-wrap:anywhere; white-space:normal; }
 </style>
-<div class="page-actions"><a class="button-link" href="{% url 'paper_add' project.pk %}">+ Add a missed paper</a></div>
-<form method="get" role="search" class="card">
-  <label for="paper-query">Search papers</label>
-  <input id="paper-query" type="search" name="q" value="{{ query }}" placeholder="Title or DOI">
-  <input type="hidden" name="sort" value="{{ sort }}"><input type="hidden" name="direction" value="{{ direction }}">
-  <button type="submit">Search</button>
-</form>
-<p class="meta">{{ page.paginator.count }} paper{{ page.paginator.count|pluralize }} found.</p>
+<div class="page-actions"><a class="button-link" href="{% url 'paper_add' project.pk %}">Add a paper by hand</a></div>
 <p class="meta">Click a header to sort all matching papers; click again to reverse the order. Ascending metadata sorts show missing values first. Legacy unspecified origins display blank, without changing their audit history. Source sorts by the first listed known source; keywords sort by the linked keyword or first stored keyword. Scroll horizontally to see all fixed-width columns.</p>
-<div class="card table-scroll" tabindex="0" role="region" aria-label="Project papers table">
-  <table class="papers-table">
-    <colgroup><col style="width:24rem"><col style="width:5rem"><col style="width:15rem"><col style="width:7rem"><col style="width:10rem"><col style="width:7rem"></colgroup>
-    <thead><tr>{% for header in headers %}<th scope="col" aria-sort="{{ header.aria_sort }}">{% for link in header.links %}{% if not forloop.first %}<br>{% endif %}<a href="?{{ link.url }}" aria-label="Sort {{ link.label }} {{ link.next_direction }}">{{ link.label }} {% if link.active %}<span aria-hidden="true">{% if direction == 'asc' %}↑{% else %}↓{% endif %}</span>{% else %}<span aria-hidden="true">↕</span>{% endif %}</a>{% endfor %}</th>{% endfor %}<th scope="col">Actions</th></tr></thead>
-    <tbody>
-    {% for row in rows %}
-    <tr>
-      <td><a href="{% if row.paper.doi %}{% url 'paper_lookup' project.pk %}?doi={{ row.paper.doi|urlencode }}{% else %}{% url 'paper_manage' project.pk row.paper.pk %}{% endif %}">{% if row.title_ready %}{{ row.paper.title }}{% else %}Untitled paper{% endif %}</a>{% if row.paper.doi %}<br><span class="meta">DOI {{ row.paper.doi }}</span>{% endif %}</td>
-      <td>{{ row.paper.publication_year|default:"?" }}</td>
-      <td>{{ row.display_sources|join:", " }}<br><span class="meta">{% if row.linked_keyword %}Linked keyword: {{ row.linked_keyword }}{% else %}{{ row.paper.keywords|join:", "|default:"—" }}{% endif %}</span></td>
-       <td>{% if not row.title_ready %}Needs title{% elif row.title_status == "ACCEPT" %}Yes{% elif row.title_status == "REJECT" %}No{% elif row.title_status == "PENDING" %}Pending{% else %}Not queued{% endif %}</td>
-       <td>{% if row.references_pending %}Passed content; references pending{% elif row.abstract_status == "ACCEPT" %}Final selected{% elif row.abstract_status == "REJECT" %}No{% elif row.abstract_status == "PENDING" %}Pending{% if not row.paper.abstract %} — abstract needed{% endif %}{% else %}—{% endif %}</td>
-      <td>{% if row.paper.doi %}<a href="{% url 'paper_lookup' project.pk %}?doi={{ row.paper.doi|urlencode }}">Update entry</a>{% else %}<a href="{% url 'paper_manage' project.pk row.paper.pk %}">Manage</a>{% endif %}</td>
-    </tr>
-    {% empty %}<tr><td colspan="6">No papers match this search. Add a paper above or try another title or DOI.</td></tr>{% endfor %}
-    </tbody>
-  </table>
-</div>
-<nav class="page-actions" aria-label="Paper pages">
-  {% if page.has_previous %}<a href="?{{ page_query }}&amp;page={{ page.previous_page_number }}">← Previous</a>{% endif %}
-  <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
-  {% if page.has_next %}<a href="?{{ page_query }}&amp;page={{ page.next_page_number }}">Next →</a>{% endif %}
-</nav>
-<form method="get" class="page-actions" aria-label="Jump to paper page">
-  <input type="hidden" name="q" value="{{ query }}"><input type="hidden" name="sort" value="{{ sort }}"><input type="hidden" name="direction" value="{{ direction }}">
-  <label for="paper-page-number">Jump to page</label>
-  <input id="paper-page-number" type="number" name="page" min="1" max="{{ page.paginator.num_pages }}" value="{{ page.number }}" required>
-  <button type="submit">Go</button>
-</form>
+{% include "literature/paper_overview_list.html" %}
 {% endblock %}

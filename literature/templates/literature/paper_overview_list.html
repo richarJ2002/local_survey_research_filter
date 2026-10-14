@@ -1,0 +1,39 @@
+{# Copyright (c) 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group. #}
+{% if filter_error %}<p role="alert">{{ filter_error }}</p>{% endif %}
+<form method="get" role="search"{% if hud %} data-hud-filter{% endif %}>
+  {% if hud %}<input type="hidden" name="view" value="hud">{% endif %}
+  <label for="paper-query">Search titles or DOIs</label>
+  <input id="paper-query" type="search" name="q" value="{{ query }}" placeholder="Title or DOI" maxlength="200">
+  <label for="paper-status">Status</label>
+  <select id="paper-status" name="status">{% for choice in status_choices %}<option value="{{ choice.value }}"{% if choice.selected %} selected{% endif %}>{{ choice.label }}</option>{% endfor %}</select>
+  <input type="hidden" name="sort" value="{{ sort }}"><input type="hidden" name="direction" value="{{ direction }}">
+  <button type="submit">Filter papers</button>
+</form>
+<p role="status">{{ page.paginator.count }} matching paper{{ page.paginator.count|pluralize }}{% if page.paginator.count %}; showing {{ page.start_index }}–{{ page.end_index }}{% endif %}.{% if hud %} Project total: {{ project_total }}.{% endif %}</p>
+<div class="card table-scroll" tabindex="0" role="region" aria-label="Project papers table">
+  <table class="papers-table">
+    {% if not hud %}<colgroup><col style="width:24rem"><col style="width:5rem"><col style="width:15rem"><col style="width:7rem"><col style="width:10rem"><col style="width:7rem"></colgroup>{% endif %}
+    <thead><tr>{% for header in headers %}<th scope="col" aria-sort="{{ header.aria_sort }}">{% for link in header.links %}{% if not forloop.first %}<br>{% endif %}<a{% if hud %} data-hud-page{% endif %} href="?{{ link.url }}" aria-label="Sort {{ link.label }} {{ link.next_direction }}">{{ link.label }} {% if link.active %}<span aria-hidden="true">{% if direction == 'asc' %}↑{% else %}↓{% endif %}</span>{% else %}<span aria-hidden="true">↕</span>{% endif %}</a>{% endfor %}</th>{% endfor %}<th scope="col">Actions</th></tr></thead>
+    <tbody>{% for row in rows %}
+    <tr data-paper-id="{{ row.paper.pk }}">
+      <td><a href="{% if hud or not row.paper.doi %}{% url 'paper_manage' project.pk row.paper.pk %}{% else %}{% url 'paper_lookup' project.pk %}?doi={{ row.paper.doi|urlencode }}{% endif %}">{% if not row.title_ready %}Untitled paper{% elif hud %}{{ row.title_preview }}{% else %}{{ row.paper.title }}{% endif %}</a>{% if not hud and row.paper.doi %}<br><span class="meta">DOI {{ row.paper.doi }}</span>{% endif %}</td>
+      <td>{{ row.paper.publication_year|default:'?' }}</td>
+      <td>{% if hud %}{{ row.source_preview }}{% else %}{{ row.display_sources|join:', ' }}<br><span class="meta">{% if row.linked_keyword %}Linked keyword: {{ row.linked_keyword }}{% else %}{{ row.paper.keywords|join:', '|default:'—' }}{% endif %}</span>{% endif %}</td>
+      <td>{{ row.title_label }}</td><td>{{ row.abstract_label }}</td>
+      <td>{% if hud or not row.paper.doi %}<a href="{% url 'paper_manage' project.pk row.paper.pk %}" aria-label="Manage {{ row.title_preview|default:'untitled paper' }}">Manage</a>{% else %}<a href="{% url 'paper_lookup' project.pk %}?doi={{ row.paper.doi|urlencode }}">Update entry</a>{% endif %}</td>
+    </tr>
+    {% empty %}<tr><td colspan="6">{% if query or status != 'all' %}No papers match these filters. Change or clear the filter.{% else %}No stored papers yet. Find papers online or <a href="{% url 'paper_add' project.pk %}">add a paper by hand</a>.{% endif %}</td></tr>{% endfor %}</tbody>
+  </table>
+</div>
+<nav class="page-actions" aria-label="Paper pages">
+  {% if page.has_previous %}<a{% if hud %} data-hud-page{% endif %} href="?{{ page_query }}&amp;page={{ page.previous_page_number }}">← Previous</a>{% endif %}
+  <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+  {% if page.has_next %}<a{% if hud %} data-hud-page{% endif %} href="?{{ page_query }}&amp;page={{ page.next_page_number }}">Next →</a>{% endif %}
+</nav>
+<form method="get" class="page-actions" aria-label="Jump to paper page"{% if hud %} data-hud-filter{% endif %}>
+  {% if hud %}<input type="hidden" name="view" value="hud">{% endif %}
+  <input type="hidden" name="q" value="{{ query }}"><input type="hidden" name="sort" value="{{ sort }}"><input type="hidden" name="direction" value="{{ direction }}">{% if status != 'all' or request.GET.status %}<input type="hidden" name="status" value="{{ status }}">{% endif %}
+  <label for="paper-page-number">Jump to page</label>
+  <input id="paper-page-number" type="number" name="page" min="1" max="{{ page.paginator.num_pages }}" value="{{ page.number }}" required>
+  <button type="submit">Go</button>
+</form>

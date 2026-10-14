@@ -1,0 +1,36 @@
+{# Copyright (c) 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group. #}
+<details class="chart-export" data-chart-export data-chart-key="{{ export_key }}" data-chart-axes="{{ export_axes }}">
+  <summary>PNG export settings</summary>
+  <p class="meta" id="{{ export_key }}-export-help">Browser-local styles for this chart only; previews and downloads never change the interactive chart or research data. Presets are editable starting styles, not formal publication compliance. Fonts use those available on your computer.</p>
+  <fieldset aria-describedby="{{ export_key }}-export-help">
+    <legend>Labels and typography</legend>
+    <div class="chart-export-fields">
+      <label for="{{ export_key }}-export-preset">Starting style
+        <select id="{{ export_key }}-export-preset" data-export-setting="preset"><option value="custom">Custom</option><option value="access">IEEE Access</option><option value="robotics">IEEE Robotics Society</option></select>
+      </label>
+      <label for="{{ export_key }}-export-title">Chart title
+        <input id="{{ export_key }}-export-title" data-export-setting="title" type="text" maxlength="500" value="{{ export_title }}">
+      </label>
+      {% if export_axes == 'true' %}
+      <label for="{{ export_key }}-export-x-title">X axis title<input id="{{ export_key }}-export-x-title" data-export-setting="xTitle" type="text" maxlength="500"></label>
+      <label for="{{ export_key }}-export-y-title">Y axis title<input id="{{ export_key }}-export-y-title" data-export-setting="yTitle" type="text" maxlength="500"></label>
+      {% endif %}
+      <label for="{{ export_key }}-export-font">General font family<input id="{{ export_key }}-export-font" data-export-setting="fontFamily" type="text" maxlength="200" value="Arial, sans-serif" required></label>
+      <label for="{{ export_key }}-export-size">General font size (pt)<input id="{{ export_key }}-export-size" data-export-setting="fontSize" type="number" min="1" max="200" step="0.5" value="10" required></label>
+      <label for="{{ export_key }}-export-title-font">Title font family<input id="{{ export_key }}-export-title-font" data-export-setting="titleFontFamily" type="text" maxlength="200" value="Arial, sans-serif" required></label>
+      <label for="{{ export_key }}-export-title-size">Title font size (pt)<input id="{{ export_key }}-export-title-size" data-export-setting="titleFontSize" type="number" min="1" max="200" step="0.5" value="12" required></label>
+    </div>
+  </fieldset>
+  <fieldset>
+    <legend>PNG size and resolution</legend>
+    <div class="chart-export-fields">
+      <label for="{{ export_key }}-export-width">Width (mm)<input id="{{ export_key }}-export-width" data-export-setting="widthMm" type="number" min="1" max="1000" step="any" value="180" required></label>
+      <label for="{{ export_key }}-export-height">Height (mm)<input id="{{ export_key }}-export-height" data-export-setting="heightMm" type="number" min="1" max="1000" step="any" value="120" required></label>
+      <label for="{{ export_key }}-export-dpi">PNG resolution (DPI)<input id="{{ export_key }}-export-dpi" data-export-setting="dpi" type="number" min="1" max="2400" step="1" value="300" required></label>
+    </div>
+    <p class="meta">Maximum 8192 pixels per side and 16 megapixels total. Oversized or invalid settings must be corrected before rendering.</p>
+    <output data-export-dimensions aria-live="polite"></output>
+  </fieldset>
+  <p data-export-status role="status" aria-live="polite">The chart is loading. Open these settings once it is drawn to preview.</p>
+  <img data-export-preview alt="PNG export preview using these settings" hidden>
+</details>

@@ -8,8 +8,7 @@
   let notice = null;
   function isDirty() {
     return document.querySelector("form[data-dirty='true']") !== null
-      || (document.querySelector("form") !== null && document.activeElement
-        && document.activeElement.form !== undefined
+      || (document.activeElement?.form?.method.toLowerCase() === "post"
         && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName || ""));
   }
   function showNotice() {
@@ -43,9 +42,9 @@
   document.addEventListener("visibilitychange", revalidate);
   window.addEventListener("focus", revalidate);
   document.addEventListener("input", (event) => {
-    if (event.target && event.target.form) event.target.form.dataset.dirty = "true";
+    if (event.target?.form?.method.toLowerCase() === "post") event.target.form.dataset.dirty = "true";
   });
   document.addEventListener("submit", (event) => {
-    if (event.target && event.target.tagName === "FORM") event.target.dataset.dirty = "false";
+    if (!event.defaultPrevented && event.target?.method.toLowerCase() === "post") event.target.dataset.dirty = "false";
   });
 })();

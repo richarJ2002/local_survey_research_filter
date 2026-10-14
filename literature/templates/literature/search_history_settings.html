@@ -1,0 +1,16 @@
+{% extends "literature/base.html" %}
+{# Copyright (c) 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group. #}
+{% block title %}Historical settings — {{ search.name }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'project_detail' project.pk %}">← {{ project.name }}</a></p>
+<h1>Historical search settings: {{ search.name }}</h1>
+<p>Read-only provenance. <a href="{% url 'search_create' project.pk %}">Configure search</a> to explicitly adopt or combine future settings.</p>
+<dl>
+  <dt>Query</dt><dd>{{ search.query }}</dd>
+  <dt>Keywords</dt><dd>{{ search.keywords|join:", " }}</dd>
+  <dt>Sources</dt><dd>{{ search.sources_selected|join:", " }} (empty/all-invalid means all four)</dd>
+  <dt>Years</dt><dd>{{ search.year_min|default_if_none:"earliest" }}–{{ search.year_max|default_if_none:"latest" }}</dd>
+  <dt>Venues</dt><dd>{{ search.venues|join:", "|default:"unrestricted" }}</dd>
+  <dt>Authors</dt><dd>{{ search.author_names|join:", "|default:"unrestricted" }}</dd>
+</dl>
+{% endblock %}

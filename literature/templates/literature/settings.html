@@ -6,7 +6,16 @@
 <h1>Settings</h1>
 <p class="page-intro">Saved to the selected private credential file on this computer only — never in the database. Restart the server/launcher to apply changes.</p>
 <p class="meta">arXiv and Crossref use public APIs and do not need a key. OpenCitations also works without a token; a token is optional.</p>
-<div class="card form-card"><form method="post">{% csrf_token %}{{ form.as_p }}<button type="submit">Save locally</button></form></div>
+<p class="meta">An Elsevier account or API key alone does not grant Scopus API
+access. Your institutional network or an Elsevier-issued institutional token
+may also be needed. Before using Scopus, you must confirm that your
+<a href="https://dev.elsevier.com/policy.html" target="_blank"
+rel="noopener noreferrer">Elsevier API agreement</a> permits local storage
+and export for your research.</p>
+<p class="meta" role="note"><strong>Blank secret fields do not mean a saved key was deleted.</strong> Keys are intentionally not redisplayed after saving, refreshing or restarting. Click <strong>Save locally</strong> before restarting; refreshing/resetting before saving discards only unsaved input. Leave a secret field blank to keep its saved value.</p>
 {% if opencitations_token_configured %}<p class="meta">OpenCitations token configured. Leave its field blank to keep it.</p>{% endif %}
+{% if elsevier_api_key_configured %}<p class="meta" role="status"><strong>Elsevier Scopus API key configured — value hidden for security.</strong> Enter a replacement only to change it.</p>{% else %}<p class="meta">No Elsevier Scopus API key is loaded in this running process. If you just saved one, restart the full launcher to apply it; a page refresh is not a launcher restart.</p>{% endif %}
+{% if elsevier_insttoken_configured %}<p class="meta" role="status">Elsevier institutional token configured — value hidden for security. Enter a replacement only to change it.</p>{% endif %}
+<div class="card form-card"><form method="post">{% csrf_token %}{{ form.as_p }}<button type="submit">Save locally</button></form></div>
 {% if env_exists %}<p class="meta">Credential file exists.</p>{% else %}<p class="meta">No credential file yet — saving will create one.</p>{% endif %}
 {% endblock %}

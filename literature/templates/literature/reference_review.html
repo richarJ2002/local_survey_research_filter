@@ -1,9 +1,9 @@
 {% extends "literature/base.html" %}
-{% block title %}Complete references — {{ project.name }}{% endblock %}
+{% block title %}Reference completion — {{ project.name }}{% endblock %}
 {% block content %}
 <p class="meta"><a href="{% url 'project_detail' project.pk %}">← {{ project.name }}</a></p>
 <p class="eyebrow">After Abstract screening</p>
-<h1>Complete missing references</h1>
+<h1>Reference completion</h1>
 <p class="page-intro">These papers passed Abstract content screening but are not finally selected until a bibliography is available. {{ pending_count }} remaining.</p>
 {% if paper %}
 <div class="card form-card">
@@ -18,12 +18,12 @@
     <button type="submit">Save references and include paper</button>
   </form>
   <div class="page-actions">
-    <form method="post">{% csrf_token %}<input type="hidden" name="action" value="retry"><input type="hidden" name="paper_id" value="{{ paper.pk }}"><button type="submit">Retry reference lookup</button></form>
+    <form method="post">{% csrf_token %}<input type="hidden" name="action" value="retry"><input type="hidden" name="paper_id" value="{{ paper.pk }}"><button type="submit">Fetch missing details — online</button></form>
     <form method="post">{% csrf_token %}<input type="hidden" name="action" value="reject"><input type="hidden" name="paper_id" value="{{ paper.pk }}"><button type="submit" class="button-danger">Reject paper — references unavailable</button></form>
   </div>
-  <p class="meta">Rejection here counts as an Abstract rejection and is recorded in correction history. This never overwrites the paper's title or abstract. Bibliography metadata is shared with any other projects using this paper.</p>
+  <p class="meta">Online fetch may fill missing metadata from internet providers; known fields stay intact. Rejection is an audited Abstract rejection. Shared records in legacy developer mode may affect other projects using that paper.</p>
 </div>
 {% else %}
-<div class="card"><p>No papers are waiting for references.</p><a href="{% url 'screening_view' project.pk 'abstract' %}">Continue Abstract screening →</a></div>
+<div class="card"><p>No papers are waiting for references. Only papers that passed Abstract content need this step.</p><a href="{% url 'screening_view' project.pk 'abstract' %}">Continue Abstract screening →</a></div>
 {% endif %}
 {% endblock %}

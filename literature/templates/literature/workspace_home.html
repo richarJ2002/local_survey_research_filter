@@ -5,10 +5,10 @@
 <section class="hero" aria-labelledby="welcome-heading">
   <p class="eyebrow">Your research workspace</p>
   <h1 id="welcome-heading">Local Survey Research Filter</h1>
-  <p class="page-intro">Local-first survey screening. Choose <strong>New</strong> to create a project folder, or <strong>Load</strong> to open one. Type the folder path; symlinks to outside drives are fine.</p>
+  <p class="page-intro">Choose <strong>New</strong> for a fresh project or <strong>Load</strong> for an existing project folder. New uses a project name and an absolute parent folder; Load uses the project folder, not its database filename.</p>
 </section>
 {% if not email_ok %}
-<div class="card card--highlight" role="note"><strong>Offline work is ready</strong><p>New/Load and local editing need no email. Before an explicitly online search, <a href="{% url 'settings_view' %}">add your email in Settings</a> for OpenAlex.</p></div>
+<p class="meta">New/Load and local editing need no email. Before online search, <a href="{% url 'settings_view' %}">add your OpenAlex email in manager Settings</a>, then restart the launcher to apply.</p>
 {% endif %}
 
 <h2>Workspace folder</h2>
@@ -31,7 +31,7 @@
   {% for entry in discovery.entries %}
   <div class="card">
     <div class="project-card__header">
-      <h2>{% if entry.name %}{{ entry.name }}{% else %}Unnamed project{% endif %}</h2>
+      <h2>{% if entry.name %}{{ entry.name }}{% else %}Project name unavailable{% endif %}</h2>
     </div>
     <p class="meta"><code>{{ entry.directory }}</code></p>
     {% if entry.project_uuid %}<p class="meta">ID {{ entry.project_uuid|slice:":8" }}…</p>{% endif %}
@@ -80,8 +80,10 @@
     <form method="post" action="{% url 'workspace_new' %}">
       {% csrf_token %}
       {{ new_form.as_p }}
+      <button type="submit" name="preview" value="1" formnovalidate>Preview destination</button>
       <button type="submit">Create and open</button>
     </form>
+    {% if new_destination_preview.resolved %}<p role="status">Resolved New destination: <code>{{ new_destination_preview.resolved }}</code></p>{% endif %}
   </section>
   <section id="workspace-load-pane" aria-label="Load project">
     <h3>Load existing project</h3>
@@ -107,6 +109,7 @@
   <form method="post" action="{% url 'workspace_operation' %}">
     {% csrf_token %}
     {{ operation_form.as_p }}
+    <button type="submit" name="preview" value="1" formnovalidate>Preview destination</button>
     <button type="submit">Run confirmed operation</button>
   </form>
   {% if destination_preview.resolved %}<p class="meta">Resolved destination: <code>{{ destination_preview.resolved }}</code></p>{% endif %}

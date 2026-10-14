@@ -1,7 +1,8 @@
 {% extends "literature/base.html" %}
 {% block title %}Survey entry — {{ project.name }}{% endblock %}
+{% block project_save_panel %}{% endblock %}
 {% block content %}
-{% if popup %}<style>.site-header,.site-footer,.skip-link{display:none}.site-main{margin:1rem auto}.form-field #id_cited_entries label{display:flex;align-items:center;gap:.4rem}</style>{% else %}<p class="meta"><a href="{% url 'survey_graph' project.pk %}">← Curated survey graph</a></p>{% endif %}
+{% if popup %}<style>.site-main{margin:1rem auto}.form-field #id_cited_entries label{display:flex;align-items:center;gap:.4rem}</style>{% else %}<p class="meta"><a href="{% url 'survey_graph' project.pk %}">← Curated survey graph</a></p>{% endif %}
 <h1>{% if entry %}Edit{% else %}Add{% endif %} survey entry</h1>
 <p class="page-intro">Project-paper search or DOI lookup supplies a starting point, without assigning a ref ID. All bibliographic fields remain editable; correct typos before adding the snapshot. Changes never overwrite the draft paper.</p>
 {% if not entry %}
@@ -19,11 +20,12 @@
   {% endif %}
   <h2>Fill fields by DOI (optional)</h2>
   <form method="post" action="{% url 'survey_entry_add' project.pk %}">
-    {% csrf_token %}<input type="hidden" name="action" value="lookup">{% if popup %}<input type="hidden" name="popup" value="1">{% endif %}
+    {% csrf_token %}{% if popup %}<input type="hidden" name="popup" value="1">{% endif %}
     {% for field in lookup_form %}<div class="form-field"><label for="survey-lookup-doi">{{ field.label }}</label><input type="text" id="survey-lookup-doi" name="doi" maxlength="320" required value="{{ field.value|default:'' }}" placeholder="10.1000/example">{{ field.errors }}<small class="form-help">{{ field.help_text }}</small></div>{% endfor %}
-    <button type="submit">Look up DOI and fill fields</button>
+    <button type="submit" name="action" value="lookup">Use cached DOI details</button>
+    <button type="submit" name="action" value="fetch">Fetch DOI metadata — online</button>
   </form>
-  <p class="meta">Lookup replaces the entry fields, not the draft record. Papers imported from the project search are labelled separately from papers added while reading.</p>
+  <p class="meta">Cached details stay local. Online fetch uses internet providers and fills an unsaved preview; neither action saves the entry or overwrites the draft paper.</p>
   <a href="{% url 'survey_entry_add' project.pk %}{% if popup %}?popup=1{% endif %}">Clear fields / start a blank manual entry</a>
 </div>
 {% endif %}
@@ -36,7 +38,7 @@
       {% elif field.name == "cited_entries" %}<fieldset class="form-field"><legend>{{ field.label }}</legend>{{ field }}{{ field.errors }}<small class="form-help">{{ field.help_text }}</small></fieldset>
       {% else %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}{% if field.help_text %}<small class="form-help">{{ field.help_text }}</small>{% endif %}</div>{% endif %}
     {% endfor %}
-    <button type="submit">{% if entry %}Save entry and links{% else %}Add paper to graph{% endif %}</button>
+    <button type="submit">Save entered details</button>
   </form>
 </div>
 {% endblock %}

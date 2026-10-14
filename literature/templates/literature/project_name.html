@@ -1,0 +1,13 @@
+{% extends "literature/base.html" %}
+{# Copyright (c) 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group. #}
+{% block title %}Edit project name — {{ project.name }}{% endblock %}
+{% block content %}
+<h1>Edit project name</h1>
+<p class="meta">This changes the display name only. Save Copy suggests a new folder from it; the current folder is not renamed.</p>
+<form method="post" class="card form-card">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button type="submit">Save project name</button>
+  <a href="{% url 'project_detail' project.pk %}">Cancel</a>
+</form>
+{% endblock %}

@@ -1,0 +1,42 @@
+{# Copyright (c) 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group. #}
+{% for problem in chart_options.feedback %}<p role="alert">{{ problem }}</p>{% endfor %}
+{% if not metrics.unique_total %}<p class="meta">No stored papers yet. Find papers online or <a href="{% url 'paper_add' project.pk %}">add a paper by hand</a>; chart updates remain local.</p>{% endif %}
+{% for chart in chart_cards %}
+<section class="card chart-card" id="chart-{{ chart.kind }}" aria-labelledby="chart-{{ chart.kind }}-heading">
+  <h2 id="chart-{{ chart.kind }}-heading">{{ chart.title }}</h2>
+  {% include "literature/chart_controls.html" %}
+  <p class="meta">{{ chart.description }}</p>
+  {% if chart.kind == 'source' %}<p class="meta">{{ metrics.current.unique }} distinct papers.{% if metrics.current.blank %} {{ metrics.current.blank }} have no displayed origin and are omitted from these bars; they remain in View Papers.{% endif %} <a href="{% url 'papers_view' project.pk %}?sort=source&amp;direction=asc">View current papers sorted by source →</a></p>{% endif %}
+  {% if chart.kind == 'yearly' or chart.kind == 'totals' %}{% if chart_window_empty %}<p class="meta">No dated papers in this window. Undated papers remain in the project; change the year range to see other dated papers.</p>{% endif %}{% endif %}
+  {% if chart.kind == 'citation' %}
+    <p class="meta">Scroll over the graph to zoom; drag to pan. With the graph focused, use +/− to zoom, arrow keys to pan, or Home to fit all. Reset view fits the whole graph.</p>
+    {% if seed_stage == 'final' %}<p class="meta">Start from your selected papers, newest first, and follow the papers they cite. The final lens never falls back to Title-passed or found papers.</p>{% endif %}
+    <ul class="meta" aria-label="Circle colour key">
+      <li><span aria-hidden="true" style="display:inline-block;width:0.8em;height:0.8em;border-radius:50%;background:#3f7e3f;"></span> <strong>Green</strong> — your selected (kept) papers.</li>
+      <li><span aria-hidden="true" style="display:inline-block;width:0.8em;height:0.8em;border-radius:50%;background:#8a8a8a;"></span> <strong>Grey</strong> — papers on a direct-citation path joining selected papers.</li>
+      <li><span aria-hidden="true" style="display:inline-block;width:0.8em;height:0.8em;border-radius:50%;background:#3C27F5;"></span> <strong>Dark blue</strong> — branches that do not connect selected papers.</li>
+    </ul>
+    <p class="meta">The backbone chooses one deterministic shortest citation path for each connection needed to join a selected group; other routes and branches are hidden only when requested.</p>
+    <p class="meta">{{ citation_nodes }} papers, {{ citation_edges }} resolved direct links.{% if citation_missing_references %} {{ citation_missing_references }} papers have no resolved reference identifiers; bibliography text alone does not invent citation edges.{% endif %}</p>
+    {% if not citation_nodes %}<p class="meta">{% if seed_stage == 'final' and not metrics.final_included %}Complete Abstract content and reference screening to create final citation seeds.{% else %}No groups under these settings. Relax the minimum group size or display settings.{% endif %}</p>{% endif %}
+    <div class="page-actions"><a href="{% url 'references_download' project.pk 'final' %}?{{ chart_query }}">Download final selected references (.md)</a><a href="{% url 'references_download' project.pk 'citations' %}?{{ chart_query }}">Download citation papers shown (.md)</a></div>
+  {% endif %}
+  {% if native_chart_controls %}
+  {% with export_key='chart-'|add:chart.kind %}
+    {% if chart.kind == 'flow' or chart.kind == 'citation' %}
+      {% include "literature/chart_export_controls.html" with export_title=chart.title export_axes='false' %}
+    {% else %}
+      {% include "literature/chart_export_controls.html" with export_title=chart.title export_axes='true' %}
+    {% endif %}
+  {% endwith %}
+  <div class="chart-navigation" role="group" aria-label="{{ chart.title }} view and export">
+    <button type="button" data-chart-action="download">Download PNG</button>
+    {% if chart.kind != 'flow' and chart.kind != 'citation' or chart.kind == 'citation' and citation_nodes %}
+    <button type="button" data-chart-action="reset">Reset view</button>
+    {% endif %}
+  </div>
+  <p data-chart-action-status role="status" hidden></p>
+  {% endif %}
+  {{ chart.html|safe }}
+</section>
+{% endfor %}

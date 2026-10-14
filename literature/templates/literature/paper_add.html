@@ -1,13 +1,13 @@
 {% extends "literature/base.html" %}
 {# Copyright (c) 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group. #}
-{% block title %}Add paper — {{ project.name }}{% endblock %}
+{% block title %}Add a paper by hand — {{ project.name }}{% endblock %}
 {% block content %}
 <p class="meta"><a href="{% url 'papers_view' project.pk %}">← View Papers</a></p>
 <p class="eyebrow">Paper discovery</p>
-<h1>Add a missed paper</h1>
-<p class="page-intro">Look up a DOI to review read-only paper information, assign a keyword and choose screening statuses before adding or updating an entry.</p>
+<h1>Add a paper by hand</h1>
+<p class="page-intro">Enter details locally, or open a cached DOI preview. Online metadata fetching is a separate action; nothing is added until you save.</p>
 <div class="card form-card">
-  <h2>Search by DOI</h2>
+  <h2>Open a DOI preview</h2>
   <form method="post">
     {% csrf_token %}<input type="hidden" name="action" value="search">
     {{ search_form.non_field_errors }}
@@ -18,13 +18,13 @@
         {{ field.errors }}
       </div>
     {% endfor %}
-    <button type="submit">Search</button>
+    <button type="submit">Open local DOI preview</button>
   </form>
 </div>
 <details class="card form-card" id="manual-entry"{% if manual_form.is_bound %} open{% endif %}>
-  <summary>No DOI or no provider record? Enter a paper manually</summary>
-  <p class="meta">Use this fallback when no provider record is available, and select where the paper was found. Entering metadata by hand does not become its discovery source. A titled paper starts Title screening as pending.</p>
-  {% if not has_keywords %}<p><strong>Add a search with a keyword first.</strong> <a href="{% url 'search_create' project.pk %}">Create a search →</a></p>{% endif %}
+  <summary>Enter paper details locally (no internet needed)</summary>
+  <p class="meta">Choose where the paper was found and a current keyword. Saving records your details and starts Title screening as pending; it never fetches providers.</p>
+  {% if not has_keywords %}<p><strong>Save current search settings with a keyword first.</strong> <a href="{% url 'search_create' project.pk %}">Configure search →</a></p>{% endif %}
   <form method="post">
     {% csrf_token %}<input type="hidden" name="action" value="manual">
     {{ manual_form.non_field_errors }}
@@ -35,7 +35,7 @@
         {{ field.errors }}
       </div>
     {% endfor %}
-    <button type="submit"{% if not has_keywords %} disabled{% endif %}>Add paper</button>
+    <button type="submit"{% if not has_keywords %} disabled{% endif %}>Save entered details</button>
   </form>
 </details>
 {% endblock %}

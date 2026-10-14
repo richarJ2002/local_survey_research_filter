@@ -32,7 +32,7 @@
       {% for field in extra_metadata_fields %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}{% if field.help_text %}<small class="form-help">{{ field.help_text }}</small>{% endif %}</div>{% endfor %}
     </details>
   {% endif %}
-    <button type="submit">Save missing details</button>
+    <button type="submit">Save entered details</button>
   </form>
   {% endif %}
   {% else %}
@@ -48,6 +48,19 @@
 {% endblock %}
 {% block scripts %}
 <script>
+// One-shot, tab-local position; the path includes the project, worker and round.
+const screeningScrollKey = "screening-scroll:" + window.location.pathname;
+try {
+  const stored = window.sessionStorage.getItem(screeningScrollKey);
+  window.sessionStorage.removeItem(screeningScrollKey);
+  const position = stored && JSON.parse(stored);
+  if (Array.isArray(position) && position.length === 2 &&
+      position.every(value => Number.isFinite(value) && value >= 0)) {
+    window.addEventListener("load", () => {
+      window.scrollTo({left: position[0], top: position[1], behavior: "instant"});
+    }, {once: true});
+  }
+} catch (_) { /* Unavailable storage must never prevent screening. */ }
 document.addEventListener("keydown", (e) => {
   if (e.target.closest("input, textarea, select, button, a, [contenteditable]")) return;
   if (e.code === "ArrowLeft" || e.code === "ArrowRight") {
@@ -73,7 +86,17 @@ document.querySelectorAll("#screening-card button[data-decision]").forEach(btn =
         body: JSON.stringify({paper_id: card.dataset.paperId, stage_id: card.dataset.stageId, decision: btn.dataset.decision}),
       });
       const data = await resp.json();
-      if (resp.ok && data.next_paper_url) window.location.href = data.next_paper_url;
+      if (resp.ok && data.next_paper_url) {
+        const next = new URL(data.next_paper_url, window.location.href);
+        if (next.origin === window.location.origin &&
+            next.pathname === window.location.pathname) {
+          try {
+            window.sessionStorage.setItem(screeningScrollKey,
+              JSON.stringify([window.scrollX, window.scrollY]));
+          } catch (_) { /* Saving the decision does not depend on storage. */ }
+        }
+        window.location.href = data.next_paper_url;
+      }
       else throw new Error(data.error || "The decision was not saved. Try again.");
     } catch (failure) {
       error.textContent = failure.message;

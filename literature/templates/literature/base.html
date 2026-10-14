@@ -187,7 +187,15 @@
     .loading-dots span:nth-child(3) { animation-delay: 0.3s; }
     form[data-search-run] button:disabled { cursor: wait; opacity: 0.82; }
     @keyframes search-pulse { 0%, 70%, 100% { opacity: 0.25; } 35% { opacity: 1; } }
-    html[data-theme="dark"] .js-plotly-plot .annotation-text { fill: #e8edf2 !important; }
+    html[data-theme="dark"] .js-plotly-plot:not([data-chart-export-clone]) .annotation-text { fill: #e8edf2 !important; }
+    .chart-export { margin: 1rem 0; }
+    .chart-export summary { cursor: pointer; padding: 0.5rem; min-height: 44px; font-weight: 650; }
+    .chart-export fieldset { min-width: 0; margin: 0.75rem 0; padding: 0.75rem; border: 1px solid var(--field-border); border-radius: 0.5rem; }
+    .chart-export-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); gap: 0.75rem; }
+    .chart-export label { display: flex; flex-direction: column; gap: 0.3rem; font-weight: 650; }
+    .chart-export input, .chart-export select { min-height: 44px; width: 100% !important; }
+    .chart-export [data-export-preview] { display: block; max-width: 100%; height: auto; margin: 1rem 0; border: 1px solid var(--line); }
+    .chart-export [hidden] { display: none !important; }
     @media (max-width: 650px) {
       .site-header__inner { min-height: 3.5rem; flex-wrap: wrap; padding: 0.55rem 0; }
       .site-main { margin-top: 1.3rem; }
@@ -204,18 +212,54 @@
       .project-grid .card, .button-link, button { transition: none; }
       .loading-dots span { animation: none; opacity: 1; }
     }
+    /* WP02 project-only targets: unrelated pages retain their settled styles. */
+    body.project-detail { --field-border: #667788; --wp-focus: #385a80; }
+    html[data-theme="dark"] body.project-detail { --field-border: #849aab; --button-hover: #47779e; --wp-focus: #f5cc7a; }
+    body.project-detail a:not(.modebar-btn), body.project-detail button, body.project-detail summary { min-width: 44px; min-height: 44px; }
+    body.project-detail a:not(.modebar-btn) { display: inline-flex; align-items: center; padding: 0.35rem 0.5rem; max-width: 100%; overflow-wrap: anywhere; }
+    body.project-detail summary { display: list-item; cursor: pointer; padding: 0.5rem; font-weight: 650; }
+    html[data-theme="dark"] body.project-detail button:not([type="button"]), html[data-theme="dark"] body.project-detail .button-link:not(.button-link--secondary) { border-color: var(--accent-dark); }
+    body.project-detail .button-link--secondary, body.project-detail button[type="button"] { border-color: var(--accent-dark); }
+    body.project-detail .link-danger { border: 1px solid var(--danger); border-radius: 0.5rem; }
+    body.project-detail :focus-visible { outline: 3px solid var(--wp-focus); outline-offset: 3px; }
+    body.project-detail input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), body.project-detail select { min-height: 44px; min-width: 44px; }
+    body.project-detail .site-nav, body.project-detail .page-actions { gap: 0.75rem; }
+    body.project-detail .chart-controls, body.project-detail .chart-navigation { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.75rem; margin: 1rem 0; }
+    body.project-detail .chart-controls label { display: flex; flex-direction: column; gap: 0.3rem; min-width: 44px; min-height: 44px; max-width: 100%; }
+    body.project-detail .chart-controls label:has(input[type="checkbox"]) { flex-direction: row; align-items: center; padding: 0.5rem; }
+    body.project-detail .chart-card details > select, body.project-detail .chart-card details > button { margin: 0.4rem; }
+    body.project-detail details form { margin: 1rem 0; }
+    body.project-detail .chart-navigation button[aria-pressed="true"] { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent-dark); }
+    body.project-detail button:disabled { opacity: 1; border-style: dashed; cursor: wait; }
+    body.project-detail #paper-overview { width: min(94vw,75rem); max-width: calc(100vw - 2rem); max-height: 88vh; overflow: auto; background: var(--surface); color: var(--ink); border: 2px solid var(--field-border); border-radius: 0.7rem; padding: 1rem; }
+    body.project-detail #paper-overview::backdrop { background: rgba(0,0,0,0.6); }
+    body.project-detail #paper-overview-body .papers-table { min-width: 44rem; table-layout: fixed; }
+    body.project-detail #paper-overview-body td { overflow-wrap: anywhere; }
+    body.project-detail #paper-overview-body label { display: inline-flex; align-items: center; min-height: 44px; }
+    body.project-detail #paper-overview-body form { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+    body.project-detail [hidden] { display: none !important; }
+    @media (prefers-reduced-motion: reduce) {
+      body.project-detail { scroll-behavior: auto; }
+      body.project-detail a, body.project-detail button { transition: none; }
+      body.project-detail .loading-dots span { animation: none; opacity: 1; }
+    }
+    /* End WP02 project-only targets. */
   </style>
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
 <a class="skip-link" href="#main-content">Skip to content</a>
+{% if not popup %}
 <header class="site-header">
   <div class="site-header__inner">
     <a class="site-brand" data-project-exit href="{% if request.manager_base %}{{ request.manager_base }}/{% else %}{% url 'project_list' %}{% endif %}" aria-label="Local Survey Research Filter home"><span class="site-brand__mark" aria-hidden="true">LS</span><span>Local Survey Research Filter</span></a>
     <nav class="site-nav" aria-label="Main navigation"><a data-project-exit href="{% if request.manager_base %}{{ request.manager_base }}/{% else %}{% url 'project_list' %}{% endif %}">Projects</a>{% if request.project_copy_url %}<a href="{{ request.project_copy_url }}" target="_blank" rel="noopener" aria-label="Save project copy (opens manager in a new tab)">Save project copy…</a>{% elif request.legacy_project %}<a href="#project-save-status">Save / project folders</a>{% endif %}<a href="{% if request.manager_base %}{{ request.manager_base }}/settings/{% else %}{% url 'settings_view' %}{% endif %}">Settings</a><button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false">Dark mode</button></nav>
   </div>
 </header>
+{% endif %}
 {% if messages %}<ul class="messages" role="status">{% for m in messages %}<li class="{{ m.tags }}">{{ m }}</li>{% endfor %}</ul>{% endif %}
 <main id="main-content" class="site-main">
+{% block project_save_panel %}
+{% if not popup %}
 {% if request.worker_route and request.project_store_location %}
 <section id="project-save-status" class="card" role="note" aria-label="Project saving">
   <strong>Submitted edits are saved immediately to this project's database.</strong>
@@ -234,8 +278,10 @@
   <p>Use the <strong>New / Load manager</strong>: run <code>python3.12 launch.py --port 8001</code> in another terminal if this developer server uses port 8000, then open the printed manager URL. Load an already converted and verified project folder, or use New for a new project. This page does not determine conversion status and never converts, copies or synchronises stores. Edits here do not update a previously converted store.</p>
 </section>
 {% endif %}
+{% endif %}
+{% endblock %}
 {% block content %}{% endblock %}</main>
-<footer class="site-footer">© 2026 Aerospace Engineering Research &amp; Operation Systems (AERO-Sys) group.</footer>
+{% if not popup %}<footer class="site-footer">© 2026 Aerospace Engineering Research &amp; Operation Systems (AERO-Sys) group.</footer>{% endif %}
 <script src="{% static 'literature/project_handle.js' %}" defer></script>
 <script src="{% static 'literature/project_refresh.js' %}" defer></script>
 {% block scripts %}{% endblock %}
@@ -247,7 +293,7 @@
       if (!window.Plotly) return;
       const dark = root.dataset.theme === "dark";
       document.querySelectorAll(".js-plotly-plot").forEach(plot => {
-        if (!plot._fullLayout) return;
+        if (!plot._fullLayout || plot.hasAttribute("data-chart-export-clone")) return;
         window.Plotly.relayout(plot, {
           paper_bgcolor: dark ? "#1d2934" : "#fff",
           plot_bgcolor: dark ? "#1d2934" : "#fff",
@@ -259,14 +305,16 @@
     }
     function applyTheme(theme, save) {
       root.dataset.theme = theme;
-      button.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
-      button.textContent = theme === "dark" ? "Light mode" : "Dark mode";
+      if (button) {
+        button.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
+        button.textContent = theme === "dark" ? "Light mode" : "Dark mode";
+      }
       if (save) {
         try { localStorage.setItem("lsrf-theme", theme); } catch (_) { /* Private mode may block storage. */ }
       }
       updateCharts();
     }
-    button.addEventListener("click", () => applyTheme(root.dataset.theme === "dark" ? "light" : "dark", true));
+    button?.addEventListener("click", () => applyTheme(root.dataset.theme === "dark" ? "light" : "dark", true));
     window.addEventListener("load", () => applyTheme(root.dataset.theme === "dark" ? "dark" : "light", false));
   })();
 </script>

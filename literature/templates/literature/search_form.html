@@ -1,15 +1,28 @@
 {% extends "literature/base.html" %}
 {# Copyright (c) 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group. #}
-{% block title %}{% if editing %}Edit search — {{ project.name }}{% else %}New search — {{ project.name }}{% endif %}{% endblock %}
+{% block title %}{% if editing %}Edit search settings — {{ project.name }}{% else %}Configure search — {{ project.name }}{% endif %}{% endblock %}
 {% block content %}
 <p class="meta"><a href="{% url 'project_detail' project.pk %}">← {{ project.name }}</a></p>
 <p class="eyebrow">Search setup</p>
-<h1>{% if editing %}Edit search for {{ project.name }}{% else %}New search for {{ project.name }}{% endif %}</h1>
-<p class="page-intro">Add one item per row. Rows are sorted A–Z automatically so every search app gets the same clean lists. Keywords become the OpenAlex query. Year blank = max range (all years).</p>
+<h1>{% if editing %}Edit search settings for {{ project.name }}{% else %}Configure search for {{ project.name }}{% endif %}</h1>
+<p class="page-intro">Add one keyword, venue or author per row; lists are sorted A–Z. Blank years mean all years. Saving stays local and does not find papers.</p>
+{% if source_configurations %}
+<details open><summary>Existing configurations retained in history ({{ source_configurations|length }})</summary>
+{% for source in source_configurations %}
+<p><strong>{{ source.name }}</strong>: {{ source.keywords|join:", " }}{% if not source.keywords %} — Original query: <code>{{ source.query }}</code>{% endif %}</p>
+<p class="meta">Stored sources: {{ source.sources_selected|join:", " }} (empty/all-invalid means all four). Years: {{ source.year_min|default_if_none:"earliest" }}–{{ source.year_max|default_if_none:"latest" }}. Venues: {{ source.venues|join:", "|default:"unrestricted" }}. Authors: {{ source.author_names|join:", "|default:"unrestricted" }}.</p>
+{% endfor %}
+<p>Combined keyword conjunctions and filters can differ from running old queries separately. Edit the proposed future settings below; existing results, provenance and decisions are retained.</p>
+{% if source_configurations|length == 1 %}<form method="post">{% csrf_token %}<input type="hidden" name="configuration_token" value="{{ configuration_token }}"><button name="action" value="adopt">Use these settings</button></form>{% endif %}
+</details>
+{% endif %}
+{% if editing and search.query and not search.keywords %}<p>Original executable query: <code>{{ search.query }}</code>. To edit it, explicitly translate or replace it with keyword rows. Leaving this page does not change it.</p>{% endif %}
 <div class="card form-card">
-  <form method="post" id="search-form">
+  <form method="post" id="search-form"{% if editing %} action="{% url 'search_update' project.pk search.pk %}"{% endif %}>
   {% csrf_token %}
   {{ form.non_field_errors }}
+  <input type="hidden" name="configuration_token" value="{{ configuration_token }}">
+  {% if query_only %}<p>Translate or deliberately replace the original queries above using the future keyword rows below.</p><label><input type="checkbox" name="translated" required> I have translated or deliberately replaced every displayed legacy query.</label>{% endif %}
   <p>{{ form.name.label_tag }}<br>{{ form.name }}<br><span class="meta">{{ form.name.help_text }}</span><br>{{ form.name.errors }}</p>
   {{ form.keywords_json }}{{ form.venues_json }}{{ form.author_names_json }}
 
@@ -32,10 +45,10 @@
   <h2>Sources</h2>
   <p>{{ form.sources_selected }}<br><span class="meta">{{ form.sources_selected.help_text }}</span><br>{{ form.sources_selected.errors }}</p>
 
-  <button type="submit">Save search</button>
+  <button type="submit">{% if source_configurations|length > 1 %}Use combined settings{% else %}Save search settings{% endif %}</button>
   </form>
 </div>
-<p class="meta">After saving, press <strong>Run search</strong> on the project page to fetch papers. Then start screening.</p>
+<p class="meta">After saving, press <strong>Find papers now</strong> on the project page to use selected internet providers, or <a href="{% url 'paper_add' project.pk %}">Add a paper by hand</a> locally. The original providers need an OpenAlex email in manager Settings. Scopus-only search needs an Elsevier API key instead; restart the launcher after changing credentials.</p>
 {% endblock %}
 {% block scripts %}
 <script>

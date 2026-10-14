@@ -1,11 +1,18 @@
 {% extends "literature/base.html" %}
+{% load static %}
 {# Copyright (c) 2026 Aerospace Engineering Research & Operation Systems (AERO-Sys) group. #}
 {% block title %}{{ project.name }}{% endblock %}
+{% block body_class %}project-detail{% endblock %}
 {% block content %}
 <p class="meta"><a href="{% url 'project_list' %}">← All projects</a></p>
 <p class="eyebrow">Research project</p>
 <header class="card project-summary">
-  <h1>{{ project.name }}</h1>
+  <div class="project-card__header">
+    <h1>{{ project.name }}</h1>
+    {# ponytail: reuse the confirmation page; deletion stays CSRF-protected and works without JavaScript. #}
+    <a class="link-danger" style="flex: none;" href="{% url 'project_delete' project.pk %}">Delete project</a>
+  </div>
+  <p><a href="{% url 'project_name' project.pk %}">Edit project name</a></p>
   {% if project.description %}<p class="page-intro">{{ project.description }}</p>{% endif %}
   {% if project.survey_topic or project.research_questions or project.domain %}
   <dl>
@@ -15,98 +22,97 @@
   </dl>
   {% endif %}
 </header>
-<div class="page-actions"><a class="button-link" href="{% url 'search_create' project.pk %}">+ New search</a><a class="button-link button-link--secondary" href="{% url 'plots_view' project.pk %}">View charts</a><a class="link-danger" href="{% url 'project_delete' project.pk %}">Delete project</a></div>
 <span hidden data-project-revision-url="{% url 'project_revision' project.pk %}" data-revision="{{ metrics.revision }}"></span>
-
-<h2>How papers were found (audit)</h2>
-<p class="meta">This is historical import activity, including duplicate hits. Later source corrections do not rewrite earlier audits; “Unspecified at import” does not mean a paper still has a blank current source.</p>
-<div class="stats-grid" role="group" aria-label="Project at a glance">
-  <div class="stat"><strong class="stat__value">{{ metrics.total_identified }}</strong><span class="stat__label">Records found</span></div>
-  <div class="stat"><strong class="stat__value">{{ metrics.unique_total }}</strong><span class="stat__label">Unique papers</span></div>
-  <div class="stat"><strong class="stat__value">{{ metrics.final_included }}</strong><span class="stat__label">Final kept</span></div>
-  <div class="stat"><strong class="stat__value">{{ metrics.reference_pending }}</strong><span class="stat__label">Awaiting references</span></div>
-</div>
-<div class="card">
-  <p><strong>Records found: {{ metrics.total_identified }}</strong></p>
-  {% for source, m in metrics.per_source.items %}
-  <p class="meta">{{ source }}: {{ m.results }} found ({{ m.new }} new, {{ m.dups }} duplicates) across {{ m.runs }} run(s)</p>
-  {% empty %}<p class="meta">No searches run yet.</p>{% endfor %}
-  <p>Duplicates appearing in multiple sources: <strong>{{ metrics.multi_source }}</strong> · Total duplicate hits: {{ metrics.total_dups }}</p>
-  <p><strong>Unique papers: {{ metrics.unique_total }}</strong></p>
-  <p><a href="{% url 'duplicates_view' project.pk %}">Review duplicates ({{ dup_count }} same-title groups)</a></p>
-  <form method="post" action="{% url 'refs_backfill' project.pk %}">{% csrf_token %}<button type="submit">Fetch missing details</button></form>
-  <form method="post" action="{% url 'citations_enrich' project.pk %}">{% csrf_token %}<button type="submit">Improve citation links (up to 20 DOI lookups)</button></form>
-  <p class="meta">OpenCitations checks references and incoming citations for project DOIs. Results are cached; run it again for the next batch. This does not add papers outside this project.</p>
-</div>
-
-<h2>Screening</h2>
-<p><a class="button-link button-link--secondary" href="{% url 'survey_graph' project.pk %}">Curated survey graph (separate from the draft)</a></p>
-<div class="page-actions"><a class="button-link button-link--secondary" href="{% url 'papers_view' project.pk %}">View Papers</a></div>
-<div class="card"><strong>Reference completion</strong> — {{ metrics.reference_pending }} waiting. <a href="{% url 'reference_review' project.pk %}">Complete missing references →</a><p class="meta">Papers here passed Abstract content screening. They are not finally selected yet. Rejection here counts as an Abstract rejection.</p></div>
-{% for stage in stages %}
-<div class="card">
-  <strong>{{ stage.name }}{% if stage.name == "Abstract" %} content{% endif %} round</strong> —
-  {% for name, c in counts.items %}{% if name == stage.name %} {{ c.pending }} pending / {{ c.accept }} yes / {{ c.reject }} no{% endif %}{% endfor %}
-  <a href="{% url 'screening_view' project.pk stage.name|lower %}">Start screening →</a>
-</div>
-{% endfor %}
-<div class="card">
-  <strong>Final included (Abstract passed and references available): {{ metrics.final_included }}</strong>
-</div>
-
-<h2>Searches</h2>
-<div class="page-actions"><a class="button-link button-link--secondary" href="{% url 'search_create' project.pk %}">+ New search</a><a href="#plots">Charts ↓</a><a href="{% url 'export_markdown' project.pk %}">Download Markdown</a></div>
-{% for s in searches %}
-<div class="card">
-  <strong>{{ s.name }}</strong> <span class="meta">(sources: {{ s.sources_selected|join:", " }})</span>
-  <span class="meta"><a href="{% url 'search_update' project.pk s.pk %}">Edit</a></span>
-  <p class="meta">Keywords (A–Z): {% if s.keywords %}{{ s.keywords|join:", " }}{% else %}—{% endif %}</p>
-  <p class="meta">Years: {{ s.year_min|default:"earliest" }}–{{ s.year_max|default:"latest" }}{% if s.venues %} · Journals: {{ s.venues|join:", " }}{% endif %}{% if s.author_names %} · Authors: {{ s.author_names|join:", " }}{% endif %}</p>
-  {% if not s.last_run_at %}
-  <p><strong>Not run yet</strong> — press Run search to fetch papers, then start screening above.</p>
-  {% endif %}
-  <form method="post" action="{% url 'search_run' project.pk s.pk %}" data-search-run>
+<section class="card" id="search-section" aria-labelledby="search-heading">
+<h2 id="search-heading">Search</h2>
+<div class="page-actions" id="search-actions" style="display: grid; grid-template-columns: minmax(0, 1fr); max-width: 22rem;">
+  <a class="button-link" href="{% if request.manager_base %}{{ request.manager_base }}/settings/{% else %}{% url 'settings_view' %}{% endif %}">Manage API settings</a>
+  <a class="button-link" href="{% url 'search_create' project.pk %}">Configure search criteria</a>
+  {% if current_search %}
+  <form method="post" action="{% url 'search_run' project.pk current_search.pk %}" data-search-run>
     {% csrf_token %}
-    <button type="submit">Run search (ticked sources)</button>
+    <button type="submit" style="width: 100%;">Find papers now</button>
     <p class="meta search-status" role="status" hidden>Searching selected sources. Please keep this page open; results will appear when the search finishes.</p>
   </form>
+  {% else %}
+  <button type="button" disabled aria-describedby="no-current-search" style="cursor: not-allowed;">Find papers now</button>
+  {% endif %}
+  <a class="button-link" href="{% url 'paper_add' project.pk %}">Add papers by hand</a>
+</div>
+{% if not current_search %}
+<p class="meta" id="no-current-search">
+  <strong>No current search settings.</strong>
+  {% if metrics.unique_total %}Existing papers and screening are retained; continue reviewing, linking and exporting now.{% else %}Configure search criteria before finding papers.{% endif %}
+</p>
+{% endif %}
+<h3>Results summary</h3>
+<table id="results-summary" aria-label="Results summary">
+  <tbody>
+    <tr><th scope="row">Records found</th><td>{{ metrics.total_identified }}</td></tr>
+    <tr><th scope="row">Unique papers</th><td>{{ metrics.unique_total }}</td></tr>
+    <tr><th scope="row">Final kept</th><td>{{ metrics.final_included }}</td></tr>
+    <tr><th scope="row">Awaiting references</th><td>{{ metrics.reference_pending }}</td></tr>
+  </tbody>
+</table>
+<div class="page-actions" id="results-actions">
+  <a class="button-link button-link--secondary" href="{% url 'duplicates_view' project.pk %}" title="{{ dup_count }} same-title groups">Review duplicates</a>
+  <form method="post" action="{% url 'refs_backfill' project.pk %}">{% csrf_token %}<button class="button-link--secondary" type="submit" title="Use internet providers; known fields stay intact.">Fetch missing details</button></form>
+  <form method="post" action="{% url 'citations_enrich' project.pk %}">{% csrf_token %}<button class="button-link--secondary" type="submit" title="OpenCitations: up to 20 online lookups per batch.">Fetch missing citations</button></form>
+  <a class="button-link button-link--secondary" href="{% url 'export_markdown' project.pk %}">Download Markdown</a>
+</div>
+{% if current_search %}{% with s=current_search %}
+<details id="search-preview">
+  <summary>Configured search criteria</summary>
+  <p class="meta">{{ s.name }} (sources: {{ s.display_providers|join:", " }})</p>
+  {% if s.keywords %}<p class="meta">Keywords (A–Z): {{ s.keywords|join:", " }}</p>{% else %}<p class="meta">Query: <code>{{ s.query }}</code></p>{% endif %}
+  <p class="meta">Years: {{ s.year_min|default_if_none:"earliest" }}–{{ s.year_max|default_if_none:"latest" }}{% if s.venues %} · Journals: {{ s.venues|join:", " }}{% endif %}{% if s.author_names %} · Authors: {{ s.author_names|join:", " }}{% endif %}</p>
+  {% if not s.last_run_at %}<p class="meta"><strong>Not run yet</strong>{% if metrics.unique_total %} — existing papers and decisions are retained; finding more papers is optional.{% endif %}</p>{% endif %}
   <p class="meta">Last search done: {{ s.last_run_at|default:"never" }} · {{ s.results_count }} results ({{ s.new_papers_count }} new)</p>
-  {% for r in s.runs.all|slice:":8" %}<p class="meta">Run {{ r.executed_at }} — {{ r.source }} {{ r.status }}: {{ r.results_count }} results, {{ r.new_papers_count }} new, {{ r.duplicates_count }} dups, {{ r.no_abstract_count }} no abstract{% if r.error_message %} · {{ r.error_message }}{% endif %}</p>{% endfor %}
-</div>
-{% empty %}
-<div class="card">
-  <strong>No searches yet.</strong>
-  <p>Click <a href="{% url 'search_create' project.pk %}">+ New search</a> to add keyword rows, year range, journals and authors. Then press <strong>Run search</strong> to fetch papers before screening.</p>
-</div>
-{% endfor %}
+</details>
+{% endwith %}{% endif %}
+</section>
+
+<section class="card" id="screening-section" aria-labelledby="screening-heading">
+  <h2 id="screening-heading">Paper screening</h2>
+  <p><a class="button-link button-link--secondary" id="paper-overview-open" href="{% url 'papers_view' project.pk %}">Paper overview</a></p>
+  <nav class="page-actions" aria-label="Paper screening">
+    <a class="button-link button-link--secondary" href="{% url 'papers_view' project.pk %}">View Papers</a>
+    <a class="button-link button-link--secondary" href="{% url 'reference_review' project.pk %}">Reference completion</a>
+    <a class="button-link" href="{% url 'screening_view' project.pk 'title' %}">Title round</a>
+    <a class="button-link" href="{% url 'screening_view' project.pk 'abstract' %}">Abstract round</a>
+    <a class="button-link button-link--secondary" href="#final-included">Final metrics</a>
+  </nav>
+  <p>Title: {{ counts.Title.pending }} pending / {{ counts.Title.accept }} Yes / {{ counts.Title.reject }} No.</p>
+  <p>Abstract content: {{ counts.Abstract.pending }} pending / {{ counts.Abstract.accept }} passed / {{ counts.Abstract.reject }} No.</p>
+  {% if not metrics.unique_total %}<p class="meta">No stored papers yet. Find papers online or add a paper by hand before reviewing titles.</p>
+  {% elif not counts.Abstract.pending and not counts.Title.accept %}<p class="meta">Review titles before the Abstract round; abstracts do not block Title screening.</p>{% endif %}
+  {% if metrics.title_not_queued %}<p class="meta">{{ metrics.title_not_queued }} stored papers are not queued for Title. Complete missing titles or review their local records in View Papers.</p>{% endif %}
+  <p>Reference completion: {{ metrics.reference_pending }} waiting. References apply only to papers that passed Abstract content. Rejection here counts as an Abstract rejection.</p>
+  <p id="final-included" tabindex="-1"><strong>Final included (Abstract passed and references available): {{ metrics.final_included }}</strong></p>
+</section>
 
 <h2 id="plots">Charts</h2>
-<p class="meta">Same dashboard as the <a href="{% url 'plots_view' project.pk %}">Current charts page</a> — <a href="{% url 'plots_download' project.pk %}">download current charts</a>. Historical source pies are available separately in <a href="{% url 'plots_view' project.pk %}?lens=history">Audit / History</a>. Each chart has its own download button (camera icon).</p>
-{% if has_data %}
+<p class="meta"><a href="{% url 'plots_download' project.pk %}?{{ chart_query }}">Download all charts as an offline file</a>.</p>
 <script src="{% url 'plotly_js' %}?v={{ plotly_version }}"></script>
 <p class="meta">Charts render with Plotly v{{ plotly_version }} served locally by this app — no internet needed.</p>
-<div class="card"><h2>Hits per keyword</h2><p class="meta">Bars sit on top of each other. The ring left around a colour = papers lost at that check.</p>{{ keyword_plot|safe }}</div>
-<div class="card"><h2>Current papers by source</h2><p class="meta">Distinct current papers per displayed source ({{ metrics.current.unique }} papers; {{ metrics.current.blank }} with a blank source). Multi-source papers appear in each matching bar. Blank status is current display data, not import history. <a href="{% url 'papers_view' project.pk %}?sort=source&amp;direction=asc">View current papers sorted by source →</a></p>{{ current_source_plot|safe }}</div>
-<div class="card"><h2>How papers flow through each check</h2>{{ funnel_plot|safe }}</div>
-<div class="card"><h2>Running totals by year at each step</h2><p class="meta">The final kept line excludes papers still awaiting references. Reference-related rejections count as Abstract rejections.</p>{{ stage_plot|safe }}</div>
-<div class="card"><h2>Papers per year</h2>{{ yearly_plot|safe }}</div>
-<div class="card">
-  <h2>How your kept papers link together</h2>
-  <p class="meta">{{ citation_nodes }} papers, {{ citation_edges }} direct citation links. Selected papers are explored newest first, backward through the papers they cite. The drawing prioritises clear spacing and fewer crossings; years are a soft orientation preference, not fixed rows. The year appears inside each circle; size indicates citation count. The plot fills the available width, with scrolling for crowded diagrams. Pan or zoom; hover over an edge midpoint to see who cites whom, or hover/click a node for selectable paper details. {% if citation_missing_references %}{{ citation_missing_references }} project papers have no resolved reference identifiers, so links may be missing even when a bibliography was pasted. {% endif %}Tune the number of steps or show only the shortest-path backbone on the <a href="{% url 'plots_view' project.pk %}">full charts page</a>.</p>
-  <ul class="meta" aria-label="Circle colour key" style="list-style:none;padding-left:0;">
-    <li><span aria-hidden="true" style="display:inline-block;width:0.8em;height:0.8em;border-radius:50%;background:#3f7e3f;"></span> <strong>Green</strong> — your selected (kept) papers.</li>
-    <li><span aria-hidden="true" style="display:inline-block;width:0.8em;height:0.8em;border-radius:50%;background:#8a8a8a;"></span> <strong>Grey</strong> — papers on a direct-citation path joining selected papers.</li>
-    <li><span aria-hidden="true" style="display:inline-block;width:0.8em;height:0.8em;border-radius:50%;background:#3C27F5;"></span> <strong>Dark blue</strong> — branches that do not connect selected papers.</li>
-  </ul>
-  <div class="page-actions"><a href="{% url 'references_download' project.pk 'final' %}">Download final selected references (.md)</a><a href="{% url 'references_download' project.pk 'citations' %}">Download citation papers shown (.md)</a></div>
-  {{ citation_plot|safe }}
-</div>
-{% else %}
-<div class="card"><p class="meta">Charts appear here after your first search run.</p></div>
-{% endif %}
+{% include "literature/chart_cards.html" %}
 {% include "literature/chart_popup.html" %}
+<dialog id="paper-overview" aria-labelledby="paper-overview-heading" data-papers-url="{% url 'papers_view' project.pk %}">
+  <header class="page-actions"><h2 id="paper-overview-heading">Paper overview</h2><button id="paper-overview-close" type="button" autofocus>Close</button></header>
+  <p><a href="{% url 'papers_view' project.pk %}">View Papers — full local list</a></p>
+  <p id="paper-overview-status" role="status"></p>
+  <button id="paper-overview-retry" type="button" hidden>Retry paper list</button>
+  <div id="paper-overview-body"></div>
+</dialog>
+<section id="curated-survey-section" aria-labelledby="curated-survey-heading">
+  <h2 id="curated-survey-heading">Build your survey graph</h2>
+  <p class="meta">Select papers for your writing graph below; edits here do not change screening decisions or the automatic citation chart.</p>
+  {% include "literature/survey_graph_panel.html" %}
+</section>
 {% endblock %}
 {% block scripts %}
+<script src="{% static 'literature/chart_navigation.js' %}" defer></script>
+<script src="{% static 'literature/paper_overview.js' %}" defer></script>
 <script>
 document.querySelectorAll("form[data-search-run]").forEach(form => {
   form.addEventListener("submit", event => {

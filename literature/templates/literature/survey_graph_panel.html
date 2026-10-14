@@ -1,9 +1,20 @@
 {% load static %}
 <section aria-label="Curated survey graph and entries">
-  <div class="card" id="curated-survey-plot">
+  <div class="card chart-card" id="curated-survey-plot">
     <h2>Curated survey graph</h2>
-    <p class="meta">Same readability-first citation-network style as “How your kept papers link together”, separate from the automatic draft. Spacing and clear links take priority; years only loosely orient groups, never force nodes into rows. Each circle shows the year and your ref ID [x]. Pan, zoom or scroll horizontally; hover over a line midpoint for citing → cited direction, or hover/click a node for selectable details. Cycles and multiple links are allowed.</p>
+    <p class="meta">The same citation drawing and controls as “How your kept papers link together”, but built only from entries you choose below. It starts empty until you add one. Circles show the year and your ref ID [x]; matched and manual citing → cited links can form cycles. No draft paper or screening decision is changed here.</p>
+    <p class="meta">Scroll over the graph to zoom; drag to pan. With the graph focused, use +/− to zoom, arrow keys to pan, or Home to fit all. Reset view fits the whole graph.</p>
     <p class="meta">{{ survey_entries|length }} chosen entries · {{ survey_automatic_count }} automatically matched links. Manual links are selected in each entry's <strong>Links to</strong> field. Unresolved bibliography text never invents a link.</p>
+    {% if native_chart_controls %}
+    {% include "literature/chart_export_controls.html" with export_key='curated-survey-plot' export_title='Curated survey graph' export_axes='false' %}
+    <div class="chart-navigation" role="group" aria-label="Curated survey graph view and export">
+      <button type="button" data-chart-action="download">Download PNG</button>
+      {% if survey_entries %}
+      <button type="button" data-chart-action="reset">Reset view</button>
+      {% endif %}
+    </div>
+    <p data-chart-action-status role="status" hidden></p>
+    {% endif %}
     {{ survey_plot|safe }}
   </div>
   <div class="page-actions"><a class="button-link" href="{% url 'survey_entry_add' project.pk %}" data-survey-entry data-survey-title="Add entry">+ Add entry</a></div>

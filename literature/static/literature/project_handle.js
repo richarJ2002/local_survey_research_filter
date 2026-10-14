@@ -156,9 +156,12 @@
   window.__wpDirty = () => dirty;
   window.__wpDiscard = () => { dirty = false; };
   document.addEventListener("input", (event) => {
-    if (event.target && event.target.form) dirty = true;
+    if (event.target?.form?.method.toLowerCase() === "post") dirty = true;
   });
-  document.addEventListener("submit", (event) => { if (!event.defaultPrevented) dirty = false; });
+  document.addEventListener("submit", (event) => {
+    // A chart/filter GET must not silently discard a genuine POST-form draft.
+    if (!event.defaultPrevented && event.target?.method.toLowerCase() === "post") dirty = false;
+  });
   window.addEventListener("beforeunload", (event) => {
     if (dirty) event.preventDefault();
   });
