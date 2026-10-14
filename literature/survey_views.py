@@ -5,14 +5,20 @@
 @Date: 02/10/2026
 """
 
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
+
+# Regular library imports
 from urllib.parse import urlencode
 
+# Custom library Imports
 import httpx
 from django.contrib import messages
 from django.core import signing
 from django.db import DatabaseError, IntegrityError, transaction
 from django.db.models import Q
-from django.http import HttpResponse
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -25,8 +31,13 @@ from literature.services.plots_service import build_citation_figure
 from literature.services.reference_service import RefbackfillError, lookup_doi
 from literature.services.survey_graph_service import build_survey_graph, prefill, save_survey_entry
 
+# ------------------------------------------------------------------------ #
+# Definitions
+# ------------------------------------------------------------------------ #
 
 # --- Project library search ---
+
+
 def search_project_papers(project: Project, query: str, limit: int = 25) -> list:
     """Match project-discovered papers by title/authors/DOI/venue, deterministic order."""
     q = (query or "").strip()
@@ -47,8 +58,22 @@ def search_project_papers(project: Project, query: str, limit: int = 25) -> list
 
 
 @require_http_methods(["GET", "POST"])
-def survey_graph(request, pk):
-    """Manage chosen entries and directed manual links without changing the draft graph."""
+def survey_graph(request: HttpRequest, pk: int) -> HttpResponse:
+    """Manage curated entries with the shared citation drawing and controls.
+
+    Args:
+        request: Local GET or explicit curated-entry/manual-link POST.
+        pk: Project identifier in the fixed owning database.
+
+    Kwargs:
+        None
+
+    Returns:
+        HttpResponse: Curated graph page, redirect, or invalid-action response.
+
+    POST changes only curated entries and manual links, never draft papers
+    or screening decisions. GET renders stored data without provider calls.
+    """
     project = get_object_or_404(Project, pk=pk)
     form = SurveyCitationForm(project=project)
     if request.method == "POST":
@@ -60,8 +85,10 @@ def survey_graph(request, pk):
                     with transaction.atomic():
                         citing = form.cleaned_data["citing"]
                         cited = form.cleaned_data["cited"]
-                        SurveyCitation.objects.get_or_create(citing=citing, cited=cited)
-                        SurveyEntry.objects.filter(pk=citing.pk).update(updated_at=timezone.now())
+                        SurveyCitation.objects.get_or_create(
+                            citing=citing, cited=cited)
+                        SurveyEntry.objects.filter(pk=citing.pk).update(
+                            updated_at=timezone.now())
                 except (IntegrityError, DatabaseError):
                     messages.error(
                         request,
@@ -82,7 +109,8 @@ def survey_graph(request, pk):
                 with transaction.atomic():
                     citing_id = link.citing_id
                     link.delete()
-                    SurveyEntry.objects.filter(pk=citing_id).update(updated_at=timezone.now())
+                    SurveyEntry.objects.filter(pk=citing_id).update(
+                        updated_at=timezone.now())
             except DatabaseError:
                 messages.error(
                     request,
@@ -99,7 +127,8 @@ def survey_graph(request, pk):
                 entry_pk = int(request.POST.get("entry_id"))
             except (TypeError, ValueError):
                 return HttpResponse(status=400)
-            entry = get_object_or_404(SurveyEntry, pk=entry_pk, project=project)
+            entry = get_object_or_404(
+                SurveyEntry, pk=entry_pk, project=project)
             try:
                 entry.delete()
             except DatabaseError:
@@ -115,7 +144,8 @@ def survey_graph(request, pk):
             return HttpResponse(status=400)
     graph = build_survey_graph(project)
     entries = project.survey_entries.all()
-    figure = build_citation_figure(graph)
+    figure = build_citation_figure(
+        graph, plot_config={"displayModeBar": False})
     automatic_count = len(graph["automatic_edges"])
     from literature.plotly_assets import plotly_version
 
@@ -132,6 +162,7 @@ def survey_graph(request, pk):
             ).select_related("citing", "cited"),
             "graph_plot": figure,
             "survey_plot": figure,
+            "native_chart_controls": True,
             "automatic_count": automatic_count,
             "survey_automatic_count": automatic_count,
             "plotly_version": plotly_version(),
@@ -141,11 +172,30 @@ def survey_graph(request, pk):
 
 @xframe_options_sameorigin
 @require_http_methods(["GET", "POST"])
-def survey_entry(request, pk, entry_id=None):
-    """DOI/project-prefill followed by an entirely editable curated snapshot."""
+def survey_entry(
+    request: HttpRequest, pk: int, entry_id: int | None = None,
+) -> HttpResponse:
+    """Preview cached or explicitly fetched details before a separate save.
+
+    Args:
+        request: Local GET or CSRF-protected fetch/save POST.
+        pk: Project identifier in the fixed owning database.
+
+    Kwargs:
+        entry_id: Existing curated entry to edit. Defaults to None for add.
+
+    Returns:
+        HttpResponse: Editable independent snapshot or saved-graph response.
+
+    Ordinary GET and saves call no provider. Preview identities bind the
+    owning project and worker; fetching never creates research rows.
+    """
     project = get_object_or_404(Project, pk=pk)
-    entry = get_object_or_404(SurveyEntry, project=project, pk=entry_id) if entry_id else None
+    entry = get_object_or_404(
+        SurveyEntry, project=project, pk=entry_id) if entry_id else None
     popup = request.GET.get("popup") == "1" or request.POST.get("popup") == "1"
+    binding = [getattr(request, "worker_uuid", ""),
+               getattr(request, "worker_epoch", "")]
     lookup_form = DoiSearchForm()
     initial: dict = {}
     project_papers: list = []
@@ -167,27 +217,43 @@ def survey_entry(request, pk, entry_id=None):
                 "inclusion_origin",
             )
         }
-        initial["cited_entries"] = list(entry.manual_outgoing.values_list("cited_id", flat=True))
+        initial["cited_entries"] = list(
+            entry.manual_outgoing.values_list("cited_id", flat=True))
         initial["version"] = signing.dumps(
             [entry.pk, entry.updated_at.isoformat()], salt="survey-version"
         )
     if "q" in request.GET:
         paper_query = request.GET.get("q", "")
         project_papers = search_project_papers(project, paper_query)
-    if request.method == "POST" and request.POST.get("action") == "lookup" and entry is None:
+    if (request.method == "POST" and entry is None
+            and request.POST.get("action") in {"lookup", "fetch"}):
         lookup_form = DoiSearchForm(request.POST)
         if lookup_form.is_valid():
-            params = {"doi": lookup_form.cleaned_data["doi"]}
-            if popup:
-                params["popup"] = "1"
-            return redirect(reverse("survey_entry_add", args=[pk]) + "?" + urlencode(params))
+            doi = lookup_form.cleaned_data["doi"]
+            if request.POST.get("action") == "lookup":
+                params = {"doi": doi}
+                if popup:
+                    params["popup"] = "1"
+                return redirect(reverse("survey_entry_add", args=[pk])
+                                + "?" + urlencode(params))
+            paper = Paper.objects.filter(doi__iexact=doi).first()
+            try:
+                metadata = {} if paper else lookup_doi(doi)
+            except (RefbackfillError, httpx.RequestError, ValueError, TypeError):
+                metadata = {}
+                messages.warning(
+                    request, "Online DOI fetch failed; nothing was saved. "
+                    "Retry or enter details manually.")
+            initial.update(prefill(
+                project, doi, metadata, paper, binding=binding))
         return render(
             request,
             "literature/survey_entry.html",
             {
                 "project": project,
                 "entry": entry,
-                "form": SurveyEntryForm(project=project, entry=entry),
+                "form": SurveyEntryForm(
+                    initial=initial, project=project, entry=entry),
                 "lookup_form": lookup_form,
                 "popup": popup,
                 "project_papers": project_papers,
@@ -205,7 +271,8 @@ def survey_entry(request, pk, entry_id=None):
             if entry and "inclusion_origin" not in request.POST:
                 form.cleaned_data.pop("inclusion_origin", None)
             try:
-                saved = save_survey_entry(project, form.cleaned_data, entry_id)
+                saved = save_survey_entry(
+                    project, form.cleaned_data, entry_id, binding=binding)
             except ValueError as exc:
                 form.add_error(None, str(exc))
             except IntegrityError:
@@ -214,7 +281,8 @@ def survey_entry(request, pk, entry_id=None):
                     "A reference number or DOI conflicts with another save. Reload and try again.",
                 )
             except DatabaseError:
-                form.add_error(None, "Could not save (database busy). Reload and try again.")
+                form.add_error(
+                    None, "Could not save (database busy). Reload and try again.")
             else:
                 messages.success(
                     request, "Curated survey entry saved; draft metadata was not overwritten."
@@ -250,24 +318,20 @@ def survey_entry(request, pk, entry_id=None):
             paper_pk = int(raw)
         except (TypeError, ValueError):
             return HttpResponse(status=400)
-        paper = Paper.objects.filter(pk=paper_pk, discoveries__search__project=project).first()
+        paper = Paper.objects.filter(
+            pk=paper_pk, discoveries__search__project=project).first()
         if paper is None:
             return HttpResponse(status=404)
-        initial.update(prefill(project, paper.doi or "", {}, paper))
+        initial.update(prefill(
+            project, paper.doi or "", {}, paper, binding=binding))
     elif request.GET.get("doi") and not entry:
         lookup_form = DoiSearchForm(request.GET)
         if lookup_form.is_valid():
             doi = lookup_form.cleaned_data["doi"]
             paper = Paper.objects.filter(doi__iexact=doi).first()
-            try:
-                metadata = {} if paper else lookup_doi(doi)
-            except (RefbackfillError, httpx.RequestError, ValueError, TypeError):
-                metadata = {}
-                messages.warning(
-                    request, "DOI lookup was unavailable. You can enter the fields manually."
-                )
             # Shared cached metadata may prefill a reading entry, without importing discovery history.
-            initial.update(prefill(project, doi, metadata, paper))
+            initial.update(prefill(
+                project, doi, {}, paper, binding=binding))
     form = SurveyEntryForm(initial=initial, project=project, entry=entry)
     return render(
         request,

@@ -10,11 +10,17 @@
 
 '''
 
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
+
 # Regular library imports
 from __future__ import annotations
 
 # Custom library Imports
 from django.contrib import admin
+from django.db.models import Model
+from django.http import HttpRequest
 
 from literature.models import (
     Discovery,
@@ -38,18 +44,69 @@ class ProjectAdmin(admin.ModelAdmin):
     list_display = ("name", "created_at")
 
 
+class ReadOnlyAuditAdmin(admin.ModelAdmin):
+    """Browse search provenance without exposing alternate business writers."""
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        """Require the owning confirmation workflow for new records.
+
+        Args:
+            request: Admin request.
+
+        Kwargs:
+            None
+
+        Returns:
+            bool: False; this admin is for browsing only.
+        """
+        return False
+
+    def has_change_permission(
+        self, request: HttpRequest, obj: Model | None = None,
+    ) -> bool:
+        """Keep settings and saved provenance immutable in admin.
+
+        Args:
+            request: Admin request.
+
+        Kwargs:
+            obj: Selected record. Defaults to None for the collection.
+
+        Returns:
+            bool: False; edits belong to the owning workflow.
+        """
+        return False
+
+    def has_delete_permission(
+        self, request: HttpRequest, obj: Model | None = None,
+    ) -> bool:
+        """Prevent deletion from erasing historical audit references.
+
+        Args:
+            request: Admin request.
+
+        Kwargs:
+            obj: Selected record. Defaults to None for the collection.
+
+        Returns:
+            bool: False; historical records remain available.
+        """
+        return False
+
+
 @admin.register(Search)
-class SearchAdmin(admin.ModelAdmin):
+class SearchAdmin(ReadOnlyAuditAdmin):
     """Search admin."""
 
-    list_display = ("name", "project", "query", "last_run_at")
+    list_display = ("name", "project", "is_current", "query", "last_run_at")
 
 
 @admin.register(SearchRun)
-class SearchRunAdmin(admin.ModelAdmin):
+class SearchRunAdmin(ReadOnlyAuditAdmin):
     """SearchRun audit admin."""
 
-    list_display = ("search", "source", "status", "results_count", "no_abstract_count", "executed_at")
+    list_display = ("search", "source", "status",
+                    "results_count", "no_abstract_count", "executed_at")
 
 
 @admin.register(Paper)
@@ -61,7 +118,7 @@ class PaperAdmin(admin.ModelAdmin):
 
 
 @admin.register(Discovery)
-class DiscoveryAdmin(admin.ModelAdmin):
+class DiscoveryAdmin(ReadOnlyAuditAdmin):
     """Discovery provenance admin."""
 
     list_display = ("paper", "source", "search", "retrieved_at")

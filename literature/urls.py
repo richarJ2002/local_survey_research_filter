@@ -10,6 +10,10 @@
 
 '''
 
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
+
 # Regular library imports
 from __future__ import annotations
 
@@ -25,21 +29,30 @@ from literature import chart_views, plotly_assets, survey_views, views, workspac
 urlpatterns = [
     path("", views.project_list, name="project_list"),
     path("workspace/", workspace_views.workspace_home, name="workspace_home"),
-    path("workspace/set-root/", workspace_views.workspace_set_root, name="workspace_set_root"),
+    path("workspace/set-root/", workspace_views.workspace_set_root,
+         name="workspace_set_root"),
     path("workspace/new/", workspace_views.workspace_new, name="workspace_new"),
     path("workspace/open/", workspace_views.workspace_open, name="workspace_open"),
-    path("workspace/operation/", workspace_views.workspace_operation, name="workspace_operation"),
+    path("workspace/operation/", workspace_views.workspace_operation,
+         name="workspace_operation"),
     path("project/new/", views.project_create, name="project_create"),
     path("project/<int:pk>/", views.project_detail, name="project_detail"),
-    path("project/<int:pk>/lifecycle/<str:action>/", workspace_views.project_lifecycle, name="project_lifecycle"),
+    path("project/<int:pk>/name/", views.project_name, name="project_name"),
+    path("project/<int:pk>/lifecycle/<str:action>/",
+         workspace_views.project_lifecycle, name="project_lifecycle"),
     path("project/<int:pk>/delete/", views.project_delete, name="project_delete"),
     path("project/<int:pk>/papers/", views.papers_view, name="papers_view"),
     path("project/<int:pk>/papers/add/", views.paper_add, name="paper_add"),
-    path("project/<int:pk>/papers/lookup/", views.paper_lookup, name="paper_lookup"),
-    path("project/<int:pk>/papers/<int:paper_id>/", views.paper_manage, name="paper_manage"),
-    path("project/<int:pk>/search/new/", views.search_create, name="search_create"),
-    path("project/<int:pk>/refs/backfill/", views.refs_backfill, name="refs_backfill"),
-    path("project/<int:pk>/citations/enrich/", views.citations_enrich, name="citations_enrich"),
+    path("project/<int:pk>/papers/lookup/",
+         views.paper_lookup, name="paper_lookup"),
+    path("project/<int:pk>/papers/<int:paper_id>/",
+         views.paper_manage, name="paper_manage"),
+    path("project/<int:pk>/search/new/",
+         views.search_create, name="search_create"),
+    path("project/<int:pk>/refs/backfill/",
+         views.refs_backfill, name="refs_backfill"),
+    path("project/<int:pk>/citations/enrich/",
+         views.citations_enrich, name="citations_enrich"),
     path(
         "project/<int:pk>/search/<int:search_id>/edit/",
         views.search_update,
@@ -57,7 +70,8 @@ urlpatterns = [
         name="screening_view",
     ),
     path("screening/decide/", views.screening_decide, name="screening_decide"),
-    path("project/<int:pk>/references/review/", views.reference_review, name="reference_review"),
+    path("project/<int:pk>/references/review/",
+         views.reference_review, name="reference_review"),
     path(
         "project/<int:pk>/screen/complete/<str:stage_name>/",
         views.screening_complete,
@@ -72,13 +86,20 @@ urlpatterns = [
          views.references_download, name="references_download"),
     path("project/<int:pk>/plots/", views.plots_view, name="plots_view"),
     path("project/plotly.min.js", plotly_assets.plotly_js, name="plotly_js"),
-    path("project/<int:pk>/plots/entries/", chart_views.chart_entries, name="chart_entries"),
-    path("project/<int:pk>/revision/", chart_views.project_revision, name="project_revision"),
-    path("project/<int:pk>/survey/", survey_views.survey_graph, name="survey_graph"),
-    path("project/<int:pk>/survey/add/", survey_views.survey_entry, name="survey_entry_add"),
-    path("project/<int:pk>/survey/<int:entry_id>/edit/", survey_views.survey_entry, name="survey_entry_edit"),
-    path("project/<int:pk>/plots/download/", views.plots_download, name="plots_download"),
-    path("project/<int:pk>/duplicates/", views.duplicates_view, name="duplicates_view"),
+    path("project/<int:pk>/plots/entries/",
+         chart_views.chart_entries, name="chart_entries"),
+    path("project/<int:pk>/revision/",
+         chart_views.project_revision, name="project_revision"),
+    path("project/<int:pk>/survey/",
+         survey_views.survey_graph, name="survey_graph"),
+    path("project/<int:pk>/survey/add/",
+         survey_views.survey_entry, name="survey_entry_add"),
+    path("project/<int:pk>/survey/<int:entry_id>/edit/",
+         survey_views.survey_entry, name="survey_entry_edit"),
+    path("project/<int:pk>/plots/download/",
+         views.plots_download, name="plots_download"),
+    path("project/<int:pk>/duplicates/",
+         views.duplicates_view, name="duplicates_view"),
     path(
         "project/<int:pk>/duplicates/merge/",
         views.duplicates_merge,

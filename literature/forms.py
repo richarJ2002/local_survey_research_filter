@@ -10,6 +10,10 @@
 
 '''
 
+# ------------------------------------------------------------------------ #
+# Imports
+# ------------------------------------------------------------------------ #
+
 # Regular library imports
 from __future__ import annotations
 
@@ -18,7 +22,7 @@ import re
 # Custom library Imports
 from django import forms
 
-from literature.models import Project, Search, SurveyEntry
+from literature.models import Paper, Project, Search, SurveyEntry
 from literature.services.manual_paper_service import ORIGIN_SOURCES
 
 # ------------------------------------------------------------------------ #
@@ -26,12 +30,15 @@ from literature.services.manual_paper_service import ORIGIN_SOURCES
 # ------------------------------------------------------------------------ #
 
 # --- Project form ---
+
+
 class ProjectForm(forms.ModelForm):
     """Create a survey project with topic context."""
 
     class Meta:
         model = Project
-        fields = ["name", "survey_topic", "research_questions", "domain", "description"]
+        fields = ["name", "survey_topic",
+                  "research_questions", "domain", "description"]
         labels = {
             "name": "Project name",
             "survey_topic": "Survey paper topic",
@@ -61,9 +68,11 @@ class PaperDetailsForm(forms.Form):
     doi = forms.CharField(required=False, max_length=320, label="DOI")
     authors = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 2}),
                               help_text="One author name per line.")
-    publication_year = forms.IntegerField(required=False, min_value=1500, label="Year")
+    publication_year = forms.IntegerField(
+        required=False, min_value=1500, label="Year")
     venue = forms.CharField(required=False, max_length=500)
-    abstract = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 6}))
+    abstract = forms.CharField(
+        required=False, widget=forms.Textarea(attrs={"rows": 6}))
     references = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 4}),
                                  help_text="One DOI, OpenAlex work ID, or S2:paperId per line. Blank papers remain outside screening.")
 
@@ -95,13 +104,15 @@ class PaperDetailsForm(forms.Form):
             elif (doi := normalize_doi(ref)) and re.fullmatch(r"10\.\d{4,9}/\S+", doi):
                 result.append(f"https://doi.org/{doi}")
             else:
-                raise forms.ValidationError(f"Unrecognized reference identifier: {ref[:80]}")
+                raise forms.ValidationError(
+                    f"Unrecognized reference identifier: {ref[:80]}")
         return list(dict.fromkeys(result))
 
     def clean(self) -> dict:
         cleaned = super().clean()
         if not cleaned.get("title") and not cleaned.get("doi"):
-            raise forms.ValidationError("Enter a title or DOI to add this paper.")
+            raise forms.ValidationError(
+                "Enter a title or DOI to add this paper.")
         return cleaned
 
 
@@ -109,23 +120,38 @@ class ManualPaperForm(PaperDetailsForm):
     """Add a missed paper and attribute it to an existing keyword row."""
 
     search_keyword = forms.ChoiceField(label="Assign to search keyword")
-    origin_source = forms.ChoiceField(label="Where was this paper found?", choices=[("", "Choose a source"), *ORIGIN_SOURCES])
+    origin_source = forms.ChoiceField(label="Where was this paper found?", choices=[
+                                      ("", "Choose a source"), *ORIGIN_SOURCES])
 
     def __init__(self, *args, project: Project, **kwargs) -> None:
+        """Offer manual assignments only from the current configuration.
+
+        Args:
+            *args: Positional Django form arguments, including submitted data.
+
+        Kwargs:
+            project: Required owning project for current keyword choices.
+            **kwargs: Django form options such as initial values and prefix.
+
+        Returns:
+            None
+        """
         super().__init__(*args, **kwargs)
         self.fields["search_keyword"].choices = [
             (f"{search.pk}|{keyword}", f"{search.name} — {keyword}")
-            for search in project.searches.order_by("name", "pk")
+            for search in project.searches.filter(is_current=True)
             for keyword in (search.keywords or [])
         ]
-        self.order_fields(["search_keyword", "origin_source", "doi", "title", "authors",
-                           "publication_year", "venue", "abstract", "references"])
+        self.order_fields([
+            "search_keyword", "origin_source", "doi", "title", "authors",
+            "publication_year", "venue", "abstract", "references"])
 
 
 class StatusCorrectionForm(forms.Form):
     """Explicit correction outside the immutable screening flow."""
 
-    stage = forms.ChoiceField(choices=[("Title", "Title"), ("Abstract", "Abstract")])
+    stage = forms.ChoiceField(
+        choices=[("Title", "Title"), ("Abstract", "Abstract")])
     decision = forms.ChoiceField(choices=[
         ("PENDING", "Pending / rescreen"), ("ACCEPT", "Yes"), ("REJECT", "No"),
     ])
@@ -135,19 +161,25 @@ class MissingAbstractForm(forms.Form):
     """Fill a missing abstract at the point where it is needed for screening."""
 
     paper_id = forms.IntegerField(min_value=1, widget=forms.HiddenInput)
-    abstract = forms.CharField(max_length=50000, label="Paste abstract", widget=forms.Textarea(attrs={"rows": 8}))
+    abstract = forms.CharField(
+        max_length=50000, label="Paste abstract", widget=forms.Textarea(attrs={"rows": 8}))
 
 
 class MissingMetadataForm(PaperDetailsForm):
     """Expose only unknown metadata, allowing partial completion rather than requiring it all."""
 
     paper_id = forms.IntegerField(min_value=1, widget=forms.HiddenInput)
-    publication_date = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
+    publication_date = forms.DateField(
+        required=False, widget=forms.DateInput(attrs={"type": "date"}))
     publisher = forms.CharField(required=False, max_length=300)
-    keywords = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 2}), help_text="One keyword per line. These are paper metadata, not a change to its linked search keyword.")
-    citation_count = forms.IntegerField(required=False, min_value=0, label="Citation count")
-    abstract = forms.CharField(required=False, max_length=50000, label="Paste abstract", widget=forms.Textarea(attrs={"rows": 8}))
-    reference_text = forms.CharField(required=False, max_length=200000, label="Paste references", widget=forms.Textarea(attrs={"rows": 8}), help_text="Paste the bibliography, including references without DOIs. Unresolved citations are retained.")
+    keywords = forms.CharField(required=False, widget=forms.Textarea(
+        attrs={"rows": 2}), help_text="One keyword per line. These are paper metadata, not a change to its linked search keyword.")
+    citation_count = forms.IntegerField(
+        required=False, min_value=0, label="Citation count")
+    abstract = forms.CharField(required=False, max_length=50000,
+                               label="Paste abstract", widget=forms.Textarea(attrs={"rows": 8}))
+    reference_text = forms.CharField(required=False, max_length=200000, label="Paste references", widget=forms.Textarea(
+        attrs={"rows": 8}), help_text="Paste the bibliography, including references without DOIs. Unresolved citations are retained.")
 
     def __init__(self, *args, paper, **kwargs):
         from literature.services.reference_review_service import missing_metadata_fields
@@ -155,21 +187,27 @@ class MissingMetadataForm(PaperDetailsForm):
         self.paper = paper
         super().__init__(*args, **kwargs)
         missing = missing_metadata_fields(paper)
-        self.fields = {name: field for name, field in self.fields.items() if name == "paper_id" or name in missing}
-        self.order_fields(["paper_id", "abstract", "title", "authors", "publication_year", "publication_date", "venue", "publisher", "doi", "keywords", "citation_count", "reference_text"])
+        self.fields = {name: field for name, field in self.fields.items(
+        ) if name == "paper_id" or name in missing}
+        self.order_fields(["paper_id", "abstract", "title", "authors", "publication_year", "publication_date",
+                          "venue", "publisher", "doi", "keywords", "citation_count", "reference_text"])
 
     def clean(self) -> dict:
         # Creation-form title/DOI requirements do not apply to a partial metadata update.
         cleaned = forms.Form.clean(self)
-        values = [value for name, value in cleaned.items() if name != "paper_id" and value is not None and value != "" and value != []]
+        values = [value for name, value in cleaned.items(
+        ) if name != "paper_id" and value is not None and value != "" and value != []]
         if not values:
             if "abstract" in self.fields:
-                self.add_error("abstract", "Enter an abstract or another missing detail before saving.")
+                self.add_error(
+                    "abstract", "Enter an abstract or another missing detail before saving.")
             else:
-                raise forms.ValidationError("Enter at least one missing detail before saving.")
+                raise forms.ValidationError(
+                    "Enter at least one missing detail before saving.")
         date = cleaned.get("publication_date")
         if date and date.year < 1500:
-            self.add_error("publication_date", "Enter a publication date from 1500 onwards.")
+            self.add_error("publication_date",
+                           "Enter a publication date from 1500 onwards.")
         return cleaned
 
 
@@ -177,7 +215,8 @@ class ReferenceCompletionForm(forms.Form):
     """Keep the complete pasted bibliography, even when entries lack a DOI."""
 
     paper_id = forms.IntegerField(min_value=1, widget=forms.HiddenInput)
-    reference_text = forms.CharField(max_length=200000, label="Paste references", widget=forms.Textarea(attrs={"rows": 12}), help_text="Paste the bibliography or one DOI, arXiv URL, OpenAlex URL or S2 ID per line. Unresolved citations are retained as text.")
+    reference_text = forms.CharField(max_length=200000, label="Paste references", widget=forms.Textarea(
+        attrs={"rows": 12}), help_text="Paste the bibliography or one DOI, arXiv URL, OpenAlex URL or S2 ID per line. Unresolved citations are retained as text.")
 
 
 class SurveyEntryForm(PaperDetailsForm):
@@ -190,7 +229,8 @@ class SurveyEntryForm(PaperDetailsForm):
     publication_year = forms.IntegerField(
         required=False, min_value=1500, max_value=9999, label="Year"
     )
-    origin_source = forms.ChoiceField(label="Where was this paper found?", choices=[("", "Choose a source"), *ORIGIN_SOURCES])
+    origin_source = forms.ChoiceField(label="Where was this paper found?", choices=[
+                                      ("", "Choose a source"), *ORIGIN_SOURCES])
     inclusion_origin = forms.ChoiceField(
         required=False,
         label="How did this entry reach the survey?",
@@ -206,14 +246,16 @@ class SurveyEntryForm(PaperDetailsForm):
     publisher = forms.CharField(required=False, max_length=300)
     version = forms.CharField(required=False, widget=forms.HiddenInput)
     preview_token = forms.CharField(required=False, widget=forms.HiddenInput)
-    reference_text = forms.CharField(required=False, max_length=200000, label="Bibliography / reference identifiers", widget=forms.Textarea(attrs={"rows": 6}))
+    reference_text = forms.CharField(required=False, max_length=200000,
+                                     label="Bibliography / reference identifiers", widget=forms.Textarea(attrs={"rows": 6}))
 
     def __init__(self, *args, project: Project | None = None, entry: SurveyEntry | None = None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields.pop("references", None)
         self.fields["title"].required = True
         if project is not None:
-            qs = SurveyEntry.objects.filter(project=project).order_by("reference_number", "pk")
+            qs = SurveyEntry.objects.filter(
+                project=project).order_by("reference_number", "pk")
             if entry is not None:
                 qs = qs.exclude(pk=entry.pk)
             self.fields["cited_entries"].queryset = qs
@@ -221,13 +263,15 @@ class SurveyEntryForm(PaperDetailsForm):
             if entry is not None:
                 if "cited_entries" not in (self.initial or {}):
                     self.initial["cited_entries"] = list(
-                        entry.manual_outgoing.values_list("cited_id", flat=True)
+                        entry.manual_outgoing.values_list(
+                            "cited_id", flat=True)
                     )
                 if "inclusion_origin" not in (self.initial or {}):
                     self.initial["inclusion_origin"] = entry.inclusion_origin
             elif "inclusion_origin" not in (self.initial or {}):
                 self.initial["inclusion_origin"] = SurveyEntry.InclusionOrigin.READING
-        self.order_fields(["reference_number", "doi", "title", "authors", "publication_year", "venue", "publisher", "abstract", "reference_text", "origin_source", "inclusion_origin", "cited_entries", "version", "preview_token"])
+        self.order_fields(["reference_number", "doi", "title", "authors", "publication_year", "venue", "publisher",
+                          "abstract", "reference_text", "origin_source", "inclusion_origin", "cited_entries", "version", "preview_token"])
 
     def clean_inclusion_origin(self) -> str:
         """Old POSTs omit this field; default to reading while keeping legacy unspecified editable."""
@@ -241,7 +285,8 @@ class SurveyCitationForm(forms.Form):
     """Select a directed manual citation from this project's curated entries only."""
 
     citing = forms.ModelChoiceField(queryset=None, label="Citing entry")
-    cited = forms.ModelChoiceField(queryset=None, label="References this entry")
+    cited = forms.ModelChoiceField(
+        queryset=None, label="References this entry")
 
     def __init__(self, *args, project: Project, **kwargs):
         super().__init__(*args, **kwargs)
@@ -278,10 +323,11 @@ class DoiSearchForm(forms.Form):
 
 
 class LookupPaperForm(forms.Form):
-    """! @brief Validate only a paper's keyword assignment and screening choices."""
+    """Validate explicit current assignments or keep an existing saved link."""
 
     search_keyword = forms.ChoiceField(label="Linked keyword")
-    origin_source = forms.ChoiceField(label="Where was this paper found?", choices=[("", "Choose a source"), *ORIGIN_SOURCES])
+    origin_source = forms.ChoiceField(label="Where was this paper found?", choices=[
+                                      ("", "Choose a source"), *ORIGIN_SOURCES])
     new_keyword = forms.CharField(
         required=False, max_length=255, label="New keyword",
     )
@@ -301,52 +347,90 @@ class LookupPaperForm(forms.Form):
         help_text="Abstract screening is available only after Title passes.",
     )
 
-    def __init__(self, *args, project: Project, needs_origin: bool = True, **kwargs) -> None:
-        """!
-        @brief Group keyword choices by search without preselecting a new paper's keyword.
-        @param args Positional Django form arguments.
-        @param project Project whose search keywords are selectable.
-        @param kwargs Keyword Django form arguments.
+    def __init__(
+        self, *args, project: Project, needs_origin: bool = True,
+        paper: Paper | None = None, **kwargs,
+    ) -> None:
+        """Offer current keywords and a server-derived unchanged saved link.
+
+        Args:
+            *args: Positional Django form arguments, including submitted data.
+
+        Kwargs:
+            project: Required owning project for selectable keywords.
+            needs_origin: Require an origin choice. Defaults to True for a
+                new discovery; False keeps the already recorded origin.
+            paper: Existing canonical paper. Defaults to None, allowing no
+                historical choice for a new entry.
+            **kwargs: Django form options such as initial values and prefix.
+
+        Returns:
+            None
         """
         super().__init__(*args, **kwargs)
         if not needs_origin:
             self.fields.pop("origin_source")
-        searches = list(project.searches.order_by("name", "pk"))
+        searches = list(project.searches.filter(is_current=True))
         self.fields["search_keyword"].choices = [
             ("", "Choose a keyword"),
-            *[(search.name, [(f"{search.pk}|{keyword}", keyword)
-                            for keyword in (search.keywords or [])]) for search in searches],
+            *[(search.name, [
+                (f"{search.pk}|{keyword}", keyword)
+                for keyword in (search.keywords or [])])
+                for search in searches],
             ("NEW", "＋ Add new keyword…"),
         ]
+        if paper is not None:
+            from literature.services.paper_lookup_service import entry_initial
+
+            preserved = entry_initial(project, paper).get("search_keyword", "")
+            current_values = {f"{search.pk}|{word}" for search in searches
+                              for word in search.keywords}
+            if preserved and preserved not in current_values:
+                self.fields["search_keyword"].choices.insert(1, (
+                    preserved, "Saved linked keyword — keep unchanged: "
+                    + preserved.split("|", 1)[-1],
+                ))
         self.fields["new_keyword_search"].choices = [
-            ("", "Choose a search"), *[(str(search.pk), search.name) for search in searches],
+            ("", "Choose a search"),
+            *[(str(search.pk), search.name) for search in searches],
         ]
         # A single possible destination needs no second choice from the user.
         if len(searches) == 1:
             self.fields["new_keyword_search"].initial = str(searches[0].pk)
 
     def clean(self) -> dict:
-        """!
-        @brief Reject ambiguous keyword choices and impossible Title/Abstract combinations.
-        @return Validated keyword and screening values; errors attach to the owning field.
+        """Reject ambiguous keywords and impossible screening combinations.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            dict: Validated choices with errors on their owning fields.
         """
         cleaned = super().clean()
         if cleaned.get("search_keyword") == "NEW":
             if not cleaned.get("new_keyword"):
                 self.add_error("new_keyword", "Enter the new keyword.")
             if not cleaned.get("new_keyword_search"):
-                self.add_error("new_keyword_search", "Choose the search for this keyword.")
+                self.add_error("new_keyword_search",
+                               "Choose the search for this keyword.")
         else:
-            # Hidden, previously typed values must never override an existing choice.
+            # Hidden typed values must never override an existing choice.
             cleaned["new_keyword"] = ""
             cleaned["new_keyword_search"] = ""
         title = cleaned.get("title_decision")
         abstract = cleaned.get("abstract_decision")
         if title and abstract:
             if title != "ACCEPT" and abstract != "NOT_QUEUED":
-                self.add_error("abstract_decision", "Choose Not applicable until Title passes.")
+                self.add_error("abstract_decision",
+                               "Choose Not applicable until Title passes.")
             elif title == "ACCEPT" and abstract == "NOT_QUEUED":
-                self.add_error("abstract_decision", "Choose the Abstract status after passing Title.")
+                self.add_error(
+                    "abstract_decision",
+                    "Choose the Abstract status after passing Title.")
         return cleaned
 
 
@@ -356,7 +440,8 @@ class SearchForm(forms.ModelForm):
 
     keywords_json = forms.CharField(required=False, widget=forms.HiddenInput)
     venues_json = forms.CharField(required=False, widget=forms.HiddenInput)
-    author_names_json = forms.CharField(required=False, widget=forms.HiddenInput)
+    author_names_json = forms.CharField(
+        required=False, widget=forms.HiddenInput)
     sources_selected = forms.MultipleChoiceField(
         required=False,
         label="Sources",
@@ -365,9 +450,15 @@ class SearchForm(forms.ModelForm):
             ("semantic_scholar", "Semantic Scholar"),
             ("crossref", "Crossref"),
             ("arxiv", "arXiv"),
+            ("scopus", "Scopus (Elsevier)"),
         ],
         widget=forms.CheckboxSelectMultiple,
-        help_text="Ticked sources are remembered for this search.",
+        help_text="Ticked sources are remembered for this search. Scopus is "
+        "opt-in and needs an Elsevier API key and authorized API access. "
+        "Only select it if your agreement permits local storage and export "
+        "for this research; leaving all sources unticked uses the original "
+        "four providers, not Scopus. Scopus uses loose phrases (wildcards "
+        "remain active); use surnames/initials for its author matching.",
     )
 
     class Meta:
@@ -405,17 +496,34 @@ class SearchForm(forms.ModelForm):
         return Search.clean_rows(values)
 
     def clean(self) -> dict:
-        """Combine hidden row JSON into sorted lists; require >=1 keyword."""
+        """Validate future keyword rows and ordered optional year bounds.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            dict: Sorted future lists and valid form fields.
+
+        Raises:
+            ValidationError: If rows are malformed or no keyword is supplied.
+        """
         cleaned = super().clean()
         cleaned["keywords"] = self._parse_rows(
             self.data.get("keywords_json"), "Keyword"
         )
-        cleaned["venues"] = self._parse_rows(self.data.get("venues_json"), "Journal")
+        cleaned["venues"] = self._parse_rows(
+            self.data.get("venues_json"), "Journal")
         cleaned["author_names"] = self._parse_rows(
             self.data.get("author_names_json"), "Author"
         )
         if not cleaned["keywords"]:
             raise forms.ValidationError("Add at least one keyword row.")
+        lower, upper = cleaned.get("year_min"), cleaned.get("year_max")
+        if lower is not None and upper is not None and lower > upper:
+            self.add_error("year_max", "To year must not precede From year.")
         return cleaned
 
 
@@ -447,32 +555,112 @@ class WorkspaceRootForm(forms.Form):
         return str(Path(raw).expanduser())
 
 
-# --- New project at a typed location plus a display name ---
+# --- Shared New/Save Copy suggestion; never rename an existing store ---
+def suggested_project_directory(
+    parent: str, name: str, *, reserve_bytes: int = 0,
+) -> str:
+    """Suggest a safe child folder without creating files.
+
+    Args:
+        parent: Absolute existing parent folder; tilde expansion is allowed.
+        name: Display name; retain Unicode and ampersands in the suggestion.
+
+    Kwargs:
+        reserve_bytes: Space for a staging suffix, defaulting to zero.
+
+    Returns:
+        str: Full resolved destination with whitespace replaced by underscores.
+
+    Raises:
+        forms.ValidationError: If the parent or derived member is unsafe.
+    """
+    import os
+    from pathlib import Path
+
+    try:
+        base = Path(parent).expanduser()
+        if not base.is_absolute() or not base.is_dir():
+            raise forms.ValidationError(
+                "Choose an absolute existing parent folder.")
+        member = re.sub(r"\s+", "_", name.strip().lower())
+        if (not member or member in {".", ".."}
+                or any(char in member for char in ("/", "\\", "\0"))):
+            raise forms.ValidationError(
+                "The project name cannot form a safe folder; "
+                "enter a destination override.")
+        # Save Copy stages .<name>.recovery-<32 hex>; check its byte limit too.
+        if (len(os.fsencode(member)) + reserve_bytes
+                > os.pathconf(base, "PC_NAME_MAX")):
+            raise forms.ValidationError(
+                "The suggested folder name is too long; "
+                "enter a shorter destination override.")
+        return str(base.resolve() / member)
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise forms.ValidationError(
+            "Cannot resolve the chosen parent folder.") from exc
+
+
+# --- New project: preview a name-derived child or explicitly override it ---
 class WorkspaceNewForm(forms.Form):
-    """Create one store at a typed location; never overwrites populated data."""
+    """Validate an editable New destination without overwriting packages."""
 
+    name = forms.CharField(max_length=200, label="Project name")
+    parent_directory = forms.CharField(
+        required=False, max_length=4096, label="Parent workspace folder",
+        help_text="Absolute parent path, e.g. /home/you/surveys; "
+        "the project folder is a child.",
+    )
     directory = forms.CharField(
-        max_length=4096,
-        label="New project folder",
-        widget=forms.TextInput(attrs={
-            "placeholder": "/home/you/surveys/my-topic",
-            "autocomplete": "off",
-            "inputmode": "text",
-        }),
+        required=False, max_length=4096,
+        label="New project folder (destination override)",
+        help_text="Leave blank to use the project name beneath the parent.",
     )
-    name = forms.CharField(
-        max_length=200,
-        label="Project name",
-        widget=forms.TextInput(attrs={"placeholder": "e.g. Battery degradation survey"}),
+    confirm = forms.BooleanField(
+        required=False,
+        label="I confirm the resolved New destination shown below",
     )
+    preview_token = forms.CharField(required=False, widget=forms.HiddenInput)
 
-    def clean_directory(self) -> str:
-        raw = (self.cleaned_data.get("directory") or "").strip()
-        if not raw:
-            raise forms.ValidationError("Enter a folder path for the new project.")
+    def clean(self) -> dict:
+        """Resolve the suggestion while preserving explicit typed paths.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            dict: Cleaned fields with the destination in directory.
+
+        Raises:
+            forms.ValidationError: If no safe destination can be derived.
+        """
         from pathlib import Path
 
-        return str(Path(raw).expanduser())
+        cleaned = super().clean()
+        raw = cleaned.get("directory", "")
+        if raw:
+            try:
+                cleaned["directory"] = str(Path(raw).expanduser())
+            except (OSError, RuntimeError, ValueError) as exc:
+                raise forms.ValidationError(
+                    "Cannot expand the destination path.") from exc
+        elif cleaned.get("name"):
+            cleaned["directory"] = suggested_project_directory(
+                cleaned.get("parent_directory", ""), cleaned["name"],
+            )
+        return cleaned
+
+
+class ProjectNameForm(forms.ModelForm):
+    """Edit only the display name through the owning worker."""
+
+    class Meta:
+        """Limit this explicit edit to the project display name."""
+
+        model = Project
+        fields = ("name",)
 
 
 # --- Load an existing store at a typed location ---
@@ -492,7 +680,8 @@ class WorkspaceOpenForm(forms.Form):
     def clean_directory(self) -> str:
         raw = (self.cleaned_data.get("directory") or "").strip()
         if not raw:
-            raise forms.ValidationError("Enter the folder path of the project to open.")
+            raise forms.ValidationError(
+                "Enter the folder path of the project to open.")
         from pathlib import Path
 
         return str(Path(raw).expanduser())
@@ -507,16 +696,71 @@ class SettingsForm(forms.Form):
     """Prompt for polite-pool email and optional implemented-provider tokens."""
 
     openalex_email = forms.EmailField(
-        required=True,
-        help_text="Required for OpenAlex polite pool (faster, no key needed).",
+        required=False,
+        help_text="Required for non-Scopus searches; optional for Scopus-only "
+        "search. Leave blank to keep the current value.",
     )
     semantic_scholar_key = forms.CharField(
         required=False,
         widget=forms.PasswordInput(render_value=True),
-        help_text="Optional; used for Semantic Scholar requests. Stored locally only.",
+        help_text="Optional; used for Semantic Scholar requests. "
+        "Stored locally only.",
     )
     opencitations_token = forms.CharField(
         required=False,
         widget=forms.PasswordInput(render_value=False),
-        help_text="Optional OpenCitations access token. Leave blank to keep the current value; restart after saving.",
+        help_text="Optional OpenCitations access token. Leave blank to keep "
+        "the current value; restart after saving.",
     )
+    elsevier_api_key = forms.RegexField(
+        regex=r"\A[!-~]+\Z", required=False, max_length=4096, strip=False,
+        label="Elsevier Scopus API key",
+        widget=forms.PasswordInput(render_value=False),
+        error_messages={
+            "invalid": "Use printable ASCII without spaces or control "
+            "characters.",
+        },
+        help_text='Optional. <a href="https://dev.elsevier.com/apikey/manage" '
+        'target="_blank" rel="noopener noreferrer">Manage Elsevier API '
+        'keys</a>. Leave blank to keep the current value; restart after '
+        'saving. Use printable ASCII without spaces or control characters.',
+    )
+    elsevier_insttoken = forms.RegexField(
+        regex=r"\A[!-~]+\Z", required=False, max_length=4096, strip=False,
+        label="Elsevier institutional token",
+        widget=forms.PasswordInput(render_value=False),
+        error_messages={
+            "invalid": "Use printable ASCII without spaces or control "
+            "characters.",
+        },
+        help_text='Optional token issued by Elsevier for institutional '
+        'access. <a href="https://dev.elsevier.com/support.html" '
+        'target="_blank" rel="noopener noreferrer">Elsevier API support</a>. '
+        'Leave blank to keep the current value; restart after saving. '
+        'Use printable ASCII without spaces or control characters.',
+    )
+
+    def clean(self) -> dict:
+        """Allow Scopus credentials to be configured without an OpenAlex email.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            dict: Validated settings; a new or configured Elsevier API key
+            permits an omitted email. Other settings retain the email rule.
+        """
+        from django.conf import settings
+
+        cleaned = super().clean()
+        if "openalex_email" not in self.errors and not cleaned.get(
+            "openalex_email"
+        ) and not (
+            cleaned.get("elsevier_api_key")
+            or getattr(settings, "ELSEVIER_API_KEY", "")
+        ):
+            self.add_error("openalex_email", "This field is required.")
+        return cleaned
