@@ -3,7 +3,7 @@
   if (window.__graphNodePopupInstalled) return;
   window.__graphNodePopupInstalled = true;
   const HIDE_DELAY = 350;
-  let popup, fields, closeButton, opener, hideTimer;
+  let popup, fields, terms, closeButton, opener, hideTimer;
   let pinned = false;
   let hovered = false;
   let position = [100, 100];
@@ -42,6 +42,7 @@
     const list = document.createElement("dl");
     list.style.cssText = "margin:0;font-size:.85rem;";
     fields = {};
+    terms = {};
     for (const [key, label] of [["title", "Title"], ["year", "Year"], ["venue", "Venue"], ["citations", "Cited by"], ["ref", "Ref ID"]]) {
       const term = document.createElement("dt");
       term.textContent = label;
@@ -49,6 +50,7 @@
       value.style.cssText = "margin:0 0 .4rem;user-select:text;";
       list.append(term, value);
       fields[key] = value;
+      terms[key] = term;
     }
     const hint = document.createElement("p");
     hint.textContent = "Select text to copy. Click a node or this popup to keep it open; Close or Escape dismisses it.";
@@ -76,7 +78,11 @@
     fields.title.textContent = details.title || "Untitled paper";
     fields.year.textContent = details.year ?? "unknown";
     fields.venue.textContent = details.venue || "unknown";
-    fields.citations.textContent = details.citations ?? 0;
+    // Curated graphs omit citation numbers; the row stays hidden then.
+    const showCitations = details.citations !== undefined && details.citations !== null;
+    fields.citations.textContent = showCitations ? details.citations : "";
+    fields.citations.hidden = !showCitations;
+    terms.citations.hidden = !showCitations;
     fields.ref.textContent = details.ref ? `[${details.ref}]` : "—";
     pinned = pin;
     opener = trigger;

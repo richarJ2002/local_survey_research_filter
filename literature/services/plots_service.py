@@ -967,7 +967,7 @@ def family_positions(
 # --- Citation stories ---
 def build_citation_figure(
     graph: dict, *, include_app_script: bool = True,
-    plot_config: dict | None = None,
+    plot_config: dict | None = None, hide_citation_counts: bool = False,
 ) -> str:
     """
     Interactive Plotly citation clusters with directed edge tooltips.
@@ -980,7 +980,9 @@ def build_citation_figure(
     wheel zoom and panning allow closer inspection without an oversized canvas.
     Standalone exports pass include_app_script=False: the app-only popup
     script needs the running app, so exports keep pan/zoom/hover/download
-    and label list links as app-only.
+    and label list links as app-only. Curated graphs pass
+    hide_citation_counts=True: node sizes still scale with citation counts,
+    but counts appear nowhere in hover text or popup details.
 
     Args:
         graph: Existing graph nodes, directed edges and display metadata.
@@ -988,6 +990,9 @@ def build_citation_figure(
     Kwargs:
         include_app_script: Include local node-popup script. Defaults to True.
         plot_config: Plotly configuration overrides. Defaults to None.
+        hide_citation_counts: Omit citation numbers from hover text and
+            popup details while keeping proportional node sizes. Defaults
+            to False.
 
     Returns:
         str: Embeddable graph HTML preserving every supplied edge and cycle.
@@ -1124,23 +1129,31 @@ def build_citation_figure(
             sizes.append(
                 28 + 18 * log1p(max(0, node["citations"] or 0)) / log1p(max_cites))
             star = " ★ Starting paper" if node["id"] in roots else ""
-            texts.append(
+            hover = (
                 f"{escape(str(node['title']))}{star}<br>Year: {node['year'] or 'unknown'}"
-                f"<br>Cited by: {node['citations']}<br>Venue: {escape(str(node['venue'] or 'unknown'))}"
+                f"<br>Venue: {escape(str(node['venue'] or 'unknown'))}"
             )
+            if not hide_citation_counts:
+                hover = (
+                    f"{escape(str(node['title']))}{star}<br>Year: {node['year'] or 'unknown'}"
+                    f"<br>Cited by: {node['citations']}<br>Venue: {escape(str(node['venue'] or 'unknown'))}"
+                )
+            texts.append(hover)
             circle_text = str(node["year"]) if node["year"] else "?"
             if node.get("reference_number"):
                 circle_text += f"<br>[{node['reference_number']}]"
             years_inside.append(circle_text)
-            details.append(
-                {
-                    "title": str(node.get("title") or ""),
-                    "year": node.get("year"),
-                    "venue": str(node.get("venue") or ""),
-                    "citations": int(node.get("citations") or 0),
-                    "ref": node.get("reference_number"),
-                }
-            )
+            details_dict = {
+                "title": str(node.get("title") or ""),
+                "year": node.get("year"),
+                "venue": str(node.get("venue") or ""),
+            }
+            if hide_citation_counts:
+                details_dict["ref"] = node.get("reference_number")
+            else:
+                details_dict["citations"] = int(node.get("citations") or 0)
+                details_dict["ref"] = node.get("reference_number")
+            details.append(details_dict)
         if not xs:
             continue
         fig.add_trace(

@@ -1693,7 +1693,8 @@ def _plots_context(
             graph, include_app_script=include_app_script,
             plot_config=plot_config),
         "survey_plot": (build_citation_figure(
-            survey_graph, plot_config=plot_config)
+            survey_graph, hide_citation_counts=True,
+            plot_config=plot_config)
             if include_survey else ""),
         "survey_entries": (project.survey_entries.all()
                            if include_survey else ()),
