@@ -233,6 +233,36 @@ class FamilyTreeTests(SimpleTestCase):
         )
         self.assertEqual(crossings(before, edges), crossings(after, edges))
 
+    def test_older_papers_settle_below_newer_papers(self):
+        """
+        Aim the year trend straight up while keeping readability first.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
+        nodes = [
+            {"id": 1, "year": 2018},
+            {"id": 2, "year": 2020},
+            {"id": 3, "year": 2023},
+            {"id": 4, "year": 2020},
+        ]
+        edges = [(3, 2), (2, 1), (4, 2)]
+        points, _ = family_positions(nodes, edges)
+        self.assert_spaced(points)
+        self.assertEqual(crossings(points, edges), 0)
+        self.assertLess(points[1][1], points[3][1])
+        mean_year = sum(node["year"] for node in nodes) / len(nodes)
+        self.assertGreater(
+            sum((node["year"] - mean_year) * points[node["id"]][1]
+                for node in nodes), 0
+        )
+
     def test_layout_is_deterministic_and_does_not_mutate_input(self):
         nodes = [{"id": pk, "year": 2000 + pk % 4} for pk in range(12)]
         edges = [(pk, (pk + 1) % 12) for pk in range(12)] + [(0, 4), (4, 8)]

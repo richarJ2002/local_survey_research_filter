@@ -911,7 +911,9 @@ def family_positions(
                         if new_score < score:
                             points, score = candidate, new_score
                 points = _repair_positions(points, component_edges, neighbour)
-        # A rigid rotation aligns the overall year trend; individual papers may still be out of order.
+        # A rigid rotation aims the overall year trend straight up, so older
+        # papers settle roughly at the bottom and newer ones at the top.
+        # Individual papers may still be out of order: readability wins.
         dated = [pk for pk in order if by_id[pk].get("year")]
         if len(dated) > 1:
             mean_year = fsum(by_id[pk]["year"] for pk in dated) / len(dated)
@@ -921,11 +923,10 @@ def family_positions(
                       * points[pk][1] for pk in dated)
             norm = hypot(vx, vy)
             if norm > 1e-9:
-                # A diagonal trend uses both plot dimensions instead of turning citation chains into thin columns.
                 points = {
                     pk: (
-                        ((vy + vx) * x + (vy - vx) * y) / (norm * sqrt(2)),
-                        ((vx - vy) * x + (vx + vy) * y) / (norm * sqrt(2)),
+                        (vy * x - vx * y) / norm,
+                        (vx * x + vy * y) / norm,
                     )
                     for pk, (x, y) in points.items()
                 }
