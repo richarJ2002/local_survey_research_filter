@@ -475,6 +475,31 @@ class EnrichmentTests(TestCase):
         self.assertEqual(data["references"], [])
         self.assertEqual(data["title"], "")
 
+    def test_lookup_keeps_maximum_citation_count_across_providers(self) -> None:
+        """
+        Snapshot the highest reported count for proportional graph nodes.
+
+        OpenAlex reports nothing while Crossref and S2 disagree; the
+        merged preview keeps the maximum without other field changes.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
+        from literature.services.reference_service import lookup_doi
+
+        client = FallbackClient(
+            {"is-referenced-by-count": 5},
+            {"citationCount": 9},
+        )
+        self.assertEqual(
+            lookup_doi("10.1000/example", client=client)["citation_count"], 9)
+
     def test_s2_rate_limit_stops_further_s2_requests(self) -> None:
         """
         Stop S2 lookups after one shared-limit response across two papers.

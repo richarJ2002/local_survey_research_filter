@@ -11,7 +11,7 @@
 {% include "literature/survey_graph_panel.html" %}
 <details class="card form-card"{% if link_form.errors %} open{% endif %}><summary>Manage individual manual links</summary><p class="meta">You can also select multiple links when adding or editing an entry. Removing a manual link does not suppress an independently matched automatic citation.</p>
 <form method="post">{% csrf_token %}<input type="hidden" name="action" value="link">{{ link_form.non_field_errors }}{% for field in link_form %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}<button>Save citation link</button></form>
-{% for link in links %}<p>[{{ link.citing.reference_number }}] cites [{{ link.cited.reference_number }}]</p><form method="post">{% csrf_token %}<input type="hidden" name="action" value="remove_link"><input type="hidden" name="link_id" value="{{ link.pk }}"><button>Remove this manual link</button></form>{% endfor %}</details>
+{% for link in links %}<p>[{{ link.citing.reference_number|default:'—' }}] cites [{{ link.cited.reference_number|default:'—' }}]</p><form method="post">{% csrf_token %}<input type="hidden" name="action" value="remove_link"><input type="hidden" name="link_id" value="{{ link.pk }}"><button>Remove this manual link</button></form>{% endfor %}</details>
 {% endblock %}
 {% block scripts %}
 <script src="{% static 'literature/chart_navigation.js' %}" defer></script>

@@ -216,7 +216,8 @@ def _crossref_lookup(doi: str, client: httpx.Client) -> dict:
     Returns:
         dict: title, authors, publication_year, venue and source_ids from
             canonical mapping; abstract with HTML tags stripped; references
-            as DOI resolver URLs for DOI-bearing entries. Any non-200 status
+            as DOI resolver URLs for DOI-bearing entries; citation_count from
+            the canonical mapping. Any non-200 status
             yields {} (no status retry here).
 
     Raises:
@@ -248,6 +249,7 @@ def _crossref_lookup(doi: str, client: httpx.Client) -> dict:
         "publication_year": canonical["publication_year"],
         "venue": canonical["venue"],
         "source_ids": canonical["source_ids"],
+        "citation_count": canonical["citation_count"],
         "abstract": strip_tags(item.get("abstract") or ""),
         "references": [
             f"https://doi.org/{ref['DOI']}"
@@ -292,7 +294,7 @@ def _s2_lookup(doi: str, client: httpx.Client) -> dict:
     response = client.get(
         f"https://api.semanticscholar.org/graph/v1/paper/DOI:{quote(doi, safe='')}",
         params={
-            "fields": "title,abstract,authors,year,venue,references.paperId,references.externalIds"},
+            "fields": "title,abstract,authors,year,venue,citationCount,references.paperId,references.externalIds"},
         headers=SemanticScholarSource().default_headers(),
         timeout=30.0,
     )
@@ -323,7 +325,7 @@ def _s2_lookup(doi: str, client: httpx.Client) -> dict:
             refs.append(f"S2:{cited['paperId']}")
     canonical, _ = map_semantic_scholar_to_canonical(item)
     return {**{field: canonical[field] for field in
-               ("title", "abstract", "authors", "publication_year", "venue", "source_ids")},
+               ("title", "abstract", "authors", "publication_year", "venue", "source_ids", "citation_count")},
             "references": list(dict.fromkeys(refs))}
 
 
@@ -347,9 +349,11 @@ def lookup_doi(doi: str, client: httpx.Client | None = None) -> dict:
             publication_year, venue, openalex_id and source_ids. Try OpenAlex
             first, then Crossref and S2 only while any metadata field is empty;
             source_ids are combined and openalex_id comes only from OpenAlex.
+            citation_count is the maximum reported across the tried providers.
             found is True when title, usable abstract or reference IDs exist,
             not merely when author/year/venue data exists. Missing strings are
-            blank, lists empty, year/openalex_id None, and source_ids {}.
+            blank, lists empty, year/openalex_id None, counts zero,
+            and source_ids {}.
 
     Raises:
         ValueError: If doi normalizes to an empty value.
@@ -366,7 +370,7 @@ def lookup_doi(doi: str, client: httpx.Client | None = None) -> dict:
     try:
         merged: dict = {"doi": normalized, "title": "", "abstract": "", "references": [],
                         "authors": [], "publication_year": None, "venue": "", "openalex_id": None,
-                        "source_ids": {}}
+                        "citation_count": 0, "source_ids": {}}
         fields = ("title", "abstract", "references",
                   "authors", "publication_year", "venue")
         try:
@@ -375,6 +379,8 @@ def lookup_doi(doi: str, client: httpx.Client | None = None) -> dict:
             mapping = {}
         data = mapping.get(normalized) or {}
         merged["openalex_id"] = data.get("openalex_id")
+        merged["citation_count"] = max(
+            merged["citation_count"], int(data.get("citation_count") or 0))
         merged["source_ids"].update(data.get("source_ids") or {})
         for field in fields:
             if data.get(field) and (field != "abstract" or abstract_available(data[field])):
@@ -387,6 +393,8 @@ def lookup_doi(doi: str, client: httpx.Client | None = None) -> dict:
             for field in fields:
                 if not merged[field] and cross.get(field) and (field != "abstract" or abstract_available(cross[field])):
                     merged[field] = cross[field]
+            merged["citation_count"] = max(
+                merged["citation_count"], int(cross.get("citation_count") or 0))
             merged["source_ids"].update(cross.get("source_ids") or {})
         if any(not merged[field] for field in fields):
             try:
@@ -396,6 +404,8 @@ def lookup_doi(doi: str, client: httpx.Client | None = None) -> dict:
             for field in fields:
                 if not merged[field] and scholars.get(field) and (field != "abstract" or abstract_available(scholars[field])):
                     merged[field] = scholars[field]
+            merged["citation_count"] = max(
+                merged["citation_count"], int(scholars.get("citation_count") or 0))
             merged["source_ids"].update(scholars.get("source_ids") or {})
         merged["found"] = bool(
             merged["title"] or merged["abstract"] or merged["references"]

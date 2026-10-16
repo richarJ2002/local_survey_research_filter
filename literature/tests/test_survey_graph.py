@@ -442,7 +442,6 @@ class SurveyGraphViewTests(TestCase):
             "origin_source": "crossref",
         }
         for field, value in (
-            ("reference_number", ""),
             ("reference_number", "0"),
             ("reference_number", "99999999999999999999999999"),
             ("publication_year", "1499"),
@@ -468,6 +467,123 @@ class SurveyGraphViewTests(TestCase):
                     f"/project/{project.pk}/survey/add/?doi=not-a-doi").status_code, 200
             )
         lookup.assert_not_called()
+
+    def test_blank_number_saved_then_assigned_inline_under_graph(self):
+        project = make_project()
+        response = self.client.post(
+            f"/project/{project.pk}/survey/add/",
+            {
+                "action": "save",
+                "title": "Unnumbered",
+                "reference_number": "",
+                "origin_source": "crossref",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        entry = project.survey_entries.get()
+        self.assertIsNone(entry.reference_number)
+        graph = self.client.get(f"/project/{project.pk}/survey/")
+        self.assertContains(graph, 'name="reference_number"')
+        renumbered = self.client.post(
+            f"/project/{project.pk}/survey/",
+            {"action": "renumber", "entry_id": entry.pk,
+             "reference_number": "4"},
+        )
+        self.assertEqual(renumbered.status_code, 302)
+        entry.refresh_from_db()
+        self.assertEqual(entry.reference_number, 4)
+        other = project.survey_entries.create(
+            title="Other", reference_number=None, origin_source="")
+        clash = self.client.post(
+            f"/project/{project.pk}/survey/",
+            {"action": "renumber", "entry_id": other.pk,
+             "reference_number": "4"},
+        )
+        self.assertEqual(clash.status_code, 302)
+        other.refresh_from_db()
+        self.assertIsNone(other.reference_number)
+        cleared = self.client.post(
+            f"/project/{project.pk}/survey/",
+            {"action": "renumber", "entry_id": entry.pk,
+             "reference_number": ""},
+        )
+        self.assertEqual(cleared.status_code, 302)
+        entry.refresh_from_db()
+        self.assertIsNone(entry.reference_number)
+
+    def test_citation_snapshot_scales_nodes_without_showing_counts(self):
+        project = make_project()
+        paper = Paper.objects.create(
+            title="Heavily cited", doi="10.1000/cited",
+            citation_count=120,
+        )
+        search = Search.objects.create(
+            project=project, name="S", keywords=["k"])
+        Discovery.objects.create(
+            search=search, paper=paper, source="openalex", query="k")
+        preview = prefill(project, "10.1000/cited", {}, paper)
+        self.assertEqual(preview["citation_count"], 120)
+        entry = save_survey_entry(
+            project,
+            {
+                "reference_number": 1, "title": "Heavily cited",
+                "doi": "10.1000/cited", "authors": "",
+                "publication_year": None, "venue": "",
+                "publisher": "", "abstract": "",
+                "reference_text": "",
+                "origin_source": "openalex",
+                "inclusion_origin": "search",
+                "citation_count": preview["citation_count"],
+                "version": "", "preview_token": "",
+            },
+        )
+        self.assertEqual(entry.citation_count, 120)
+        quiet = save_survey_entry(
+            project,
+            {
+                "reference_number": 2, "title": "Quiet",
+                "doi": "", "authors": "",
+                "publication_year": None, "venue": "",
+                "publisher": "", "abstract": "",
+                "reference_text": "",
+                "origin_source": "openalex",
+                "inclusion_origin": "reading",
+                "version": "", "preview_token": "",
+            },
+        )
+        self.assertEqual(quiet.citation_count, 0)
+        graph = build_survey_graph(project)
+        counts = {node["id"]: node["citations"] for node in graph["nodes"]}
+        self.assertEqual(counts, {entry.pk: 120, quiet.pk: 0})
+        with patch(
+            "plotly.graph_objects.Figure.to_html", autospec=True,
+            return_value="plot",
+        ) as render:
+            build_citation_figure(graph, hide_citation_counts=True)
+        figure = render.call_args.args[0]
+        trace = next(t for t in figure.data if t.meta)
+        sizes = dict(zip(
+            [d["title"] for d in trace.meta["paper_details"]],
+            list(trace.marker.size),
+        ))
+        self.assertGreater(sizes["Heavily cited"], sizes["Quiet"])
+        self.assertTrue(
+            all("citations" not in d for d in trace.meta["paper_details"]))
+        hidden = build_citation_figure(graph, hide_citation_counts=True)
+        self.assertNotIn("Cited by", hidden)
+        shown = build_citation_figure(graph)
+        self.assertIn("Cited by", shown)
+
+    def test_legacy_entry_without_snapshot_falls_back_to_paper_count(self):
+        project = make_project()
+        paper = Paper.objects.create(
+            title="Counted", doi="10.1000/counted", citation_count=45)
+        entry = SurveyEntry.objects.create(
+            project=project, paper=paper, title="Counted",
+            reference_number=None, citation_count=0, origin_source="")
+        graph = build_survey_graph(project)
+        self.assertEqual(graph["nodes"][0]["citations"], 45)
+        self.assertEqual(entry.citation_count, 0)
 
     def test_expired_tokens_and_snapshot_edit_delete_preserve_draft(self):
         project = make_project()

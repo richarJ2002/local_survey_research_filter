@@ -116,7 +116,9 @@ def prefill(
     Sign the cached identities; all visible bibliographic fields remain editable.
 
     Never mutates Paper/Discovery/keyword/decisions. Reference numbers stay
-    blank so curators finalize them once manuscript IDs are known. The signed
+    blank so curators finalize them once manuscript IDs are known. The
+    citation_count snapshot is the best reported provider or linked-paper
+    count at preview time. The signed
     preview retains the optional paper link even when the DOI is blank.
 
     Args:
@@ -167,6 +169,13 @@ def prefill(
     if not isinstance(references, list):
         references = []
     inclusion_origin, origin_source = project_origin(project, paper)
+    cited = 0
+    if paper is not None:
+        cited = max(cited, int(paper.citation_count or 0))
+    try:
+        cited = max(cited, int(metadata.get("citation_count") or 0))
+    except (TypeError, ValueError):
+        pass
     return {
         "doi": doi,
         "title": metadata.get("title", ""),
@@ -175,6 +184,7 @@ def prefill(
         "venue": metadata.get("venue", ""),
         "publisher": metadata.get("publisher", ""),
         "abstract": metadata.get("abstract", ""),
+        "citation_count": cited,
         "reference_text": metadata.get("reference_text") or "\n".join(str(r) for r in references),
         "inclusion_origin": inclusion_origin,
         "origin_source": origin_source,
@@ -220,13 +230,18 @@ def save_survey_entry(
         if entry_id
         else SurveyEntry(project=project)
     )
-    try:
-        reference_number = int(values.get("reference_number"))
-    except (TypeError, ValueError) as exc:
-        raise ValueError(
-            "Enter a survey reference number of 1 or higher.") from exc
-    if reference_number < 1:
-        raise ValueError("Enter a survey reference number of 1 or higher.")
+    raw_number = values.get("reference_number")
+    if raw_number in (None, ""):
+        reference_number = None
+    else:
+        try:
+            reference_number = int(raw_number)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "Enter a survey reference number of 1 or higher, or leave it blank.") from exc
+        if reference_number < 1:
+            raise ValueError(
+                "Enter a survey reference number of 1 or higher, or leave it blank.")
     title = str(values.get("title") or "").strip()
     if not title:
         raise ValueError("Enter a title for this survey entry.")
@@ -243,7 +258,7 @@ def save_survey_entry(
         if version != [entry.pk, entry.updated_at.isoformat()]:
             raise ValueError(
                 "This entry changed in another tab. Reload before saving.")
-    if (
+    if reference_number is not None and (
         project.survey_entries.filter(reference_number=reference_number)
         .exclude(pk=entry_id)
         .exists()
@@ -308,6 +323,14 @@ def save_survey_entry(
     entry.reference_number = reference_number
     entry.title = title
     entry.doi = doi
+    try:
+        snapshot = int(values.get("citation_count") or 0)
+    except (TypeError, ValueError):
+        snapshot = 0
+    snapshot = max(0, snapshot)
+    if entry.paper is not None:
+        snapshot = max(snapshot, int(entry.paper.citation_count or 0))
+    entry.citation_count = snapshot
     for name in (
         "authors",
         "publication_year",
@@ -394,22 +417,27 @@ def build_survey_graph(project: Project) -> dict:
             "citing_id", "cited_id"
         )
     )
-    return {
-        "title": "Curated survey graph",
-        "curated": True,
-        "nodes": [
+    nodes = []
+    for entry in entries:
+        cites = int(entry.citation_count or 0)
+        if not cites and entry.paper is not None:
+            cites = int(entry.paper.citation_count or 0)
+        nodes.append(
             {
                 "id": entry.pk,
                 "title": entry.title,
                 "year": entry.publication_year,
-                "citations": 0,
+                "citations": cites,
                 "venue": entry.venue,
                 "is_seed": True,
                 "is_joiner": False,
                 "reference_number": entry.reference_number,
             }
-            for entry in entries
-        ],
+        )
+    return {
+        "title": "Curated survey graph",
+        "curated": True,
+        "nodes": nodes,
         "edges": sorted(automatic | manual),
         "automatic_edges": automatic,
         "manual_edges": manual,

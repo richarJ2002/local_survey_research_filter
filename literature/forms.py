@@ -244,8 +244,8 @@ class SurveyEntryForm(PaperDetailsForm):
     """
 
     reference_number = forms.IntegerField(
-        min_value=1, max_value=2147483647, label="Survey reference number [x]",
-        help_text="Choose a temporary positive number if needed. It is recommended to finalise the ref ID once you know the reference numbers in your manuscript.",
+        required=False, min_value=1, max_value=2147483647, label="Survey reference number [x]",
+        help_text="Leave blank when adding; set it later under the graph to match your manuscript.",
     )
     publication_year = forms.IntegerField(
         required=False, min_value=1500, max_value=9999, label="Year"
@@ -267,6 +267,10 @@ class SurveyEntryForm(PaperDetailsForm):
     publisher = forms.CharField(required=False, max_length=300)
     version = forms.CharField(required=False, widget=forms.HiddenInput)
     preview_token = forms.CharField(required=False, widget=forms.HiddenInput)
+    citation_count = forms.IntegerField(
+        required=False, min_value=0, max_value=2147483647,
+        widget=forms.HiddenInput,
+    )
     reference_text = forms.CharField(required=False, max_length=200000,
                                      label="Bibliography / reference identifiers", widget=forms.Textarea(attrs={"rows": 6}))
 
@@ -292,7 +296,7 @@ class SurveyEntryForm(PaperDetailsForm):
             elif "inclusion_origin" not in (self.initial or {}):
                 self.initial["inclusion_origin"] = SurveyEntry.InclusionOrigin.READING
         self.order_fields(["reference_number", "doi", "title", "authors", "publication_year", "venue", "publisher",
-                          "abstract", "reference_text", "origin_source", "inclusion_origin", "cited_entries", "version", "preview_token"])
+                          "abstract", "reference_text", "origin_source", "inclusion_origin", "cited_entries", "version", "preview_token", "citation_count"])
 
     def clean_inclusion_origin(self) -> str:
         """

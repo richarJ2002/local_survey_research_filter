@@ -371,7 +371,7 @@ class EditorViewTests(TestCase):
         self.assertContains(response, f"paper_id={paper.pk}&amp;popup=1")
         self.assertContains(response, 'name="popup" value="1"')
         self.assertContains(response, "Save entered details")
-        self.assertContains(response, "reference numbers in your manuscript")
+        self.assertContains(response, "set it later under the graph")
         self.assertContains(response, "Links to (this entry cites)")
         self.assertContains(response, "survey-lookup-doi")
         self.assertEqual(

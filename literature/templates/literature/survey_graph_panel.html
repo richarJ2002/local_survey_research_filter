@@ -28,19 +28,19 @@
         <tr>
           <td>{{ entry.title }}{% if entry.doi %}<br><span class="meta">{{ entry.doi }}</span>{% endif %}</td>
           <td>{{ entry.authors|default:"—"|linebreaksbr }}</td><td>{{ entry.publication_year|default:"?" }}</td>
-          <td>{{ entry.venue|default:"—" }}</td><td>[{{ entry.reference_number }}]</td>
+          <td>{{ entry.venue|default:"—" }}</td><td><form method="post" action="{% url 'survey_graph' project.pk %}">{% csrf_token %}<input type="hidden" name="action" value="renumber"><input type="hidden" name="entry_id" value="{{ entry.pk }}"><input type="number" name="reference_number" min="1" max="2147483647" placeholder="—" value="{{ entry.reference_number|default:'' }}" aria-label="Survey reference number for {{ entry.title|truncatechars:40 }}" style="width:5em;"><button type="submit">Save</button></form></td>
           <td>{{ entry.get_inclusion_origin_display }}</td>
           <td>
-            <a href="{% url 'survey_entry_edit' project.pk entry.pk %}" data-survey-entry data-survey-title="Edit entry [{{ entry.reference_number }}]">Edit / links</a>
+            <a href="{% url 'survey_entry_edit' project.pk entry.pk %}" data-survey-entry data-survey-title="Edit entry [{{ entry.reference_number|default:'—' }}]">Edit / links</a>
             <details>
-              <summary aria-label="Delete entry [{{ entry.reference_number }}]" title="Delete entry [{{ entry.reference_number }}]">
+              <summary aria-label="Delete entry [{{ entry.reference_number|default:'—' }}]" title="Delete entry [{{ entry.reference_number|default:'—' }}]">
                 <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg>
                 <span class="meta">Delete</span>
               </summary>
-              <p>Are you sure you want to remove [{{ entry.reference_number }}] from the curated graph? Its manual links will also be removed. The draft paper and decisions will stay unchanged.</p>
+              <p>Are you sure you want to remove [{{ entry.reference_number|default:'—' }}] from the curated graph? Its manual links will also be removed. The draft paper and decisions will stay unchanged.</p>
               <form method="post" action="{% url 'survey_graph' project.pk %}">{% csrf_token %}
                 <input type="hidden" name="action" value="remove_entry"><input type="hidden" name="entry_id" value="{{ entry.pk }}">
-                <button type="submit" class="button-danger">Yes, delete entry [{{ entry.reference_number }}]</button>
+                <button type="submit" class="button-danger">Yes, delete entry [{{ entry.reference_number|default:'—' }}]</button>
               </form>
               <p class="meta">Close this confirmation without pressing Delete to cancel.</p>
             </details>

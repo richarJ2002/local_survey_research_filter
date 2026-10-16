@@ -144,12 +144,55 @@ def survey_graph(request: HttpRequest, pk: int) -> HttpResponse:
                 request, "Curated entry removed; the draft library and decisions were not changed."
             )
             return redirect("survey_graph", pk=pk)
+        elif action == "renumber":
+            try:
+                entry_pk = int(request.POST.get("entry_id"))
+            except (TypeError, ValueError):
+                return HttpResponse(status=400)
+            raw = (request.POST.get("reference_number") or "").strip()
+            if not raw:
+                new_number = None
+            else:
+                try:
+                    new_number = int(raw)
+                except (TypeError, ValueError):
+                    return HttpResponse(status=400)
+                if new_number < 1:
+                    return HttpResponse(status=400)
+            try:
+                with transaction.atomic():
+                    entry = SurveyEntry.objects.select_for_update().get(
+                        pk=entry_pk, project=project)
+                    if (
+                        new_number is not None
+                        and project.survey_entries.filter(
+                            reference_number=new_number)
+                        .exclude(pk=entry.pk).exists()
+                    ):
+                        messages.error(
+                            request,
+                            "That survey reference number is already used in this project.",
+                        )
+                        return redirect("survey_graph", pk=pk)
+                    entry.reference_number = new_number
+                    entry.save(update_fields=[
+                               "reference_number", "updated_at"])
+            except SurveyEntry.DoesNotExist:
+                return HttpResponse(status=404)
+            except DatabaseError:
+                messages.error(
+                    request, "Could not save the reference number (database busy). Reload and try again."
+                )
+                return redirect("survey_graph", pk=pk)
+            messages.success(request, "Survey reference number saved.")
+            return redirect("survey_graph", pk=pk)
         else:
             return HttpResponse(status=400)
     graph = build_survey_graph(project)
     entries = project.survey_entries.all()
     figure = build_citation_figure(
-        graph, plot_config={"displayModeBar": False})
+        graph, hide_citation_counts=True,
+        plot_config={"displayModeBar": False})
     automatic_count = len(graph["automatic_edges"])
     from literature.plotly_assets import plotly_version
 
@@ -217,6 +260,7 @@ def survey_entry(
                 "venue",
                 "publisher",
                 "abstract",
+                "citation_count",
                 "reference_text",
                 "origin_source",
                 "inclusion_origin",
