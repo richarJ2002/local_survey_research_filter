@@ -37,7 +37,7 @@
   <h2>Correction history</h2>
   <table><thead><tr><th>When</th><th>Stage</th><th>From → to</th><th>Reason</th></tr></thead><tbody>
     {% for revision in revisions %}
-    <tr><td>{{ revision.changed_at }}</td><td>{{ revision.stage.name }}</td><td>{{ revision.previous_decision }} → {{ revision.new_decision }}</td><td>{{ revision.reason }}</td></tr>
+    <tr><td>{{ revision.changed_at|date:"d/m/Y H:i" }}</td><td>{{ revision.stage.name }}</td><td>{{ revision.previous_decision }} → {{ revision.new_decision }}</td><td>{{ revision.reason }}</td></tr>
     {% empty %}<tr><td colspan="4">No manual status corrections yet.</td></tr>{% endfor %}
   </tbody></table>
 </div>

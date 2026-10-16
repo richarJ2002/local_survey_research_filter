@@ -120,6 +120,33 @@ class ViewTests(TestCase):
         self.assertContains(response, 'button.disabled = true')
         self.assertContains(response, 'prefers-reduced-motion: reduce')
 
+    def test_last_search_date_renders_in_uk_format(self) -> None:
+        """
+        Show search timestamps day-first for UK manuscript workflows.
+
+        Args:
+            None
+
+        Kwargs:
+            None
+
+        Returns:
+            None
+        """
+        import datetime
+
+        project = Project.objects.create(name="Dated search")
+        Search.objects.create(
+            project=project, name="First search", keywords=["navigation"],
+            is_current=True,
+            last_run_at=datetime.datetime(
+                2026, 3, 5, 14, 30, tzinfo=datetime.UTC),
+        )
+        response = self.client.get(
+            reverse("project_detail", args=[project.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "05/03/2026 14:30")
+
     def test_launch_entry_help_and_port_hint(self) -> None:
         """
         Keep top-level startup help distinct from Django subcommand help.

@@ -9,7 +9,7 @@
   <h1 class="paper-title">{{ paper.title }}</h1>
   <dl class="meta screening-metadata">
     <dt>Authors</dt><dd class="metadata-long">{{ paper.author_display }}</dd>
-    <dt>Published</dt><dd>{{ paper.publication_date|default:paper.publication_year|default:"Unknown date" }}</dd>
+    <dt>Published</dt><dd>{{ paper.publication_date|date:"d/m/Y"|default:paper.publication_year|default:"Unknown date" }}</dd>
     <dt>Journal / venue</dt><dd class="metadata-medium">{{ paper.venue|default:"Unknown venue" }}{% if paper.publisher %} ({{ paper.publisher }}){% endif %}</dd>
     <dt>DOI</dt><dd class="metadata-medium">{{ paper.doi|default:"Not supplied" }}</dd>
     <dt>Cited by</dt><dd>{{ paper.citation_count }}</dd>

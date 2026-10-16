@@ -67,7 +67,7 @@
   {% if s.keywords %}<p class="meta">Keywords (A–Z): {{ s.keywords|join:", " }}</p>{% else %}<p class="meta">Query: <code>{{ s.query }}</code></p>{% endif %}
   <p class="meta">Years: {{ s.year_min|default_if_none:"earliest" }}–{{ s.year_max|default_if_none:"latest" }}{% if s.venues %} · Journals: {{ s.venues|join:", " }}{% endif %}{% if s.author_names %} · Authors: {{ s.author_names|join:", " }}{% endif %}</p>
   {% if not s.last_run_at %}<p class="meta"><strong>Not run yet</strong>{% if metrics.unique_total %} — existing papers and decisions are retained; finding more papers is optional.{% endif %}</p>{% endif %}
-  <p class="meta">Last search done: {{ s.last_run_at|default:"never" }} · {{ s.results_count }} results ({{ s.new_papers_count }} new)</p>
+  <p class="meta">Last search done: {{ s.last_run_at|date:"d/m/Y H:i"|default:"never" }} · {{ s.results_count }} results ({{ s.new_papers_count }} new)</p>
 </details>
 {% endwith %}{% endif %}
 </section>
